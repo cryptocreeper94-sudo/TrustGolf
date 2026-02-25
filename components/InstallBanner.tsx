@@ -1,0 +1,179 @@
+import React, { useState, useEffect, useRef } from "react";
+import { View, StyleSheet, Pressable, Platform, Animated } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useTheme } from "@/contexts/ThemeContext";
+import { PremiumText } from "@/components/PremiumText";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+const DISMISSED_KEY = "pwa_install_dismissed";
+
+export function InstallBanner() {
+  const { colors } = useTheme();
+  const [visible, setVisible] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const slideAnim = useRef(new Animated.Value(200)).current;
+
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+
+    const isStandalone =
+      typeof window !== "undefined" &&
+      (window.matchMedia?.("(display-mode: standalone)").matches ||
+        (window.navigator as any).standalone === true);
+
+    if (isStandalone) return;
+
+    AsyncStorage.getItem(DISMISSED_KEY).then((val) => {
+      if (val) {
+        const dismissed = parseInt(val, 10);
+        if (Date.now() - dismissed < 7 * 24 * 60 * 60 * 1000) return;
+      }
+
+      const handler = (e: any) => {
+        e.preventDefault();
+        setDeferredPrompt(e);
+        show();
+      };
+
+      window.addEventListener("beforeinstallprompt", handler);
+
+      const timer = setTimeout(() => {
+        show();
+      }, 3000);
+
+      return () => {
+        window.removeEventListener("beforeinstallprompt", handler);
+        clearTimeout(timer);
+      };
+    });
+  }, []);
+
+  const show = () => {
+    setVisible(true);
+    Animated.spring(slideAnim, {
+      toValue: 0,
+      friction: 8,
+      tension: 40,
+      useNativeDriver: false,
+    }).start();
+  };
+
+  const dismiss = () => {
+    Animated.timing(slideAnim, {
+      toValue: 200,
+      duration: 250,
+      useNativeDriver: false,
+    }).start(() => {
+      setVisible(false);
+      AsyncStorage.setItem(DISMISSED_KEY, String(Date.now()));
+    });
+  };
+
+  const handleInstall = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const result = await deferredPrompt.userChoice;
+      if (result.outcome === "accepted") {
+        dismiss();
+      }
+      setDeferredPrompt(null);
+    } else {
+      dismiss();
+    }
+  };
+
+  if (!visible || Platform.OS !== "web") return null;
+
+  const isIOS = typeof navigator !== "undefined" && /iPhone|iPad|iPod/.test(navigator.userAgent);
+
+  return (
+    <Animated.View
+      style={[
+        styles.container,
+        {
+          backgroundColor: colors.card,
+          borderColor: colors.primary + "40",
+          transform: [{ translateY: slideAnim }],
+        },
+      ]}
+    >
+      <View style={[styles.iconWrap, { backgroundColor: colors.primary }]}>
+        <Ionicons name="golf" size={22} color="#fff" />
+      </View>
+
+      <View style={styles.textArea}>
+        <PremiumText variant="subtitle" style={{ fontSize: 15 }}>
+          Install Trust Golf
+        </PremiumText>
+        {isIOS ? (
+          <PremiumText variant="caption" color={colors.textSecondary} style={{ fontSize: 12, lineHeight: 16 }}>
+            Tap the share button, then "Add to Home Screen"
+          </PremiumText>
+        ) : (
+          <PremiumText variant="caption" color={colors.textSecondary} style={{ fontSize: 12, lineHeight: 16 }}>
+            Add to your home screen for the full experience
+          </PremiumText>
+        )}
+      </View>
+
+      <View style={styles.actions}>
+        {!isIOS && deferredPrompt && (
+          <Pressable onPress={handleInstall} style={[styles.installBtn, { backgroundColor: colors.primary }]}>
+            <PremiumText variant="caption" color="#fff" style={{ fontSize: 12, fontWeight: "700" }}>INSTALL</PremiumText>
+          </Pressable>
+        )}
+        <Pressable onPress={dismiss} style={styles.closeBtn}>
+          <Ionicons name="close" size={18} color={colors.textMuted} />
+        </Pressable>
+      </View>
+    </Animated.View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    position: "absolute",
+    bottom: 90,
+    left: 12,
+    right: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+    zIndex: 999,
+  },
+  iconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  textArea: {
+    flex: 1,
+    gap: 2,
+  },
+  actions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  installBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  closeBtn: {
+    width: 28,
+    height: 28,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+});
