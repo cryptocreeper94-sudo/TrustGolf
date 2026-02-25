@@ -29,10 +29,10 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const HERO_HEIGHT = Math.min(SCREEN_HEIGHT * 0.52, 420);
 
 const HERO_VIDEOS = [
-  "https://videos.pexels.com/video-files/6976012/6976012-hd_1920_1080_30fps.mp4",
-  "https://videos.pexels.com/video-files/5721018/5721018-hd_1920_1080_25fps.mp4",
-  "https://videos.pexels.com/video-files/4057411/4057411-hd_1920_1080_24fps.mp4",
-  "https://videos.pexels.com/video-files/4770556/4770556-hd_1920_1080_25fps.mp4",
+  "https://assets.mixkit.co/videos/4636/4636-720.mp4",
+  "https://assets.mixkit.co/videos/1777/1777-720.mp4",
+  "https://assets.mixkit.co/videos/51547/51547-720.mp4",
+  "https://assets.mixkit.co/videos/4064/4064-720.mp4",
 ];
 
 const HERO_IMAGES = [
