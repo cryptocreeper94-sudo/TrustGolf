@@ -35,9 +35,9 @@ function validatePassword(pw: string): string | null {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  const path = require("path");
-  const express = require("express");
-  app.use("/hero-videos", express.static(path.resolve(process.cwd(), "server/public/videos"), { maxAge: "30d" }));
+  const pathModule = await import("node:path");
+  const expressModule = await import("express");
+  app.use("/hero-videos", expressModule.default.static(pathModule.default.resolve(process.cwd(), "server/public/videos"), { maxAge: "30d" }));
 
   const SITE_URL = "https://trustgolf.app";
 
