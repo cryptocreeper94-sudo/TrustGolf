@@ -205,7 +205,7 @@ export default function ScoresScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingBottom: 12 },
-  addBtn: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  addBtn: { width: 44, height: 44, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   statItem: { flex: 1, alignItems: "center", justifyContent: "center", gap: 2 },
   handicapRow: { flex: 1, flexDirection: "row", alignItems: "center", gap: 14 },
   handicapIcon: { width: 44, height: 44, borderRadius: 14, alignItems: "center", justifyContent: "center" },

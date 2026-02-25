@@ -190,7 +190,7 @@ export default function ExploreScreen() {
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
       <StatusBar barStyle="light-content" />
 
-      <View style={[styles.headerBar, { paddingTop: insets.top + (Platform.OS === "web" ? 8 : 0), backgroundColor: colors.primary }]}>
+      <View style={[styles.headerBar, { paddingTop: insets.top + webTopInset, backgroundColor: colors.primary }]}>
         <View style={styles.heroLogo}>
           <Ionicons name="golf" size={18} color="#fff" />
           <PremiumText variant="subtitle" color="#fff" style={{ fontSize: 16 }}>Trust Golf</PremiumText>
@@ -630,9 +630,9 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   headerMenuBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     backgroundColor: "rgba(255,255,255,0.18)",
     alignItems: "center",
     justifyContent: "center",

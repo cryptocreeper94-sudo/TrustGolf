@@ -416,7 +416,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   scrollContent: { paddingHorizontal: 16 },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  devBtn: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  devBtn: { width: 44, height: 44, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   profileHeader: { flexDirection: "row", alignItems: "center", gap: 16 },
   avatar: { width: 60, height: 60, borderRadius: 20, alignItems: "center", justifyContent: "center" },
   statItem: { flex: 1, alignItems: "center", justifyContent: "center", gap: 2 },

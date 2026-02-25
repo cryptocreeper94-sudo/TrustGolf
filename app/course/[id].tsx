@@ -368,9 +368,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   topBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     backgroundColor: "rgba(0,0,0,0.35)",
     alignItems: "center",
     justifyContent: "center",
