@@ -253,18 +253,18 @@ export default function ExploreScreen() {
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
-      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+      <StatusBar barStyle="light-content" />
 
-      <View style={[styles.headerBar, { paddingTop: insets.top + webTopInset + 4, backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+      <View style={[styles.headerBar, { paddingTop: insets.top + (Platform.OS === "web" ? 8 : 0), backgroundColor: colors.primary }]}>
         <View style={styles.heroLogo}>
-          <Ionicons name="golf" size={20} color={colors.primary} />
-          <PremiumText variant="subtitle" style={{ fontSize: 17 }}>Trust Golf</PremiumText>
+          <Ionicons name="golf" size={18} color="#fff" />
+          <PremiumText variant="subtitle" color="#fff" style={{ fontSize: 16 }}>Trust Golf</PremiumText>
         </View>
         <Pressable
           onPress={() => { setMenuOpen(true); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
-          style={[styles.headerMenuBtn, { backgroundColor: colors.surfaceElevated }]}
+          style={styles.headerMenuBtn}
         >
-          <Ionicons name="menu" size={22} color={colors.text} />
+          <Ionicons name="menu" size={20} color="#fff" />
         </Pressable>
       </View>
 
@@ -608,7 +608,7 @@ export default function ExploreScreen() {
         <Pressable style={styles.menuOverlay} onPress={() => setMenuOpen(false)}>
           <Animated.View
             entering={FadeInDown.duration(200)}
-            style={[styles.menuPanel, { backgroundColor: colors.card, borderColor: colors.glassBorder, marginTop: insets.top + webTopInset + 50 }]}
+            style={[styles.menuPanel, { backgroundColor: colors.card, borderColor: colors.glassBorder, marginTop: insets.top + (Platform.OS === "web" ? 8 : 0) + 44 }]}
           >
             <Pressable onPress={() => setMenuOpen(false)} style={styles.menuClose}>
               <Ionicons name="close" size={22} color={colors.text} />
@@ -671,19 +671,21 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingBottom: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 14,
+    paddingBottom: 6,
+    paddingTop: 6,
+    height: "auto",
   },
   heroLogo: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 7,
+    gap: 6,
   },
   headerMenuBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: "rgba(255,255,255,0.18)",
     alignItems: "center",
     justifyContent: "center",
   },
