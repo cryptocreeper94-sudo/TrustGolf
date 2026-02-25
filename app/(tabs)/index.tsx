@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View, ScrollView, StyleSheet, Pressable, Dimensions, Platform,
   RefreshControl, StatusBar, Linking, Modal,
+  Image as RNImage,
 } from "react-native";
 import { Image } from "expo-image";
 import { router } from "expo-router";
@@ -122,15 +123,14 @@ function ImageHero() {
     transform: [{ scale: scale.value }],
   }));
 
+  const HeroImage = Platform.OS === "web" ? RNImage : Image;
+  const imageProps = Platform.OS === "web"
+    ? { source: { uri: HERO_IMAGES[currentIndex] }, style: { width: "100%" as any, height: "100%" as any }, resizeMode: "cover" as const }
+    : { source: { uri: HERO_IMAGES[currentIndex] }, style: { width: "100%" as any, height: "100%" as any }, contentFit: "cover" as const, priority: "high" as const, cachePolicy: "memory-disk" as const };
+
   return (
-    <Animated.View style={[{ position: "absolute", top: 0, left: 0, width: SCREEN_WIDTH, height: HERO_HEIGHT }, animStyle]}>
-      <Image
-        source={{ uri: HERO_IMAGES[currentIndex] }}
-        style={{ width: SCREEN_WIDTH, height: HERO_HEIGHT }}
-        contentFit="cover"
-        priority="high"
-        cachePolicy="memory-disk"
-      />
+    <Animated.View style={[{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, width: "100%", height: "100%" }, animStyle]}>
+      <HeroImage {...imageProps as any} />
     </Animated.View>
   );
 }
