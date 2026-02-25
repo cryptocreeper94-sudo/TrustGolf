@@ -48,7 +48,9 @@ export default function RootLayout() {
   useEffect(() => {
     if (fontsLoaded) {
       SplashScreen.hideAsync();
-      apiRequest("POST", "/api/seed", {}).catch(() => {});
+      apiRequest("POST", "/api/seed", {}).then(() => {
+        apiRequest("POST", "/api/seed-hole-data", {}).catch(() => {});
+      }).catch(() => {});
     }
   }, [fontsLoaded]);
 
