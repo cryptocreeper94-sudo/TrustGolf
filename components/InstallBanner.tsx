@@ -15,37 +15,32 @@ export function InstallBanner() {
 
   useEffect(() => {
     if (Platform.OS !== "web") return;
+    if (typeof window === "undefined") return;
 
     const isStandalone =
-      typeof window !== "undefined" &&
-      (window.matchMedia?.("(display-mode: standalone)").matches ||
-        (window.navigator as any).standalone === true);
+      window.matchMedia?.("(display-mode: standalone)").matches ||
+      (window.navigator as any).standalone === true;
 
     if (isStandalone) return;
+
+    const handler = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    window.addEventListener("beforeinstallprompt", handler);
 
     AsyncStorage.getItem(DISMISSED_KEY).then((val) => {
       if (val) {
         const dismissed = parseInt(val, 10);
-        if (Date.now() - dismissed < 7 * 24 * 60 * 60 * 1000) return;
+        if (Date.now() - dismissed < 24 * 60 * 60 * 1000) return;
       }
-
-      const handler = (e: any) => {
-        e.preventDefault();
-        setDeferredPrompt(e);
-        show();
-      };
-
-      window.addEventListener("beforeinstallprompt", handler);
-
-      const timer = setTimeout(() => {
-        show();
-      }, 3000);
-
-      return () => {
-        window.removeEventListener("beforeinstallprompt", handler);
-        clearTimeout(timer);
-      };
+      setTimeout(() => show(), 2000);
     });
+
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handler);
+    };
   }, []);
 
   const show = () => {

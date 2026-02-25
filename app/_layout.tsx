@@ -61,7 +61,7 @@ export default function RootLayout() {
             <ThemeProvider>
               <AuthProvider>
                 <RootLayoutNav />
-                {!showSplash && <InstallBanner />}
+                <InstallBanner />
                 {showSplash && <AppSplash onFinish={() => setShowSplash(false)} />}
               </AuthProvider>
             </ThemeProvider>

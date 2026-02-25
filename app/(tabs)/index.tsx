@@ -123,12 +123,13 @@ function ImageHero() {
   }));
 
   return (
-    <Animated.View style={[StyleSheet.absoluteFill, animStyle]}>
+    <Animated.View style={[{ position: "absolute", top: 0, left: 0, width: SCREEN_WIDTH, height: HERO_HEIGHT }, animStyle]}>
       <Image
         source={{ uri: HERO_IMAGES[currentIndex] }}
-        style={StyleSheet.absoluteFill}
+        style={{ width: SCREEN_WIDTH, height: HERO_HEIGHT }}
         contentFit="cover"
-        transition={300}
+        priority="high"
+        cachePolicy="memory-disk"
       />
     </Animated.View>
   );
@@ -200,13 +201,14 @@ export default function ExploreScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={false} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
-        <View style={[styles.heroContainer, { height: HERO_HEIGHT }]}>
+        <View style={[styles.heroContainer, { height: HERO_HEIGHT, backgroundColor: "#1B5E20" }]}>
           <ImageHero />
 
           <LinearGradient
             colors={["rgba(0,0,0,0.1)", "rgba(0,0,0,0.0)", "rgba(0,0,0,0.65)", isDark ? "#0A0F0A" : colors.background]}
             locations={[0, 0.2, 0.75, 1]}
-            style={StyleSheet.absoluteFill}
+            style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, width: "100%", height: "100%" }}
+            pointerEvents="none"
           />
 
           <View style={styles.heroCaptionArea}>
