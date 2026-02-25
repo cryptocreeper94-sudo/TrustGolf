@@ -629,6 +629,33 @@ export default function ExploreScreen() {
               <PremiumText variant="body">About & Roadmap</PremiumText>
             </Pressable>
 
+            {Platform.OS === "web" && (
+              <Pressable
+                onPress={() => {
+                  setMenuOpen(false);
+                  if (typeof window !== "undefined") {
+                    const isStandalone = window.matchMedia?.("(display-mode: standalone)").matches || (window.navigator as any).standalone === true;
+                    if (isStandalone) {
+                      alert("Trust Golf is already installed!");
+                      return;
+                    }
+                    const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+                    if (isIOS) {
+                      alert('To install: tap the Share button in Safari, then "Add to Home Screen"');
+                    } else if ((window as any).__pwaInstallPrompt) {
+                      (window as any).__pwaInstallPrompt.prompt();
+                    } else {
+                      alert('To install: tap the browser menu (⋮), then "Install app" or "Add to Home Screen"');
+                    }
+                  }
+                }}
+                style={styles.menuItem}
+              >
+                <Ionicons name="download-outline" size={20} color={colors.primary} />
+                <PremiumText variant="body" color={colors.primary}>Install App</PremiumText>
+              </Pressable>
+            )}
+
             <Pressable onPress={toggleTheme} style={styles.menuItem}>
               <Ionicons name={isDark ? "sunny-outline" : "moon-outline"} size={20} color={colors.text} />
               <PremiumText variant="body">{isDark ? "Light Mode" : "Dark Mode"}</PremiumText>
