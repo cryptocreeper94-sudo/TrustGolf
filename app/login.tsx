@@ -214,7 +214,7 @@ export default function LoginScreen() {
             Score Tracking  |  Course Discovery  |  AI Swing Analysis
           </PremiumText>
           <PremiumText variant="caption" color={colors.textMuted} style={{ marginTop: 4 }}>
-            Dark Wave Studios LLC {"\u00A9"} 2026
+            DarkWave Studios LLC {"\u00A9"} 2026
           </PremiumText>
         </View>
       </LinearGradient>

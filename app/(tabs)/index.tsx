@@ -568,7 +568,7 @@ export default function ExploreScreen() {
 
           <Pressable onPress={() => Linking.openURL("https://darkwavestudios.io")}>
             <PremiumText variant="caption" color={colors.textSecondary} style={styles.footerLink}>
-              Dark Wave Studios LLC {"\u00A9"} 2026
+              DarkWave Studios LLC {"\u00A9"} 2026
             </PremiumText>
           </Pressable>
 
