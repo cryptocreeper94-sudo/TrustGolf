@@ -397,6 +397,14 @@
             >
           </div>
         </div>
+
+        <div id="pwa-install-section" style="margin-top: 28px; display: none;">
+          <button id="pwa-install-btn" class="store-button" style="width: 100%; padding: 16px 20px; font-size: 16px; font-weight: 600; cursor: pointer; background: #1B5E20; color: #fff; border: none; border-radius: 12px;">
+            <svg style="width: 20px; height: 20px;" viewBox="0 0 24 24" fill="currentColor"><path d="M5 20h14v-2H5v2zm7-18L5.33 9h3.67v6h4V9h3.67L12 2z"/></svg>
+            Install Trust Golf
+          </button>
+          <p id="pwa-install-hint" style="font-size: 13px; color: #888; margin-top: 8px;"></p>
+        </div>
       </div>
     </div>
 
@@ -460,6 +468,45 @@
             contentEl.style.display = "block";
           }, 500);
         }
+
+        var pwaSection = document.getElementById("pwa-install-section");
+        var pwaBtn = document.getElementById("pwa-install-btn");
+        var pwaHint = document.getElementById("pwa-install-hint");
+        var deferredPrompt = null;
+
+        var isStandalone = window.matchMedia && window.matchMedia("(display-mode: standalone)").matches;
+        if (!isStandalone) {
+          pwaSection.style.display = "block";
+
+          if (isIOS) {
+            pwaHint.textContent = 'Tap the Share button in Safari, then "Add to Home Screen"';
+          } else {
+            pwaHint.textContent = "Add Trust Golf to your home screen for quick access";
+          }
+        }
+
+        window.addEventListener("beforeinstallprompt", function(e) {
+          e.preventDefault();
+          deferredPrompt = e;
+          pwaSection.style.display = "block";
+          pwaHint.textContent = "Add Trust Golf to your home screen for quick access";
+        });
+
+        pwaBtn.addEventListener("click", function() {
+          if (deferredPrompt) {
+            deferredPrompt.prompt();
+            deferredPrompt.userChoice.then(function(result) {
+              if (result.outcome === "accepted") {
+                pwaSection.style.display = "none";
+              }
+              deferredPrompt = null;
+            });
+          } else if (isIOS) {
+            alert('To install: tap the Share button in Safari, then "Add to Home Screen"');
+          } else {
+            alert('To install: tap the browser menu (\u22EE), then "Install app" or "Add to Home Screen"');
+          }
+        });
       })();
     </script>
   </body>
