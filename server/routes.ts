@@ -300,6 +300,116 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  function parseDevice(ua: string): string {
+    if (/mobile|android|iphone|ipad/i.test(ua)) return /ipad|tablet/i.test(ua) ? "Tablet" : "Mobile";
+    return "Desktop";
+  }
+
+  function parseBrowser(ua: string): string {
+    if (/edg\//i.test(ua)) return "Edge";
+    if (/chrome/i.test(ua) && !/edg/i.test(ua)) return "Chrome";
+    if (/firefox/i.test(ua)) return "Firefox";
+    if (/safari/i.test(ua) && !/chrome/i.test(ua)) return "Safari";
+    if (/opera|opr/i.test(ua)) return "Opera";
+    return "Other";
+  }
+
+  app.post("/api/analytics/session", async (req: Request, res: Response) => {
+    try {
+      const { visitorId, sessionId, landingPage, referrer, utmSource, utmMedium, utmCampaign } = req.body;
+      if (!visitorId || !sessionId) return res.status(400).json({ error: "visitorId and sessionId required" });
+      const ua = req.headers["user-agent"] || "";
+      const session = await storage.createAnalyticsSession({
+        visitorId, sessionId, landingPage, referrer,
+        utmSource, utmMedium, utmCampaign,
+        userAgent: ua,
+        device: parseDevice(ua),
+        browser: parseBrowser(ua),
+      });
+      res.json(session);
+    } catch (err: any) {
+      res.status(500).json({ error: "Failed to create session" });
+    }
+  });
+
+  app.post("/api/analytics/pageview", async (req: Request, res: Response) => {
+    try {
+      const { visitorId, sessionId, path, title, referrer } = req.body;
+      if (!visitorId || !sessionId || !path) return res.status(400).json({ error: "visitorId, sessionId, and path required" });
+      const pv = await storage.createPageView({ visitorId, sessionId, path, title, referrer });
+      res.json(pv);
+    } catch (err: any) {
+      res.status(500).json({ error: "Failed to track pageview" });
+    }
+  });
+
+  app.post("/api/analytics/event", async (req: Request, res: Response) => {
+    try {
+      const { visitorId, sessionId, eventName, category, label, value, metadata } = req.body;
+      if (!visitorId || !sessionId || !eventName) return res.status(400).json({ error: "visitorId, sessionId, and eventName required" });
+      const event = await storage.createAnalyticsEvent({ visitorId, sessionId, eventName, category, label, value, metadata });
+      res.json(event);
+    } catch (err: any) {
+      res.status(500).json({ error: "Failed to track event" });
+    }
+  });
+
+  app.post("/api/analytics/session/:sessionId/end", async (req: Request, res: Response) => {
+    try {
+      await storage.endAnalyticsSession(req.params.sessionId);
+      res.json({ ok: true });
+    } catch (err: any) {
+      res.status(500).json({ error: "Failed to end session" });
+    }
+  });
+
+  app.get("/api/analytics/summary", async (req: Request, res: Response) => {
+    const days = parseInt(req.query.days as string) || 7;
+    const summary = await storage.getAnalyticsSummary(days);
+    res.json(summary);
+  });
+
+  app.get("/api/analytics/realtime", async (_req: Request, res: Response) => {
+    const active = await storage.getRealtimeVisitors();
+    res.json({ active });
+  });
+
+  app.get("/api/analytics/traffic", async (req: Request, res: Response) => {
+    const days = parseInt(req.query.days as string) || 7;
+    const data = await storage.getTrafficData(days);
+    res.json(data);
+  });
+
+  app.get("/api/analytics/pages", async (req: Request, res: Response) => {
+    const days = parseInt(req.query.days as string) || 7;
+    const data = await storage.getTopPages(days);
+    res.json(data);
+  });
+
+  app.get("/api/analytics/referrers", async (req: Request, res: Response) => {
+    const days = parseInt(req.query.days as string) || 7;
+    const data = await storage.getTopReferrers(days);
+    res.json(data);
+  });
+
+  app.get("/api/analytics/devices", async (req: Request, res: Response) => {
+    const days = parseInt(req.query.days as string) || 7;
+    const data = await storage.getDeviceBreakdown(days);
+    res.json(data);
+  });
+
+  app.get("/api/analytics/browsers", async (req: Request, res: Response) => {
+    const days = parseInt(req.query.days as string) || 7;
+    const data = await storage.getBrowserBreakdown(days);
+    res.json(data);
+  });
+
+  app.get("/api/analytics/events", async (req: Request, res: Response) => {
+    const days = parseInt(req.query.days as string) || 7;
+    const data = await storage.getRecentEvents(days);
+    res.json(data);
+  });
+
   app.get("/api/swing-analyses/:userId", async (req: Request, res: Response) => {
     const analyses = await storage.getSwingAnalyses(req.params.userId);
     res.json(analyses);

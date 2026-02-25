@@ -143,6 +143,46 @@ export const dealsRelations = relations(deals, ({ one }) => ({
   course: one(courses, { fields: [deals.courseId], references: [courses.id] }),
 }));
 
+export const analyticsSessions = pgTable("analytics_sessions", {
+  id: serial("id").primaryKey(),
+  visitorId: text("visitor_id").notNull(),
+  sessionId: text("session_id").notNull(),
+  userAgent: text("user_agent"),
+  referrer: text("referrer"),
+  landingPage: text("landing_page"),
+  utmSource: text("utm_source"),
+  utmMedium: text("utm_medium"),
+  utmCampaign: text("utm_campaign"),
+  device: text("device"),
+  browser: text("browser"),
+  country: text("country"),
+  startedAt: timestamp("started_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+  endedAt: timestamp("ended_at"),
+});
+
+export const analyticsPageViews = pgTable("analytics_page_views", {
+  id: serial("id").primaryKey(),
+  visitorId: text("visitor_id").notNull(),
+  sessionId: text("session_id").notNull(),
+  path: text("path").notNull(),
+  title: text("title"),
+  referrer: text("referrer"),
+  duration: integer("duration"),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+export const analyticsEvents = pgTable("analytics_events", {
+  id: serial("id").primaryKey(),
+  visitorId: text("visitor_id").notNull(),
+  sessionId: text("session_id").notNull(),
+  eventName: text("event_name").notNull(),
+  category: text("category"),
+  label: text("label"),
+  value: integer("value"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
 export const conversationsRelations = relations(conversations, ({ many }) => ({
   messages: many(messages),
 }));
@@ -176,3 +216,6 @@ export type VendorApplication = typeof vendorApplications.$inferSelect;
 export type InsertVendorApplication = z.infer<typeof insertVendorApplicationSchema>;
 export type Conversation = typeof conversations.$inferSelect;
 export type Message = typeof messages.$inferSelect;
+export type AnalyticsSession = typeof analyticsSessions.$inferSelect;
+export type AnalyticsPageView = typeof analyticsPageViews.$inferSelect;
+export type AnalyticsEvent = typeof analyticsEvents.$inferSelect;

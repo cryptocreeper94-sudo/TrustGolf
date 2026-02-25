@@ -50,6 +50,14 @@ A premium mobile-first golf platform built with React Native + Expo, featuring a
 11. **About & Roadmap** - Mission statement, executive summary, business plan, 5-phase product roadmap (accessible from hamburger menu)
 12. **USGA Handicap System** - Auto-calculated Handicap Index using score differentials, updates after each round, displayed on Scores and Profile screens
 13. **Vendor/Partner Signup** - Public partner application form at /partner, business info + type + partnership tier selection, Resend confirmation email, developer dashboard management with approve/reject, hamburger menu "Partner With Us" link
+14. **Self-Hosted Analytics** - First-party tracking system (no Google Analytics): sessions, page views, events, UTM params, device/browser/referrer detection, bounce rate, avg session duration. Client hook in hooks/useAnalytics.ts auto-tracks route changes. Developer dashboard shows 6 KPI cards (Active Now, Page Views, Visitors, Sessions, Avg Duration, Bounce Rate), daily traffic bars, top pages, devices, browsers, referrers, tracked events. Date range filter (7/30/90 days).
+
+## Analytics System
+- **Tables**: analytics_sessions, analytics_page_views, analytics_events
+- **Client Hook**: hooks/useAnalytics.ts — auto-creates session, tracks page views on route change, sendBeacon on tab close
+- **Storage**: visitor_id in localStorage (persistent), session_id in sessionStorage (per tab)
+- **Dashboard**: Developer panel accordion "Analytics Dashboard" with KPI cards + data panels
+- **API Endpoints**: POST /api/analytics/session, /pageview, /event, /session/:id/end; GET /api/analytics/summary, /realtime, /traffic, /pages, /referrers, /devices, /browsers, /events
 
 ## TrustVault Integration
 - **API Base**: https://trustvault.replit.app/api/studio
@@ -92,6 +100,9 @@ components/
   SkeletonLoader.tsx   - Loading skeleton animation
   InstallBanner.tsx    - PWA install prompt (web only)
   AppSplash.tsx        - Animated app splash screen
+
+hooks/
+  useAnalytics.ts      - Client-side analytics tracking (sessions, page views, events)
 
 contexts/
   ThemeContext.tsx      - Theme management (light/dark/system)
@@ -139,3 +150,9 @@ constants/
 - **World-Class**: Augusta National, Pebble Beach, TPC Sawgrass, Pinehurst No. 2, Bethpage Black, Torrey Pines, Whistling Straits, Kiawah Island Ocean Course, Bandon Dunes, Pacific Dunes, Oakmont, Cypress Point, Shinnecock Hills, Merion, Streamsong Red, Cabot Cliffs, Sand Valley, Winged Foot, Chambers Bay, St Andrews
 - **Upstate SC**: Walker Course (Clemson), Furman, Cherokee Valley, Preserve at Verdae, Cobb's Glen, Boscobel, Southern Oaks, Smithfields
 - **Middle TN / Nashville**: Gaylord Springs, Hermitage (President's Reserve + General's Retreat), Nashville Golf & Athletic, Harpeth Hills, McCabe, Greystone, Old Fort, Indian Hills, Twelve Stones Crossing, Windtree (Mt Juliet), Pine Creek (Mt Juliet), Eagles Landing (Lebanon), Long Hollow (Gallatin), Ted Rhodes, Stones River (Murfreesboro), Shepherds Crook (Hendersonville)
+
+## Future Features (Saved for Later)
+- **Marketing Hub** — Social media auto-posting to Facebook/Instagram, scheduled posts (3hr intervals CST), AI-generated images, content bundles, 100+ categorized marketing posts
+- **Meta Ads Campaigns** — Facebook ad campaign management from within Trust Golf
+- **Command Center** — Admin landing page with 8-category card grid, photorealistic image-backed cards, horizontal carousels (GarageBot-style)
+- **SEO Management** — Per-route SEO meta tags CRUD system

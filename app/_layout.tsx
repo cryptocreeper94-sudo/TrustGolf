@@ -16,6 +16,12 @@ import {
   Inter_600SemiBold,
   Inter_700Bold,
 } from "@expo-google-fonts/inter";
+import { useAnalytics } from "@/hooks/useAnalytics";
+
+function AnalyticsTracker() {
+  useAnalytics();
+  return null;
+}
 
 SplashScreen.preventAutoHideAsync();
 
@@ -74,6 +80,7 @@ export default function RootLayout() {
           <KeyboardProvider>
             <ThemeProvider>
               <AuthProvider>
+                <AnalyticsTracker />
                 <RootLayoutNav />
                 {showSplash && <AppSplash onFinish={() => setShowSplash(false)} />}
               </AuthProvider>

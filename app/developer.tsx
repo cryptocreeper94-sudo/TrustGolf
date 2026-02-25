@@ -93,6 +93,51 @@ export default function DeveloperDashboard() {
     queryFn: getQueryFn({ on401: "throw" }),
   });
 
+  const [analyticsDays, setAnalyticsDays] = useState(7);
+
+  const { data: analyticsSummary } = useQuery<any>({
+    queryKey: ["/api/analytics/summary", `?days=${analyticsDays}`],
+    queryFn: getQueryFn({ on401: "throw" }),
+    refetchInterval: 30000,
+  });
+
+  const { data: realtimeData } = useQuery<any>({
+    queryKey: ["/api/analytics/realtime"],
+    queryFn: getQueryFn({ on401: "throw" }),
+    refetchInterval: 10000,
+  });
+
+  const { data: topPages } = useQuery<any[]>({
+    queryKey: ["/api/analytics/pages", `?days=${analyticsDays}`],
+    queryFn: getQueryFn({ on401: "throw" }),
+    refetchInterval: 30000,
+  });
+
+  const { data: deviceData } = useQuery<any[]>({
+    queryKey: ["/api/analytics/devices", `?days=${analyticsDays}`],
+    queryFn: getQueryFn({ on401: "throw" }),
+  });
+
+  const { data: browserData } = useQuery<any[]>({
+    queryKey: ["/api/analytics/browsers", `?days=${analyticsDays}`],
+    queryFn: getQueryFn({ on401: "throw" }),
+  });
+
+  const { data: referrerData } = useQuery<any[]>({
+    queryKey: ["/api/analytics/referrers", `?days=${analyticsDays}`],
+    queryFn: getQueryFn({ on401: "throw" }),
+  });
+
+  const { data: trafficData } = useQuery<any[]>({
+    queryKey: ["/api/analytics/traffic", `?days=${analyticsDays}`],
+    queryFn: getQueryFn({ on401: "throw" }),
+  });
+
+  const { data: eventData } = useQuery<any[]>({
+    queryKey: ["/api/analytics/events", `?days=${analyticsDays}`],
+    queryFn: getQueryFn({ on401: "throw" }),
+  });
+
   const updateVendorStatus = useMutation({
     mutationFn: async ({ id, status }: { id: number; status: string }) => {
       await apiRequest("PATCH", `/api/vendor-applications/${id}`, { status });
@@ -233,6 +278,49 @@ export default function DeveloperDashboard() {
                 <Ionicons name="handshake" size={22} color="#7C4DFF" />
                 <PremiumText variant="title">{(vendorApps || []).length}</PremiumText>
                 <PremiumText variant="caption" color={colors.textMuted}>Vendors</PremiumText>
+              </View>
+            </GlassCard>
+          </BentoCell>
+        </BentoRow>
+
+        <BentoRow style={{ marginTop: 8 }}>
+          <BentoCell>
+            <GlassCard style={{ height: 90 }}>
+              <OrbEffect color="#00BCD420" size={80} />
+              <View style={styles.statItem}>
+                <View style={[styles.kpiDot, { backgroundColor: "#4CAF50" }]} />
+                <PremiumText variant="title">{realtimeData?.active ?? 0}</PremiumText>
+                <PremiumText variant="caption" color={colors.textMuted}>Active Now</PremiumText>
+              </View>
+            </GlassCard>
+          </BentoCell>
+          <BentoCell>
+            <GlassCard style={{ height: 90 }}>
+              <OrbEffect color="#2196F320" size={80} />
+              <View style={styles.statItem}>
+                <Ionicons name="eye" size={22} color="#2196F3" />
+                <PremiumText variant="title">{analyticsSummary?.pageViews ?? 0}</PremiumText>
+                <PremiumText variant="caption" color={colors.textMuted}>Views ({analyticsDays}d)</PremiumText>
+              </View>
+            </GlassCard>
+          </BentoCell>
+          <BentoCell>
+            <GlassCard style={{ height: 90 }}>
+              <OrbEffect color="#9C27B020" size={80} />
+              <View style={styles.statItem}>
+                <Ionicons name="people" size={22} color="#9C27B0" />
+                <PremiumText variant="title">{analyticsSummary?.uniqueVisitors ?? 0}</PremiumText>
+                <PremiumText variant="caption" color={colors.textMuted}>Visitors</PremiumText>
+              </View>
+            </GlassCard>
+          </BentoCell>
+          <BentoCell>
+            <GlassCard style={{ height: 90 }}>
+              <OrbEffect color="#FF980020" size={80} />
+              <View style={styles.statItem}>
+                <Ionicons name="layers" size={22} color="#FF9800" />
+                <PremiumText variant="title">{analyticsSummary?.sessions ?? 0}</PremiumText>
+                <PremiumText variant="caption" color={colors.textMuted}>Sessions</PremiumText>
               </View>
             </GlassCard>
           </BentoCell>
@@ -394,6 +482,165 @@ export default function DeveloperDashboard() {
                   {addDeal.isPending ? "Adding..." : "Add Deal"}
                 </PremiumText>
               </Pressable>
+            </View>
+          </AccordionItem>
+        </GlassCard>
+
+        <GlassCard style={{ marginTop: 14 }}>
+          <AccordionItem title="Analytics Dashboard" icon="analytics-outline" defaultOpen>
+            <View style={{ gap: 12 }}>
+              <View style={{ flexDirection: "row", gap: 6, marginBottom: 4 }}>
+                {[7, 30, 90].map((d) => (
+                  <Pressable
+                    key={d}
+                    onPress={() => { setAnalyticsDays(d); Haptics.selectionAsync(); }}
+                    style={[
+                      styles.typeChip,
+                      {
+                        backgroundColor: analyticsDays === d ? colors.primary : colors.surfaceElevated,
+                        borderColor: analyticsDays === d ? colors.primary : colors.border,
+                      },
+                    ]}
+                  >
+                    <PremiumText variant="caption" color={analyticsDays === d ? "#fff" : colors.textSecondary} style={{ fontSize: 11 }}>
+                      {d}d
+                    </PremiumText>
+                  </Pressable>
+                ))}
+              </View>
+
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                <View style={[styles.kpiCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+                  <View style={[styles.kpiDot, { backgroundColor: "#4CAF50" }]} />
+                  <PremiumText variant="title" style={{ fontSize: 22 }}>{realtimeData?.active ?? 0}</PremiumText>
+                  <PremiumText variant="caption" color={colors.textMuted} style={{ fontSize: 10 }}>Active Now</PremiumText>
+                </View>
+                <View style={[styles.kpiCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+                  <Ionicons name="eye-outline" size={16} color={colors.primary} />
+                  <PremiumText variant="title" style={{ fontSize: 22 }}>{analyticsSummary?.pageViews ?? 0}</PremiumText>
+                  <PremiumText variant="caption" color={colors.textMuted} style={{ fontSize: 10 }}>Page Views</PremiumText>
+                </View>
+                <View style={[styles.kpiCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+                  <Ionicons name="people-outline" size={16} color="#7C4DFF" />
+                  <PremiumText variant="title" style={{ fontSize: 22 }}>{analyticsSummary?.uniqueVisitors ?? 0}</PremiumText>
+                  <PremiumText variant="caption" color={colors.textMuted} style={{ fontSize: 10 }}>Visitors</PremiumText>
+                </View>
+                <View style={[styles.kpiCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+                  <Ionicons name="layers-outline" size={16} color={colors.accent} />
+                  <PremiumText variant="title" style={{ fontSize: 22 }}>{analyticsSummary?.sessions ?? 0}</PremiumText>
+                  <PremiumText variant="caption" color={colors.textMuted} style={{ fontSize: 10 }}>Sessions</PremiumText>
+                </View>
+                <View style={[styles.kpiCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+                  <Ionicons name="time-outline" size={16} color="#FF9800" />
+                  <PremiumText variant="title" style={{ fontSize: 22 }}>{analyticsSummary?.avgDuration ?? 0}s</PremiumText>
+                  <PremiumText variant="caption" color={colors.textMuted} style={{ fontSize: 10 }}>Avg Duration</PremiumText>
+                </View>
+                <View style={[styles.kpiCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+                  <Ionicons name="exit-outline" size={16} color="#B71C1C" />
+                  <PremiumText variant="title" style={{ fontSize: 22 }}>{analyticsSummary?.bounceRate ?? 0}%</PremiumText>
+                  <PremiumText variant="caption" color={colors.textMuted} style={{ fontSize: 10 }}>Bounce Rate</PremiumText>
+                </View>
+              </View>
+
+              {(trafficData || []).length > 0 && (
+                <View style={[styles.pitchSection, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+                  <PremiumText variant="label" color={colors.primary} style={{ fontSize: 11 }}>DAILY TRAFFIC</PremiumText>
+                  {(trafficData || []).slice(-7).map((day: any, i: number) => {
+                    const maxViews = Math.max(...(trafficData || []).map((d: any) => Number(d.page_views) || 0), 1);
+                    const barWidth = Math.max(((Number(day.page_views) || 0) / maxViews) * 100, 4);
+                    return (
+                      <View key={i} style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 }}>
+                        <PremiumText variant="caption" color={colors.textMuted} style={{ fontSize: 10, width: 46 }}>
+                          {new Date(day.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        </PremiumText>
+                        <View style={{ flex: 1, height: 16, backgroundColor: colors.border + "40", borderRadius: 4, overflow: "hidden" }}>
+                          <View style={{ width: `${barWidth}%`, height: "100%", backgroundColor: colors.primary, borderRadius: 4 }} />
+                        </View>
+                        <PremiumText variant="caption" color={colors.text} style={{ fontSize: 10, width: 28, textAlign: "right" }}>
+                          {day.page_views}
+                        </PremiumText>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
+
+              {(topPages || []).length > 0 && (
+                <View style={[styles.pitchSection, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+                  <PremiumText variant="label" color={colors.primary} style={{ fontSize: 11 }}>TOP PAGES</PremiumText>
+                  {(topPages || []).slice(0, 8).map((page: any, i: number) => (
+                    <View key={i} style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 4, borderBottomWidth: i < 7 ? StyleSheet.hairlineWidth : 0, borderBottomColor: colors.border }}>
+                      <PremiumText variant="caption" color={colors.text} numberOfLines={1} style={{ flex: 1, fontSize: 12 }}>
+                        {page.path}
+                      </PremiumText>
+                      <PremiumText variant="caption" color={colors.accent} style={{ fontSize: 12, fontWeight: "700", marginLeft: 8 }}>
+                        {page.views}
+                      </PremiumText>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                {(deviceData || []).length > 0 && (
+                  <View style={[styles.pitchSection, { backgroundColor: colors.surfaceElevated, borderColor: colors.border, flex: 1 }]}>
+                    <PremiumText variant="label" color={colors.primary} style={{ fontSize: 11 }}>DEVICES</PremiumText>
+                    {(deviceData || []).map((d: any, i: number) => (
+                      <View key={i} style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 4 }}>
+                        <PremiumText variant="caption" color={colors.text} style={{ fontSize: 11 }}>{d.device}</PremiumText>
+                        <PremiumText variant="caption" color={colors.accent} style={{ fontSize: 11, fontWeight: "700" }}>{d.count}</PremiumText>
+                      </View>
+                    ))}
+                  </View>
+                )}
+                {(browserData || []).length > 0 && (
+                  <View style={[styles.pitchSection, { backgroundColor: colors.surfaceElevated, borderColor: colors.border, flex: 1 }]}>
+                    <PremiumText variant="label" color={colors.primary} style={{ fontSize: 11 }}>BROWSERS</PremiumText>
+                    {(browserData || []).map((b: any, i: number) => (
+                      <View key={i} style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 4 }}>
+                        <PremiumText variant="caption" color={colors.text} style={{ fontSize: 11 }}>{b.browser}</PremiumText>
+                        <PremiumText variant="caption" color={colors.accent} style={{ fontSize: 11, fontWeight: "700" }}>{b.count}</PremiumText>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+
+              {(referrerData || []).length > 0 && (
+                <View style={[styles.pitchSection, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+                  <PremiumText variant="label" color={colors.primary} style={{ fontSize: 11 }}>TOP REFERRERS</PremiumText>
+                  {(referrerData || []).map((r: any, i: number) => (
+                    <View key={i} style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 4 }}>
+                      <PremiumText variant="caption" color={colors.text} numberOfLines={1} style={{ flex: 1, fontSize: 11 }}>{r.referrer}</PremiumText>
+                      <PremiumText variant="caption" color={colors.accent} style={{ fontSize: 11, fontWeight: "700", marginLeft: 8 }}>{r.sessions}</PremiumText>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {(eventData || []).length > 0 && (
+                <View style={[styles.pitchSection, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+                  <PremiumText variant="label" color={colors.primary} style={{ fontSize: 11 }}>TRACKED EVENTS</PremiumText>
+                  {(eventData || []).slice(0, 10).map((e: any, i: number) => (
+                    <View key={i} style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
+                      <View style={{ flex: 1 }}>
+                        <PremiumText variant="caption" color={colors.text} style={{ fontSize: 11 }}>{e.event_name}</PremiumText>
+                        {e.category && <PremiumText variant="caption" color={colors.textMuted} style={{ fontSize: 9 }}>{e.category}</PremiumText>}
+                      </View>
+                      <PremiumText variant="caption" color={colors.accent} style={{ fontSize: 11, fontWeight: "700" }}>{e.count}</PremiumText>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {!(analyticsSummary?.pageViews > 0) && (
+                <View style={{ paddingVertical: 12, alignItems: "center" }}>
+                  <Ionicons name="pulse-outline" size={28} color={colors.textMuted} />
+                  <PremiumText variant="caption" color={colors.textMuted} style={{ marginTop: 6, textAlign: "center" }}>
+                    Analytics tracking is active. Data will appear as visitors browse the app.
+                  </PremiumText>
+                </View>
+              )}
             </View>
           </AccordionItem>
         </GlassCard>
@@ -689,5 +936,44 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     gap: 6,
+  },
+  kpiCard: {
+    width: "30%",
+    flexGrow: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 2,
+  },
+  kpiDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  vendorCard: {
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  tagPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  actionBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
   },
 });
