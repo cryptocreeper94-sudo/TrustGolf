@@ -151,8 +151,24 @@ constants/
 - **Upstate SC**: Walker Course (Clemson), Furman, Cherokee Valley, Preserve at Verdae, Cobb's Glen, Boscobel, Southern Oaks, Smithfields
 - **Middle TN / Nashville**: Gaylord Springs, Hermitage (President's Reserve + General's Retreat), Nashville Golf & Athletic, Harpeth Hills, McCabe, Greystone, Old Fort, Indian Hills, Twelve Stones Crossing, Windtree (Mt Juliet), Pine Creek (Mt Juliet), Eagles Landing (Lebanon), Long Hollow (Gallatin), Ted Rhodes, Stones River (Murfreesboro), Shepherds Crook (Hendersonville)
 
-## Future Features (Saved for Later)
+## Future Features Roadmap
+
+### Phase 3 — GPS Course Navigator & Distance Finder
+- **GPS Distance-to-Tap** — Satellite map view of course, user taps a point (green, hazard, bunker), calculates real-time distance from GPS position using Haversine formula. Uses expo-location + react-native-maps. No pre-mapped data needed.
+- **Hole Drawing / Visual Layout** — Draw hole outlines on satellite imagery: tee boxes, fairways, greens, bunkers, water hazards. Store as GeoJSON coordinate arrays per hole in holeData.
+- **Pin Placement** — Mark pin positions on greens for accurate front/middle/back distances.
+- **Shot Tracking** — Log shot locations on the map during a round, auto-calculate carry/total distances. Ties into scorecard system.
+- **Crowdsourced Mapping** — Let users contribute hole coordinate data for unmapped courses. Review/approve in developer dashboard.
+- **Offline Maps** — Cache satellite tiles for on-course use without cell service.
+
+### Phase 4 — Marketing & Growth Platform
 - **Marketing Hub** — Social media auto-posting to Facebook/Instagram, scheduled posts (3hr intervals CST), AI-generated images, content bundles, 100+ categorized marketing posts
 - **Meta Ads Campaigns** — Facebook ad campaign management from within Trust Golf
-- **Command Center** — Admin landing page with 8-category card grid, photorealistic image-backed cards, horizontal carousels (GarageBot-style)
 - **SEO Management** — Per-route SEO meta tags CRUD system
+
+### Phase 5 — Admin & Ecosystem Expansion
+- **Command Center** — Admin landing page with 8-category card grid, photorealistic image-backed cards, horizontal carousels (GarageBot-style)
+- **Golf Game Simulation** — Interactive golf game mode
+- **Tee Time Booking Integration** — GolfNow/TeeOff API integration for direct booking through Trust Golf
+- **Pro Membership** — Premium tier with advanced analytics, priority course access, exclusive deals
+- **Push Notifications** — Deal alerts, round reminders, swing tips via expo-notifications
