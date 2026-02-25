@@ -37,7 +37,7 @@ A premium mobile-first golf platform built with React Native + Expo, featuring a
 
 ## Key Features
 1. **Cinematic Explorer Page** - Video hero with auto-cycling golf course flyovers (with image fallback), category carousels, hot deals, top courses, quick actions
-2. **Course Discovery** - Search/browse courses with detailed info, ratings, amenities
+2. **Course Catalog** - 20 premium courses with full descriptions, designer info, year built, course type (Public/Private/Resort/Municipal), gallery images, amenities with icons, contact info, and website links
 3. **Score Tracking** - Log rounds with stats (putts, FIR, GIR), view history and averages
 4. **AI Swing Analyzer** - Upload photo via camera/gallery, get AI-powered feedback with scores
 5. **Swing Results** - Detailed breakdown with score meters, tips, and drills
