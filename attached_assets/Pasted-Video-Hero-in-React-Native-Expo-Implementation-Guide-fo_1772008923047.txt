@@ -1,0 +1,106 @@
+Video Hero in React Native + Expo — Implementation Guide for Trust Golf
+
+The Challenge:
+Expo doesn't support <video> HTML tags natively, and expo-video has partial web support. A "video hero" (looping background video behind text/UI) needs to work across iOS, Android, and web — each platform handles video differently.
+
+Recommended Approach: expo-video (Expo SDK 54+)
+
+The expo-video package replaced expo-av as the official video solution. It works on iOS, Android, and has partial web support.
+
+npx expo install expo-video
+Basic Video Hero Component:
+
+import { useVideoPlayer, VideoView } from 'expo-video';
+import { View, Text, StyleSheet, Platform } from 'react-native';
+const heroSource = require('@/assets/videos/golf-hero.mp4');
+// Or remote: { uri: 'https://yourcdn.com/golf-hero.mp4' }
+export function VideoHero() {
+  const player = useVideoPlayer(heroSource, (p) => {
+    p.loop = true;
+    p.muted = true;        // Autoplay requires muted
+    p.play();
+  });
+  return (
+    <View style={styles.container}>
+      <VideoView
+        player={player}
+        style={StyleSheet.absoluteFill}
+        nativeControls={false}
+        contentFit="cover"
+      />
+      {/* Dark overlay for text readability */}
+      <View style={styles.overlay} />
+      {/* Hero content on top */}
+      <View style={styles.content}>
+        <Text style={styles.title}>Trust Golf</Text>
+        <Text style={styles.subtitle}>Your game, verified.</Text>
+      </View>
+    </View>
+  );
+}
+const styles = StyleSheet.create({
+  container: { height: 400, position: 'relative', overflow: 'hidden' },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  content: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2,
+  },
+  title: { fontSize: 36, fontWeight: '800', color: '#fff' },
+  subtitle: { fontSize: 16, color: 'rgba(255,255,255,0.8)', marginTop: 8 },
+});
+Key Gotchas:
+
+Autoplay requires muted: true — browsers block unmuted autoplay. Always start muted for a hero.
+
+Web fallback — expo-video has partial web support. If it doesn't render on web, add a Platform check with a fallback image:
+
+if (Platform.OS === 'web') {
+  // Use an HTML <video> tag via a custom component,
+  // or fall back to a static hero image
+}
+File size matters — compress hero videos aggressively (720p max, 10-15 seconds loop, H.264, under 5MB). Use a CDN URL for production rather than bundling with the app.
+
+contentFit="cover" — this is the equivalent of CSS object-fit: cover. It fills the container without stretching.
+
+No layout animations on web — react-native-reanimated layout animations don't work on web. Use simple opacity/transform animations for the overlay text.
+
+Don't put video in a ScrollView header — performance tanks. Use it as the first item in a FlatList or as a fixed-position element above a scroll container.
+
+Asset loading — local require() bundles the video with the app (increases bundle size). For a golf app with multiple course videos, use remote URIs and lazy-load.
+
+Web-Only Alternative (if expo-video web support is insufficient):
+
+{Platform.OS === 'web' ? (
+  <video
+    autoPlay
+    loop
+    muted
+    playsInline
+    style={{
+      position: 'absolute',
+      width: '100%',
+      height: '100%',
+      objectFit: 'cover',
+    }}
+  >
+    <source src="/assets/golf-hero.mp4" type="video/mp4" />
+  </video>
+) : (
+  <VideoView player={player} style={StyleSheet.absoluteFill}
+    nativeControls={false} contentFit="cover" />
+)}
+Performance Tips:
+
+Use poster prop (or a static Image behind the video) so the user sees something while the video loads
+Keep the hero video to 10-15 second loops max
+Pre-encode at 1280x720, 24fps, bitrate under 2Mbps
+On mobile, consider showing just a static image with a subtle parallax effect instead of video — saves battery and data
+That should give the Trust Golf team everything they need to drop in a video hero. The main decision is whether to go full expo-video cross-platform or use the platform split with a native HTML <video> tag on web.
+
+
+Scroll to latest
