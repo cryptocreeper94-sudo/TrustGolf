@@ -22,6 +22,7 @@ import { Carousel } from "@/components/Carousel";
 import { PremiumText } from "@/components/PremiumText";
 import { CardSkeleton } from "@/components/SkeletonLoader";
 import { BentoRow, BentoCell } from "@/components/BentoGrid";
+import { OrbEffect } from "@/components/OrbEffect";
 import { getQueryFn } from "@/lib/query-client";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -380,7 +381,8 @@ export default function ExploreScreen() {
             )}
           </View>
 
-          <View style={{ marginTop: 28 }}>
+          <View style={{ marginTop: 28, position: "relative" }}>
+            <OrbEffect color={colors.primary + "12"} size={140} />
             <View style={styles.sectionHeader}>
               <PremiumText variant="subtitle">Quick Actions</PremiumText>
             </View>

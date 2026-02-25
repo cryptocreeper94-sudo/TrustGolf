@@ -40,8 +40,8 @@ A premium mobile-first golf platform built with React Native + Expo, featuring a
 1. **Cinematic Explorer Page** - Image slideshow hero with Ken Burns effect, category carousels, hot deals, top courses, quick actions
 2. **Course Catalog** - 45 courses (20 world-class + 8 Upstate SC + 17 Middle TN/Nashville) with full descriptions, designer info, year built, course type, unique gallery images, amenities with icons, contact info
 3. **Score Tracking** - Log rounds with stats (putts, FIR, GIR), view history and averages
-4. **AI Swing Analyzer** - Upload photo OR record video for AI-powered analysis
-5. **Video Swing Playback** - Slow-motion playback (0.25x/0.5x/1x), frame capture for analysis, TrustVault studio editing
+4. **AI Swing Analyzer** - Unified photo/video mode toggle; upload photo or record video for AI-powered analysis
+5. **Video Swing Playback** - Slow-motion playback (0.25x/0.5x/1x), frame extraction from video via expo-video-thumbnails, TrustVault studio editing
 6. **Swing Results** - Detailed breakdown with score meters, tips, and drills
 7. **Deals** - Browse discounted tee times and packages
 8. **Developer Dashboard** - Password-protected (0424) admin panel for managing courses and deals
@@ -52,7 +52,8 @@ A premium mobile-first golf platform built with React Native + Expo, featuring a
 - **API Base**: https://trustvault.replit.app/api/studio
 - **Auth**: Trust Layer SSO (shared JWT_SECRET, HS256)
 - **Service Module**: server/trustvault.ts (upload, confirm, list, embed editor, projects)
-- **Backend Routes**: /api/trustvault/* (webhook, status, media, upload-url, confirm-upload, editor-embed, capabilities)
+- **Backend Routes**: /api/trustvault/* (webhook, status, media, upload-url, confirm-upload, editor-embed, capabilities, ecosystem-status, ecosystem-media)
+- **HMAC Auth**: Server-to-server via DW_MEDIA_API_KEY + DW_MEDIA_API_SECRET (tenant: trustgolf)
 - **Webhook**: POST /api/trustvault/webhook receives render.started, render.complete, render.failed events
 - **SSO**: Register app at orbitstaffing.io, shared JWT_SECRET env var needed for live connection
 
@@ -124,6 +125,8 @@ constants/
 - POST /api/trustvault/upload-url - Get presigned upload URL
 - POST /api/trustvault/confirm-upload - Confirm media upload
 - POST /api/trustvault/editor-embed - Get editor embed token
+- GET /api/trustvault/ecosystem-status - Server-to-server HMAC status check
+- GET /api/trustvault/ecosystem-media - Server-to-server media listing
 - POST /api/seed - Seed sample data
 
 ## Course Catalog Regions

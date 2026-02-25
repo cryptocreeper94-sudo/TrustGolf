@@ -148,8 +148,7 @@ export default function SwingResultScreen() {
 
         <Pressable
           onPress={() => {
-            router.back();
-            setTimeout(() => router.push("/swing-analyzer"), 100);
+            router.replace("/swing-analyzer");
           }}
           style={[styles.retryBtn, { backgroundColor: colors.primary }]}
         >

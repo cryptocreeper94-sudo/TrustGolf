@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import {
-  View, StyleSheet, Pressable, Platform, ActivityIndicator,
+  View, StyleSheet, Pressable, Platform, ActivityIndicator, ScrollView,
 } from "react-native";
 import { Image } from "expo-image";
 import { router } from "expo-router";
@@ -16,14 +16,18 @@ import { PremiumText } from "@/components/PremiumText";
 import { apiRequest } from "@/lib/query-client";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+type Mode = "photo" | "video";
+
 export default function SwingAnalyzerScreen() {
   const { colors } = useTheme();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const webTopInset = Platform.OS === "web" ? 67 : 0;
+  const webBottomInset = Platform.OS === "web" ? 34 : 0;
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState("");
+  const [mode, setMode] = useState<Mode>("photo");
 
   const pickImage = async (source: "camera" | "library") => {
     try {
@@ -124,11 +128,14 @@ export default function SwingAnalyzerScreen() {
         <Pressable onPress={() => router.back()}>
           <Ionicons name="close" size={24} color={colors.text} />
         </Pressable>
-        <PremiumText variant="subtitle">AI Swing Analysis</PremiumText>
+        <PremiumText variant="subtitle">Swing Analyzer</PremiumText>
         <View style={{ width: 24 }} />
       </View>
 
-      <View style={styles.content}>
+      <ScrollView
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + webBottomInset + 20 }]}
+        showsVerticalScrollIndicator={false}
+      >
         {analyzing ? (
           <GlassCard style={styles.analyzeCard}>
             <OrbEffect color={colors.primary + "30"} size={180} />
@@ -138,7 +145,7 @@ export default function SwingAnalyzerScreen() {
                 Analyzing Your Swing
               </PremiumText>
               <PremiumText variant="body" color={colors.textSecondary} style={{ textAlign: "center", marginTop: 8 }}>
-                Our AI is evaluating your grip, stance, backswing, impact, and follow-through...
+                AI is evaluating your grip, stance, backswing, impact, and follow-through...
               </PremiumText>
             </View>
           </GlassCard>
@@ -147,66 +154,135 @@ export default function SwingAnalyzerScreen() {
             <Image source={{ uri: imageUri }} style={styles.preview} contentFit="contain" />
           </View>
         ) : (
-          <View style={styles.uploadArea}>
-            <GlassCard style={styles.uploadCard}>
+          <>
+            <GlassCard style={styles.heroCard}>
               <OrbEffect color={colors.primary + "20"} size={150} />
-              <View style={styles.uploadContent}>
-                <View style={[styles.uploadIcon, { backgroundColor: colors.primary + "15" }]}>
-                  <Ionicons name="scan" size={40} color={colors.primary} />
+              <View style={styles.heroContent}>
+                <View style={[styles.heroIcon, { backgroundColor: colors.primary + "15" }]}>
+                  <Ionicons name="scan" size={36} color={colors.primary} />
                 </View>
                 <PremiumText variant="title" style={{ textAlign: "center" }}>
-                  Analyze Your Swing
+                  AI Swing Analysis
                 </PremiumText>
-                <PremiumText variant="body" color={colors.textSecondary} style={{ textAlign: "center" }}>
-                  Take a photo, record a video, or upload from your gallery for AI-powered analysis
+                <PremiumText variant="caption" color={colors.textSecondary} style={{ textAlign: "center" }}>
+                  Get instant pro-level feedback on your golf swing
                 </PremiumText>
               </View>
             </GlassCard>
 
-            <PremiumText variant="label" color={colors.textMuted} style={{ marginTop: 4 }}>
-              PHOTO ANALYSIS
-            </PremiumText>
-            <View style={styles.btnRow}>
+            <View style={styles.modeToggle}>
               <Pressable
-                onPress={() => pickImage("camera")}
-                style={[styles.actionBtn, { backgroundColor: colors.primary }]}
-                testID="photo-camera-btn"
+                onPress={() => setMode("photo")}
+                style={[
+                  styles.modeBtn,
+                  mode === "photo" && { backgroundColor: colors.primary },
+                  mode !== "photo" && { backgroundColor: colors.surfaceElevated, borderWidth: 1, borderColor: colors.border },
+                ]}
               >
-                <Ionicons name="camera" size={20} color="#fff" />
-                <PremiumText variant="body" color="#fff">Camera</PremiumText>
+                <Ionicons name="camera" size={18} color={mode === "photo" ? "#fff" : colors.text} />
+                <PremiumText variant="body" color={mode === "photo" ? "#fff" : colors.text}>Photo</PremiumText>
               </Pressable>
               <Pressable
-                onPress={() => pickImage("library")}
-                style={[styles.actionBtn, { backgroundColor: colors.surfaceElevated, borderWidth: 1, borderColor: colors.border }]}
-                testID="photo-gallery-btn"
+                onPress={() => setMode("video")}
+                style={[
+                  styles.modeBtn,
+                  mode === "video" && { backgroundColor: colors.primary },
+                  mode !== "video" && { backgroundColor: colors.surfaceElevated, borderWidth: 1, borderColor: colors.border },
+                ]}
               >
-                <Ionicons name="images" size={20} color={colors.primary} />
-                <PremiumText variant="body" color={colors.text}>Gallery</PremiumText>
+                <Ionicons name="videocam" size={18} color={mode === "video" ? "#fff" : colors.text} />
+                <PremiumText variant="body" color={mode === "video" ? "#fff" : colors.text}>Video</PremiumText>
               </Pressable>
             </View>
 
-            <PremiumText variant="label" color={colors.textMuted} style={{ marginTop: 16 }}>
-              VIDEO ANALYSIS
-            </PremiumText>
-            <View style={styles.btnRow}>
-              <Pressable
-                onPress={recordVideo}
-                style={[styles.actionBtn, { backgroundColor: colors.accent }]}
-                testID="video-record-btn"
-              >
-                <Ionicons name="videocam" size={20} color="#fff" />
-                <PremiumText variant="body" color="#fff">Record</PremiumText>
-              </Pressable>
-              <Pressable
-                onPress={pickVideo}
-                style={[styles.actionBtn, { backgroundColor: colors.surfaceElevated, borderWidth: 1, borderColor: colors.border }]}
-                testID="video-gallery-btn"
-              >
-                <Ionicons name="film" size={20} color={colors.accent} />
-                <PremiumText variant="body" color={colors.text}>Video Library</PremiumText>
-              </Pressable>
-            </View>
-          </View>
+            {mode === "photo" ? (
+              <View style={styles.optionsArea}>
+                <Pressable
+                  onPress={() => pickImage("camera")}
+                  style={[styles.optionCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
+                  testID="photo-camera-btn"
+                >
+                  <View style={[styles.optionIcon, { backgroundColor: colors.primary + "15" }]}>
+                    <Ionicons name="camera" size={28} color={colors.primary} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <PremiumText variant="subtitle" style={{ fontSize: 15 }}>Take Photo</PremiumText>
+                    <PremiumText variant="caption" color={colors.textSecondary}>
+                      Capture your swing position with camera
+                    </PremiumText>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+                </Pressable>
+
+                <Pressable
+                  onPress={() => pickImage("library")}
+                  style={[styles.optionCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
+                  testID="photo-gallery-btn"
+                >
+                  <View style={[styles.optionIcon, { backgroundColor: colors.accent + "15" }]}>
+                    <Ionicons name="images" size={28} color={colors.accent} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <PremiumText variant="subtitle" style={{ fontSize: 15 }}>From Gallery</PremiumText>
+                    <PremiumText variant="caption" color={colors.textSecondary}>
+                      Upload an existing swing photo
+                    </PremiumText>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+                </Pressable>
+
+                <GlassCard style={styles.tipCard}>
+                  <Ionicons name="bulb-outline" size={16} color={colors.accent} />
+                  <PremiumText variant="caption" color={colors.textSecondary} style={{ flex: 1 }}>
+                    For best results, capture from a side angle showing your full body and club
+                  </PremiumText>
+                </GlassCard>
+              </View>
+            ) : (
+              <View style={styles.optionsArea}>
+                <Pressable
+                  onPress={recordVideo}
+                  style={[styles.optionCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
+                  testID="video-record-btn"
+                >
+                  <View style={[styles.optionIcon, { backgroundColor: colors.error + "15" }]}>
+                    <Ionicons name="radio-button-on" size={28} color={colors.error} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <PremiumText variant="subtitle" style={{ fontSize: 15 }}>Record Swing</PremiumText>
+                    <PremiumText variant="caption" color={colors.textSecondary}>
+                      Record up to 15 seconds of your swing
+                    </PremiumText>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+                </Pressable>
+
+                <Pressable
+                  onPress={pickVideo}
+                  style={[styles.optionCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
+                  testID="video-gallery-btn"
+                >
+                  <View style={[styles.optionIcon, { backgroundColor: colors.accent + "15" }]}>
+                    <Ionicons name="film" size={28} color={colors.accent} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <PremiumText variant="subtitle" style={{ fontSize: 15 }}>From Library</PremiumText>
+                    <PremiumText variant="caption" color={colors.textSecondary}>
+                      Pick an existing swing video to review
+                    </PremiumText>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+                </Pressable>
+
+                <GlassCard style={styles.tipCard}>
+                  <Ionicons name="bulb-outline" size={16} color={colors.accent} />
+                  <PremiumText variant="caption" color={colors.textSecondary} style={{ flex: 1 }}>
+                    Record your swing, then review in slow motion and capture the perfect frame for AI analysis
+                  </PremiumText>
+                </GlassCard>
+              </View>
+            )}
+          </>
         )}
 
         {!!error && (
@@ -214,7 +290,7 @@ export default function SwingAnalyzerScreen() {
             {error}
           </PremiumText>
         )}
-      </View>
+      </ScrollView>
     </View>
   );
 }
@@ -228,26 +304,54 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 12,
   },
-  content: { flex: 1, paddingHorizontal: 16, justifyContent: "center" },
-  uploadArea: { flex: 1, justifyContent: "center" },
-  uploadCard: { height: 240, justifyContent: "center" },
-  uploadContent: { alignItems: "center", gap: 10, padding: 20 },
-  uploadIcon: {
-    width: 72,
-    height: 72,
-    borderRadius: 22,
+  scrollContent: { paddingHorizontal: 16 },
+  heroCard: { height: 200, justifyContent: "center" },
+  heroContent: { alignItems: "center", gap: 8, padding: 20 },
+  heroIcon: {
+    width: 68,
+    height: 68,
+    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
   },
-  btnRow: { flexDirection: "row", gap: 12, marginTop: 8 },
-  actionBtn: {
+  modeToggle: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 20,
+    marginBottom: 16,
+  },
+  modeBtn: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    height: 50,
-    borderRadius: 14,
+    height: 46,
+    borderRadius: 13,
+  },
+  optionsArea: { gap: 10 },
+  optionCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  optionIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tipCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginTop: 4,
   },
   previewContainer: { flex: 1, justifyContent: "center" },
   preview: { width: "100%", height: 400, borderRadius: 20 },
