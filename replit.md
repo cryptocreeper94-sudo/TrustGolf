@@ -53,6 +53,7 @@ A premium mobile-first golf platform built with React Native + Expo, featuring a
 14. **Self-Hosted Analytics** - First-party tracking system (no Google Analytics): sessions, page views, events, UTM params, device/browser/referrer detection, bounce rate, avg session duration. Client hook in hooks/useAnalytics.ts auto-tracks route changes. Developer dashboard shows 6 KPI cards (Active Now, Page Views, Visitors, Sessions, Avg Duration, Bounce Rate), daily traffic bars, top pages, devices, browsers, referrers, tracked events. Date range filter (7/30/90 days).
 15. **AI-Driven Blog** - SEO-focused blog system: AI blog generator (GPT-4o) creates SEO-optimized posts by topic/category, Markdown content with full formatting, developer dashboard blog management (generate/edit/publish/unpublish/delete), public blog listing at /blog with category filters, post detail at /blog-post?slug=X, hamburger menu "Blog" link. Categories: Tips, Course Spotlights, Equipment, News, Fitness, Strategy.
 16. **PWA** - Service worker (public/sw.js) for offline caching and installability, manifest.json with icons, registered in app/+html.tsx, install banner component, beforeinstallprompt handling.
+17. **GPS Distance Finder** - Satellite map view of any course in the catalog, tap-to-drop target pins with distance calculation (Haversine formula), simulation mode for testing from desk (drag blue dot to set virtual GPS position), yards/meters toggle, course picker with all 45 courses mapped to real coordinates, platform-specific: react-native-maps on native, Leaflet+Esri satellite tiles on web. Accessible from course detail + hamburger menu.
 
 ## Analytics System
 - **Tables**: analytics_sessions, analytics_page_views, analytics_events
@@ -91,9 +92,12 @@ app/
   scorecard.tsx        - Real hole-by-hole golf scorecard (courses with holeData)
   about.tsx            - Mission statement, business plan, roadmap
   developer.tsx        - Developer dashboard
+  gps-navigator.tsx    - GPS Distance Finder (satellite map, tap-to-measure, simulation mode)
 
 components/
   GlassCard.tsx        - Glass morphism card with blur and 3D press
+  CourseMap.tsx         - Native map component (react-native-maps, satellite view, markers, polylines)
+  CourseMap.web.tsx     - Web map component (Leaflet + Esri satellite tiles, same API as native)
   BentoGrid.tsx        - Flexible grid layout system
   Carousel.tsx         - Horizontal carousel with dots
   OrbEffect.tsx        - Animated orb background effect

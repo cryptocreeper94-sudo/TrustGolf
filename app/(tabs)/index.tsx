@@ -652,6 +652,14 @@ export default function ExploreScreen() {
             </Pressable>
 
             <Pressable
+              onPress={() => { setMenuOpen(false); router.push("/gps-navigator"); }}
+              style={styles.menuItem}
+            >
+              <Ionicons name="navigate" size={20} color="#1565C0" />
+              <PremiumText variant="body">GPS Distance Finder</PremiumText>
+            </Pressable>
+
+            <Pressable
               onPress={() => { setMenuOpen(false); router.push("/about"); }}
               style={styles.menuItem}
             >

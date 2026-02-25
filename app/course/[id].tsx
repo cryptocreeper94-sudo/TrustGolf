@@ -287,6 +287,24 @@ export default function CourseDetailScreen() {
             </Pressable>
           )}
 
+          <Pressable
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              router.push({ pathname: "/gps-navigator", params: { courseId: String(course.id) } });
+            }}
+            style={[styles.playCourseBtn, { backgroundColor: "#1565C0", marginTop: 10 }]}
+          >
+            <Ionicons name="navigate" size={20} color="#fff" />
+            <PremiumText variant="body" color="#fff" style={{ fontWeight: "700", fontSize: 15 }}>
+              GPS Distance Finder
+            </PremiumText>
+            <View style={{ flex: 1 }} />
+            <PremiumText variant="caption" color="rgba(255,255,255,0.8)" style={{ fontSize: 11 }}>
+              Satellite Map
+            </PremiumText>
+            <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.8)" />
+          </Pressable>
+
           <Animated.View entering={FadeIn.delay(200).duration(400)}>
             <GlassCard style={{ marginTop: 16 }}>
               <AccordionItem title="About This Course" icon="information-circle-outline" defaultOpen>
