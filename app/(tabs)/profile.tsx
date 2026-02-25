@@ -33,10 +33,11 @@ export default function ProfileScreen() {
     enabled: !!user?.id,
   });
 
+  const { isLoggedIn } = useAuth();
+
   const handleLogout = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     logout();
-    router.replace("/");
   };
 
   return (
@@ -143,13 +144,23 @@ export default function ProfileScreen() {
           </AccordionItem>
         </GlassCard>
 
-        <Pressable
-          onPress={handleLogout}
-          style={[styles.logoutBtn, { borderColor: colors.error }]}
-        >
-          <Ionicons name="log-out-outline" size={18} color={colors.error} />
-          <PremiumText variant="body" color={colors.error}>Sign Out</PremiumText>
-        </Pressable>
+        {isLoggedIn ? (
+          <Pressable
+            onPress={handleLogout}
+            style={[styles.logoutBtn, { borderColor: colors.error }]}
+          >
+            <Ionicons name="log-out-outline" size={18} color={colors.error} />
+            <PremiumText variant="body" color={colors.error}>Sign Out</PremiumText>
+          </Pressable>
+        ) : (
+          <Pressable
+            onPress={() => router.push("/login")}
+            style={[styles.signInBtn, { backgroundColor: colors.primary }]}
+          >
+            <Ionicons name="person-outline" size={18} color="#fff" />
+            <PremiumText variant="body" color="#fff">Sign In</PremiumText>
+          </Pressable>
+        )}
 
         <View style={{ height: 100 }} />
       </ScrollView>
@@ -185,5 +196,14 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 14,
     borderWidth: 1,
+  },
+  signInBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginTop: 20,
+    paddingVertical: 14,
+    borderRadius: 14,
   },
 });

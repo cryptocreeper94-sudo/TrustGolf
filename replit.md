@@ -1,7 +1,7 @@
 # GolfPro - Premium Golf Companion App
 
 ## Overview
-A premium mobile-first golf platform built with React Native + Expo, featuring AI-powered swing analysis, score tracking, course discovery, and exclusive deals. Inspired by GolfNow.
+A premium mobile-first golf platform built with React Native + Expo, featuring a cinematic Explorer landing page, AI-powered swing analysis, score tracking, course discovery, and exclusive deals. Inspired by GolfNow. No login required to browse — auth only gates subscription features.
 
 ## Architecture
 - **Frontend**: React Native + Expo (SDK 54) with file-based routing via Expo Router
@@ -9,6 +9,7 @@ A premium mobile-first golf platform built with React Native + Expo, featuring A
 - **Database**: PostgreSQL with Drizzle ORM
 - **AI**: OpenAI via Replit AI Integrations (vision model for swing analysis)
 - **Object Storage**: Replit Object Storage for assets
+- **Video**: expo-video for cinematic hero section
 
 ## Design System
 - **Theme**: Golf-green primary (#1B5E20 light, #4CAF50 dark) with gold accent (#C5A55A)
@@ -17,23 +18,34 @@ A premium mobile-first golf platform built with React Native + Expo, featuring A
 - **Components**: GlassCard, BentoGrid, Carousel, OrbEffect, AccordionItem, PremiumText, SkeletonLoader
 - **Light/Dark toggle** with system option
 
+## Auth Flow
+- App opens directly to Explorer page (no login gate)
+- Users can browse all content freely (courses, deals, etc.)
+- Login modal triggers only when accessing gated features:
+  - AI Swing Analyzer (requires sign-in)
+  - Creating new rounds (requires sign-in)
+- Login modal supports redirect params for seamless post-login navigation
+- Developer access: password 0424 → developer dashboard
+
 ## Key Features
-1. **User Explorer Page** - Bento grid dashboard with quick actions, stats, hot deals carousel, top courses
+1. **Cinematic Explorer Page** - Video hero with auto-cycling golf course flyovers (with image fallback), category carousels, hot deals, top courses, quick actions
 2. **Course Discovery** - Search/browse courses with detailed info, ratings, amenities
 3. **Score Tracking** - Log rounds with stats (putts, FIR, GIR), view history and averages
 4. **AI Swing Analyzer** - Upload photo via camera/gallery, get AI-powered feedback with scores
-5. **Deals** - Browse discounted tee times and packages
-6. **Developer Dashboard** - Password-protected (0424) admin panel for managing courses and deals
-7. **Profile** - User settings, theme toggle, stats overview
+5. **Swing Results** - Detailed breakdown with score meters, tips, and drills
+6. **Deals** - Browse discounted tee times and packages
+7. **Developer Dashboard** - Password-protected (0424) admin panel for managing courses and deals
+8. **Profile** - User settings, theme toggle, stats overview
 
 ## File Structure
 ```
 app/
   _layout.tsx          - Root layout with providers (theme, auth, fonts)
-  index.tsx            - Welcome/login screen
+  index.tsx            - Redirect to (tabs)
+  login.tsx            - Login modal (triggered for gated features)
   (tabs)/
     _layout.tsx        - Tab navigation (5 tabs)
-    index.tsx          - User Explorer page
+    index.tsx          - Cinematic Explorer page (video hero + category carousels)
     courses.tsx        - Course discovery
     scores.tsx         - Score tracking
     deals.tsx          - Deals listing
@@ -41,7 +53,7 @@ app/
   course/[id].tsx      - Course detail modal
   new-round.tsx        - Log new round modal
   swing-analyzer.tsx   - AI swing analysis modal
-  swing-result.tsx     - Analysis results modal
+  swing-result.tsx     - Analysis results display
   developer.tsx        - Developer dashboard
 
 components/

@@ -21,6 +21,8 @@ export default function ScoresScreen() {
   const insets = useSafeAreaInsets();
   const webTopInset = Platform.OS === "web" ? 67 : 0;
 
+  const isLoggedIn = !!user;
+
   const { data: rounds, isLoading } = useQuery<any[]>({
     queryKey: ["/api/rounds", user?.id || "none"],
     queryFn: getQueryFn({ on401: "throw" }),
@@ -99,7 +101,11 @@ export default function ScoresScreen() {
         <Pressable
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            router.push("/new-round");
+            if (!isLoggedIn) {
+              router.push({ pathname: "/login", params: { reason: "Sign in to log a round", redirect: "/new-round" } });
+            } else {
+              router.push("/new-round");
+            }
           }}
           style={[styles.addBtn, { backgroundColor: colors.primary }]}
         >
@@ -152,12 +158,22 @@ export default function ScoresScreen() {
           ListEmptyComponent={
             <View style={styles.empty}>
               <Ionicons name="flag-outline" size={48} color={colors.textMuted} />
-              <PremiumText variant="body" color={colors.textMuted}>No rounds yet</PremiumText>
+              <PremiumText variant="body" color={colors.textMuted}>
+                {isLoggedIn ? "No rounds yet" : "Sign in to track your scores"}
+              </PremiumText>
               <Pressable
-                onPress={() => router.push("/new-round")}
+                onPress={() => {
+                  if (!isLoggedIn) {
+                    router.push({ pathname: "/login", params: { reason: "Sign in to log a round", redirect: "/new-round" } });
+                  } else {
+                    router.push("/new-round");
+                  }
+                }}
                 style={[styles.emptyBtn, { backgroundColor: colors.primary }]}
               >
-                <PremiumText variant="body" color="#fff">Log Your First Round</PremiumText>
+                <PremiumText variant="body" color="#fff">
+                  {isLoggedIn ? "Log Your First Round" : "Sign In"}
+                </PremiumText>
               </Pressable>
             </View>
           }
