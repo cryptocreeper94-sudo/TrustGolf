@@ -5,8 +5,17 @@ import { apiRequest } from "@/lib/query-client";
 interface UserData {
   id: string;
   username: string;
+  email?: string;
   displayName?: string;
   handicap?: number;
+  emailVerified?: boolean;
+  age?: number;
+  height?: string;
+  swingSpeed?: number;
+  avgDriveDistance?: number;
+  flexibilityLevel?: string;
+  golfGoals?: string;
+  clubDistances?: any;
 }
 
 interface AuthContextValue {
@@ -14,8 +23,11 @@ interface AuthContextValue {
   isLoggedIn: boolean;
   isDeveloper: boolean;
   login: (username: string, password: string) => Promise<void>;
+  register: (username: string, email: string, password: string, displayName: string) => Promise<void>;
   loginDeveloper: (password: string) => Promise<boolean>;
   logout: () => void;
+  updateProfile: (data: Partial<UserData>) => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -36,6 +48,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (username: string, password: string) => {
     const res = await apiRequest("POST", "/api/auth/login", { username, password });
     const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Login failed");
+    setUser(data);
+    await AsyncStorage.setItem("golfpro_user", JSON.stringify(data));
+  }, []);
+
+  const register = useCallback(async (username: string, email: string, password: string, displayName: string) => {
+    const res = await apiRequest("POST", "/api/auth/register", { username, email, password, displayName });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Registration failed");
     setUser(data);
     await AsyncStorage.setItem("golfpro_user", JSON.stringify(data));
   }, []);
@@ -56,14 +77,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     AsyncStorage.removeItem("golfpro_dev");
   }, []);
 
+  const updateProfile = useCallback(async (data: Partial<UserData>) => {
+    if (!user) return;
+    const res = await apiRequest("PUT", "/api/auth/profile", { userId: user.id, ...data });
+    const updated = await res.json();
+    if (!res.ok) throw new Error(updated.error || "Update failed");
+    setUser(updated);
+    await AsyncStorage.setItem("golfpro_user", JSON.stringify(updated));
+  }, [user]);
+
+  const refreshUser = useCallback(async () => {
+    if (!user) return;
+    try {
+      const res = await apiRequest("GET", `/api/auth/user/${user.id}`);
+      const data = await res.json();
+      if (res.ok) {
+        setUser(data);
+        await AsyncStorage.setItem("golfpro_user", JSON.stringify(data));
+      }
+    } catch {}
+  }, [user]);
+
   const value = useMemo(() => ({
     user,
     isLoggedIn: !!user,
     isDeveloper,
     login,
+    register,
     loginDeveloper,
     logout,
-  }), [user, isDeveloper, login, loginDeveloper, logout]);
+    updateProfile,
+    refreshUser,
+  }), [user, isDeveloper, login, register, loginDeveloper, logout, updateProfile, refreshUser]);
 
   return (
     <AuthContext.Provider value={value}>

@@ -91,6 +91,89 @@ export default function SwingResultScreen() {
           </View>
         </GlassCard>
 
+        {analysis.estimatedLaunchData && (
+          <GlassCard style={{ marginTop: 14 }}>
+            <PremiumText variant="label" color={colors.textMuted} style={{ marginBottom: 12 }}>ESTIMATED LAUNCH DATA</PremiumText>
+            <View style={{ gap: 8 }}>
+              <BentoRow>
+                <BentoCell>
+                  <View style={styles.launchStat}>
+                    <Ionicons name="speedometer-outline" size={18} color="#E53935" />
+                    <PremiumText variant="title" style={{ fontSize: 20 }}>
+                      {analysis.estimatedLaunchData.ballSpeed || "—"}
+                    </PremiumText>
+                    <PremiumText variant="caption" color={colors.textMuted} style={{ fontSize: 10 }}>
+                      BALL SPEED (mph)
+                    </PremiumText>
+                  </View>
+                </BentoCell>
+                <BentoCell>
+                  <View style={styles.launchStat}>
+                    <Ionicons name="arrow-up-outline" size={18} color="#1E88E5" />
+                    <PremiumText variant="title" style={{ fontSize: 20 }}>
+                      {analysis.estimatedLaunchData.launchAngle || "—"}{analysis.estimatedLaunchData.launchAngle ? "\u00B0" : ""}
+                    </PremiumText>
+                    <PremiumText variant="caption" color={colors.textMuted} style={{ fontSize: 10 }}>
+                      LAUNCH ANGLE
+                    </PremiumText>
+                  </View>
+                </BentoCell>
+              </BentoRow>
+              <BentoRow>
+                <BentoCell>
+                  <View style={styles.launchStat}>
+                    <Ionicons name="locate-outline" size={18} color={colors.primary} />
+                    <PremiumText variant="title" style={{ fontSize: 20 }}>
+                      {analysis.estimatedLaunchData.carryDistance || "—"}
+                    </PremiumText>
+                    <PremiumText variant="caption" color={colors.textMuted} style={{ fontSize: 10 }}>
+                      CARRY (yds)
+                    </PremiumText>
+                  </View>
+                </BentoCell>
+                <BentoCell>
+                  <View style={styles.launchStat}>
+                    <Ionicons name="resize-outline" size={18} color={colors.accent} />
+                    <PremiumText variant="title" style={{ fontSize: 20 }}>
+                      {analysis.estimatedLaunchData.totalDistance || "—"}
+                    </PremiumText>
+                    <PremiumText variant="caption" color={colors.textMuted} style={{ fontSize: 10 }}>
+                      TOTAL (yds)
+                    </PremiumText>
+                  </View>
+                </BentoCell>
+              </BentoRow>
+              <BentoRow>
+                <BentoCell>
+                  <View style={styles.launchStat}>
+                    <Ionicons name="sync-outline" size={18} color="#7B1FA2" />
+                    <PremiumText variant="title" style={{ fontSize: 20 }}>
+                      {analysis.estimatedLaunchData.spinRate || "—"}
+                    </PremiumText>
+                    <PremiumText variant="caption" color={colors.textMuted} style={{ fontSize: 10 }}>
+                      SPIN (RPM)
+                    </PremiumText>
+                  </View>
+                </BentoCell>
+                <BentoCell>
+                  <View style={styles.launchStat}>
+                    <Ionicons name="git-compare-outline" size={18} color="#00897B" />
+                    <PremiumText variant="title" style={{ fontSize: 14 }}>
+                      {analysis.estimatedLaunchData.swingPath || "—"}
+                    </PremiumText>
+                    <PremiumText variant="caption" color={colors.textMuted} style={{ fontSize: 10 }}>
+                      SWING PATH
+                    </PremiumText>
+                  </View>
+                </BentoCell>
+              </BentoRow>
+            </View>
+            <PremiumText variant="caption" color={colors.textMuted} style={{ marginTop: 10, fontSize: 10, textAlign: "center", fontStyle: "italic" }}>
+              AI-estimated values based on observed swing mechanics
+            </PremiumText>
+          </GlassCard>
+        )}
+
         {analysis.summary && (
           <GlassCard style={{ marginTop: 14 }}>
             <PremiumText variant="label" color={colors.textMuted} style={{ marginBottom: 8 }}>SUMMARY</PremiumText>
@@ -174,6 +257,7 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 16 },
   scoreCard: { height: 180, justifyContent: "center" },
   scoreContent: { alignItems: "center", gap: 4 },
+  launchStat: { alignItems: "center", justifyContent: "center", gap: 3, paddingVertical: 8 },
   tipRow: { flexDirection: "row", alignItems: "flex-start", gap: 10, marginBottom: 10 },
   retryBtn: {
     flexDirection: "row",

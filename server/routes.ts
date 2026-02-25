@@ -5,7 +5,10 @@ import { db } from "./db";
 import { users } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import OpenAI from "openai";
+import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import * as trustvault from "./trustvault";
+import { sendVerificationEmail } from "./resend";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -24,17 +27,161 @@ const CLUB_CATEGORIES_SERVER: Record<string, string> = {
   "putter": "Putter",
 };
 
+function validatePassword(pw: string): string | null {
+  if (pw.length < 8) return "Password must be at least 8 characters";
+  if (!/[A-Z]/.test(pw)) return "Password must contain at least 1 uppercase letter";
+  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pw)) return "Password must contain at least 1 special character";
+  return null;
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
+  app.post("/api/auth/register", async (req: Request, res: Response) => {
+    const { username, email, password, displayName } = req.body;
+    if (!username || !email || !password) {
+      return res.status(400).json({ error: "Username, email, and password are required" });
+    }
+
+    const pwError = validatePassword(password);
+    if (pwError) return res.status(400).json({ error: pwError });
+
+    const existingUser = await storage.getUserByUsername(username);
+    if (existingUser) return res.status(409).json({ error: "Username already taken" });
+
+    const existingEmail = await storage.getUserByEmail(email);
+    if (existingEmail) return res.status(409).json({ error: "Email already registered" });
+
+    const passwordHash = await bcrypt.hash(password, 12);
+    const verificationToken = crypto.randomBytes(32).toString("hex");
+
+    const user = await storage.createUser({
+      username,
+      email,
+      password: passwordHash,
+      displayName: displayName || username,
+      verificationToken,
+      emailVerified: false,
+    });
+
+    try {
+      await sendVerificationEmail(email, displayName || username, verificationToken);
+    } catch (err: any) {
+      console.error("Failed to send verification email:", err.message);
+    }
+
+    res.status(201).json({
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      displayName: user.displayName,
+      handicap: user.handicap,
+      emailVerified: user.emailVerified,
+    });
+  });
+
   app.post("/api/auth/login", async (req: Request, res: Response) => {
     const { username, password } = req.body;
     if (!username || !password) return res.status(400).json({ error: "Missing credentials" });
+
     let user = await storage.getUserByUsername(username);
     if (!user) {
-      user = await storage.createUser({ username, password });
-    } else if (user.password !== password) {
-      return res.status(401).json({ error: "Invalid password" });
+      user = await storage.getUserByEmail(username);
     }
-    res.json({ id: user.id, username: user.username, displayName: user.displayName, handicap: user.handicap });
+    if (!user) return res.status(401).json({ error: "Invalid username or email" });
+
+    const validPassword = await bcrypt.compare(password, user.password);
+    if (!validPassword) {
+      if (user.password === password) {
+        const hashed = await bcrypt.hash(password, 12);
+        await storage.updateUser(user.id, { password: hashed });
+      } else {
+        return res.status(401).json({ error: "Invalid password" });
+      }
+    }
+
+    res.json({
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      displayName: user.displayName,
+      handicap: user.handicap,
+      emailVerified: user.emailVerified,
+      age: user.age,
+      swingSpeed: user.swingSpeed,
+      avgDriveDistance: user.avgDriveDistance,
+      golfGoals: user.golfGoals,
+    });
+  });
+
+  app.get("/api/auth/verify", async (req: Request, res: Response) => {
+    const token = req.query.token as string;
+    if (!token) return res.status(400).send("Missing verification token");
+
+    const user = await storage.getUserByVerificationToken(token);
+    if (!user) return res.status(404).send("Invalid or expired verification token");
+
+    await storage.updateUser(user.id, { emailVerified: true, verificationToken: null as any });
+
+    res.send(`
+      <html><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;background:#0D3B12;color:#fff;flex-direction:column;">
+        <h1 style="color:#C5A55A;">Email Verified!</h1>
+        <p>Your Trust Golf account is now verified. You can close this tab.</p>
+      </body></html>
+    `);
+  });
+
+  app.put("/api/auth/profile", async (req: Request, res: Response) => {
+    const { userId, displayName, age, height, swingSpeed, avgDriveDistance, flexibilityLevel, golfGoals, clubDistances } = req.body;
+    if (!userId) return res.status(400).json({ error: "Missing userId" });
+
+    const user = await storage.getUser(userId);
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    const updated = await storage.updateUser(userId, {
+      displayName: displayName ?? user.displayName,
+      age: age ?? user.age,
+      height: height ?? user.height,
+      swingSpeed: swingSpeed ?? user.swingSpeed,
+      avgDriveDistance: avgDriveDistance ?? user.avgDriveDistance,
+      flexibilityLevel: flexibilityLevel ?? user.flexibilityLevel,
+      golfGoals: golfGoals ?? user.golfGoals,
+      clubDistances: clubDistances ?? user.clubDistances,
+    });
+
+    res.json({
+      id: updated.id,
+      username: updated.username,
+      email: updated.email,
+      displayName: updated.displayName,
+      handicap: updated.handicap,
+      emailVerified: updated.emailVerified,
+      age: updated.age,
+      height: updated.height,
+      swingSpeed: updated.swingSpeed,
+      avgDriveDistance: updated.avgDriveDistance,
+      flexibilityLevel: updated.flexibilityLevel,
+      golfGoals: updated.golfGoals,
+      clubDistances: updated.clubDistances,
+    });
+  });
+
+  app.get("/api/auth/user/:id", async (req: Request, res: Response) => {
+    const user = await storage.getUser(req.params.id);
+    if (!user) return res.status(404).json({ error: "User not found" });
+    res.json({
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      displayName: user.displayName,
+      handicap: user.handicap,
+      emailVerified: user.emailVerified,
+      age: user.age,
+      height: user.height,
+      swingSpeed: user.swingSpeed,
+      avgDriveDistance: user.avgDriveDistance,
+      flexibilityLevel: user.flexibilityLevel,
+      golfGoals: user.golfGoals,
+      clubDistances: user.clubDistances,
+    });
   });
 
   app.get("/api/courses", async (_req: Request, res: Response) => {
@@ -130,10 +277,20 @@ Structure your response as JSON with these fields:
   "impact": { "score": (1-10), "feedback": "..." },
   "followThrough": { "score": (1-10), "feedback": "..." },
   "tempo": { "score": (1-10), "feedback": "..." },
+  "estimatedLaunchData": {
+    "ballSpeed": (estimated mph based on swing mechanics observed),
+    "launchAngle": (estimated degrees),
+    "carryDistance": (estimated yards),
+    "totalDistance": (estimated yards including roll),
+    "spinRate": (estimated RPM),
+    "swingPath": "inside-out" | "outside-in" | "straight"
+  },
   "summary": "Brief overall assessment mentioning the specific club",
   "topTips": ["tip1", "tip2", "tip3"],
   "drills": ["drill1 specific to this club type", "drill2"]
-}`
+}
+
+IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swing mechanics you observe, the club type, and typical amateur golfer data. These are AI-estimated values meant to give the golfer a sense of their likely ball flight characteristics.`
           },
           {
             role: "user",

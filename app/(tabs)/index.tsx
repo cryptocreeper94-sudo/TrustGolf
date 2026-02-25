@@ -11,7 +11,7 @@ import * as Haptics from "expo-haptics";
 import Animated, {
   useSharedValue, useAnimatedStyle, withTiming, withSpring,
   withRepeat, withSequence, Easing, FadeIn, FadeInDown,
-  interpolate, runOnJS,
+  runOnJS,
 } from "react-native-reanimated";
 import { useQuery } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -135,6 +135,13 @@ function ImageHero() {
   );
 }
 
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
+
 export default function ExploreScreen() {
   const { colors, isDark, toggleTheme } = useTheme();
   const { user, isLoggedIn } = useAuth();
@@ -212,6 +219,13 @@ export default function ExploreScreen() {
           />
 
           <View style={styles.heroCaptionArea}>
+            {isLoggedIn && user && (
+              <Animated.View entering={FadeIn.duration(600)} style={{ marginBottom: 8 }}>
+                <PremiumText variant="body" color="rgba(255,255,255,0.9)" shadow style={{ fontSize: 16 }}>
+                  {getGreeting()}, {user.displayName || user.username}
+                </PremiumText>
+              </Animated.View>
+            )}
             <Animated.View key={heroIndex} entering={FadeInDown.duration(500)}>
               <PremiumText variant="hero" color="#fff" shadow style={{ fontSize: 28 }}>
                 {HERO_CAPTIONS[heroIndex].title}
