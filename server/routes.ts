@@ -12,6 +12,18 @@ const openai = new OpenAI({
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
 });
 
+const CLUB_CATEGORIES_SERVER: Record<string, string> = {
+  "driver": "Driver",
+  "fairway-wood": "Fairway Wood",
+  "hybrid": "Hybrid",
+  "long-iron": "Long Iron (3-5i)",
+  "mid-iron": "Mid Iron (6-7i)",
+  "short-iron": "Short Iron (8-9i)",
+  "pitching-wedge": "Pitching Wedge",
+  "sand-lob-wedge": "Sand/Lob Wedge",
+  "putter": "Putter",
+};
+
 export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/login", async (req: Request, res: Response) => {
     const { username, password } = req.body;
@@ -81,8 +93,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/swing-analyze", async (req: Request, res: Response) => {
-    const { userId, imageBase64 } = req.body;
+    const { userId, imageBase64, clubType } = req.body;
     if (!userId || !imageBase64) return res.status(400).json({ error: "Missing userId or image" });
+
+    const clubPrompts: Record<string, string> = {
+      "driver": "The golfer is using a DRIVER. Focus on: wide takeaway arc, full shoulder turn, hip rotation generating power, upward angle of attack (hitting up on the ball), tee height, weight transfer to front foot, and full extension through impact. Check for over-the-top move, slice-producing path, and whether the swing plane is appropriate for a driver.",
+      "fairway-wood": "The golfer is using a FAIRWAY WOOD (3W/5W/7W). Focus on: sweeping contact (not hitting down steeply), ball position slightly forward of center, shallow angle of attack, smooth tempo, and whether the golfer is trying to help the ball up instead of trusting the loft. Check for proper spine angle maintenance.",
+      "hybrid": "The golfer is using a HYBRID CLUB. Focus on: ball position center to slightly forward, descending but shallow angle of attack, smooth transition, and whether the golfer is swinging it more like an iron (correct) vs. sweeping like a wood. Check for proper weight shift and clean contact.",
+      "long-iron": "The golfer is using a LONG IRON (3-5 iron). Focus on: flatter swing plane, ball-first contact with forward shaft lean, proper weight transfer, maintaining spine angle through impact, and full follow-through. These are demanding clubs — check for casting, early release, and whether the golfer maintains lag.",
+      "mid-iron": "The golfer is using a MID IRON (6-7 iron). Focus on: consistent ball-first contact, proper divot location (after the ball), balanced stance width, controlled backswing length, and clean impact position. Check grip pressure, alignment, and whether the hands are ahead of the clubhead at impact.",
+      "short-iron": "The golfer is using a SHORT IRON (8-9 iron). Focus on: precision and control over distance, ball position center of stance, descending strike with proper compression, consistent tempo, and accuracy of aim. Check for deceleration through impact and whether the golfer is committing to the shot.",
+      "pitching-wedge": "The golfer is using a PITCHING WEDGE. Focus on: controlled, three-quarter swing, distance control, consistent ball-first contact, proper follow-through length matching backswing length, and body rotation rather than arms-only swing. Check for proper bounce usage and whether the hands lead through impact.",
+      "sand-lob-wedge": "The golfer is using a SAND or LOB WEDGE. Focus on: open clubface technique, wrist hinge, splash technique for bunkers, soft landing trajectory, touch and feel around the green, and whether the golfer accelerates through the ball. Check for proper setup (open stance, ball position), and flop shot technique if applicable.",
+      "putter": "The golfer is using a PUTTER. This is a completely different analysis — do NOT evaluate full swing mechanics. Instead focus on: stroke path (straight-back-straight-through vs. slight arc), face angle at impact, tempo and rhythm, eye position over the ball, shoulder rock vs. arm swing, grip style (conventional, cross-hand, claw), distance control, and whether the lower body stays completely still. Replace backswing/downswing/followThrough with: strokePath, faceControl, and distanceControl in your response.",
+    };
+
+    const clubContext = clubType && clubPrompts[clubType] ? `\n\nIMPORTANT CLUB CONTEXT: ${clubPrompts[clubType]}` : "";
+    const clubLabel = clubType ? CLUB_CATEGORIES_SERVER[clubType] || clubType : "unknown club";
 
     try {
       const response = await openai.chat.completions.create({
@@ -90,9 +117,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         messages: [
           {
             role: "system",
-            content: `You are an expert golf swing analyst and PGA-certified instructor. Analyze the golf swing image provided and give detailed, actionable feedback. Structure your response as JSON with these fields:
+            content: `You are an expert golf swing analyst and PGA-certified instructor. Analyze the golf swing image provided and give detailed, actionable feedback tailored to the specific club being used.${clubContext}
+
+Structure your response as JSON with these fields:
 {
   "overallScore": (number 1-100),
+  "clubType": "${clubLabel}",
   "grip": { "score": (1-10), "feedback": "..." },
   "stance": { "score": (1-10), "feedback": "..." },
   "backswing": { "score": (1-10), "feedback": "..." },
@@ -100,15 +130,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   "impact": { "score": (1-10), "feedback": "..." },
   "followThrough": { "score": (1-10), "feedback": "..." },
   "tempo": { "score": (1-10), "feedback": "..." },
-  "summary": "Brief overall assessment",
+  "summary": "Brief overall assessment mentioning the specific club",
   "topTips": ["tip1", "tip2", "tip3"],
-  "drills": ["drill1", "drill2"]
+  "drills": ["drill1 specific to this club type", "drill2"]
 }`
           },
           {
             role: "user",
             content: [
-              { type: "text", text: "Analyze this golf swing and provide detailed feedback:" },
+              { type: "text", text: `Analyze this golf swing${clubType ? ` with a ${clubLabel}` : ""} and provide detailed feedback:` },
               { type: "image_url", image_url: { url: `data:image/jpeg;base64,${imageBase64}` } }
             ]
           }

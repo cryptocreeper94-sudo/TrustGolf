@@ -18,6 +18,72 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 type Mode = "photo" | "video";
 
+const CLUB_CATEGORIES = [
+  {
+    id: "driver",
+    label: "Driver",
+    icon: "rocket-outline" as const,
+    color: "#E53935",
+    desc: "Full swing, wide arc, upward attack angle",
+  },
+  {
+    id: "fairway-wood",
+    label: "Fairway Wood",
+    icon: "trending-up-outline" as const,
+    color: "#1E88E5",
+    desc: "3W, 5W, 7W — sweeping contact off deck or tee",
+  },
+  {
+    id: "hybrid",
+    label: "Hybrid",
+    icon: "swap-horizontal-outline" as const,
+    color: "#7B1FA2",
+    desc: "Versatile replacement for long irons",
+  },
+  {
+    id: "long-iron",
+    label: "Long Iron",
+    icon: "arrow-forward-outline" as const,
+    color: "#00897B",
+    desc: "3–5 iron — flatter plane, distance focus",
+  },
+  {
+    id: "mid-iron",
+    label: "Mid Iron",
+    icon: "navigate-outline" as const,
+    color: "#2E7D32",
+    desc: "6–7 iron — the bread and butter",
+  },
+  {
+    id: "short-iron",
+    label: "Short Iron",
+    icon: "flag-outline" as const,
+    color: "#F57C00",
+    desc: "8–9 iron — precision, attacking pins",
+  },
+  {
+    id: "pitching-wedge",
+    label: "Pitching Wedge",
+    icon: "cellular-outline" as const,
+    color: "#C5A55A",
+    desc: "Controlled approach shots, 100-130 yards",
+  },
+  {
+    id: "sand-lob-wedge",
+    label: "Sand / Lob Wedge",
+    icon: "disc-outline" as const,
+    color: "#8D6E63",
+    desc: "Bunkers, flop shots, finesse around the green",
+  },
+  {
+    id: "putter",
+    label: "Putter",
+    icon: "ellipse-outline" as const,
+    color: "#546E7A",
+    desc: "Stroke path, face angle, tempo, distance control",
+  },
+];
+
 export default function SwingAnalyzerScreen() {
   const { colors } = useTheme();
   const { user } = useAuth();
@@ -28,6 +94,7 @@ export default function SwingAnalyzerScreen() {
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState("");
   const [mode, setMode] = useState<Mode>("photo");
+  const [selectedClub, setSelectedClub] = useState<string | null>(null);
 
   const pickImage = async (source: "camera" | "library") => {
     try {
@@ -79,7 +146,7 @@ export default function SwingAnalyzerScreen() {
 
       if (!result.canceled && result.assets[0]) {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        router.push({ pathname: "/swing-video", params: { uri: result.assets[0].uri } });
+        router.push({ pathname: "/swing-video", params: { uri: result.assets[0].uri, clubType: selectedClub || "" } });
       }
     } catch (err: any) {
       setError("Failed to record video");
@@ -95,7 +162,7 @@ export default function SwingAnalyzerScreen() {
 
       if (!result.canceled && result.assets[0]) {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        router.push({ pathname: "/swing-video", params: { uri: result.assets[0].uri } });
+        router.push({ pathname: "/swing-video", params: { uri: result.assets[0].uri, clubType: selectedClub || "" } });
       }
     } catch (err: any) {
       setError("Failed to pick video");
@@ -109,6 +176,7 @@ export default function SwingAnalyzerScreen() {
       const res = await apiRequest("POST", "/api/swing-analyze", {
         userId: user?.id || "guest",
         imageBase64: base64,
+        clubType: selectedClub || undefined,
       });
       const analysis = await res.json();
       await AsyncStorage.setItem("last_swing_analysis", JSON.stringify(analysis));
@@ -193,6 +261,46 @@ export default function SwingAnalyzerScreen() {
                 <Ionicons name="videocam" size={18} color={mode === "video" ? "#fff" : colors.text} />
                 <PremiumText variant="body" color={mode === "video" ? "#fff" : colors.text}>Video</PremiumText>
               </Pressable>
+            </View>
+
+            <View style={{ marginBottom: 16 }}>
+              <PremiumText variant="label" color={colors.textMuted} style={{ fontSize: 11, marginBottom: 8 }}>
+                SELECT CLUB TYPE
+              </PremiumText>
+              <View style={styles.clubGrid}>
+                {CLUB_CATEGORIES.map((club) => {
+                  const isActive = selectedClub === club.id;
+                  return (
+                    <Pressable
+                      key={club.id}
+                      onPress={() => {
+                        setSelectedClub(isActive ? null : club.id);
+                        Haptics.selectionAsync();
+                      }}
+                      style={[
+                        styles.clubChip,
+                        {
+                          backgroundColor: isActive ? club.color + "18" : colors.surfaceElevated,
+                          borderColor: isActive ? club.color : colors.border,
+                        },
+                      ]}
+                    >
+                      <Ionicons name={club.icon} size={16} color={isActive ? club.color : colors.textMuted} />
+                      <View style={{ flex: 1 }}>
+                        <PremiumText variant="caption" color={isActive ? club.color : colors.text} style={{ fontSize: 12, fontWeight: isActive ? "700" : "500" }}>
+                          {club.label}
+                        </PremiumText>
+                      </View>
+                      {isActive && <Ionicons name="checkmark-circle" size={16} color={club.color} />}
+                    </Pressable>
+                  );
+                })}
+              </View>
+              {!selectedClub && (
+                <PremiumText variant="caption" color={colors.textMuted} style={{ fontSize: 11, marginTop: 6, textAlign: "center" }}>
+                  Optional — select a club for tailored analysis
+                </PremiumText>
+              )}
             </View>
 
             {mode === "photo" ? (
@@ -357,4 +465,21 @@ const styles = StyleSheet.create({
   preview: { width: "100%", height: 400, borderRadius: 20 },
   analyzeCard: { height: 300, justifyContent: "center" },
   analyzingContent: { alignItems: "center", padding: 20 },
+  clubGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  clubChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    width: "48%" as any,
+    flexGrow: 1,
+    flexBasis: "45%" as any,
+  },
 });

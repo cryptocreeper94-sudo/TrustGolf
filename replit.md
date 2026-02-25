@@ -40,11 +40,11 @@ A premium mobile-first golf platform built with React Native + Expo, featuring a
 1. **Cinematic Explorer Page** - Image slideshow hero with Ken Burns effect, category carousels, hot deals, top courses, quick actions
 2. **Course Catalog** - 45 courses (20 world-class + 8 Upstate SC + 17 Middle TN/Nashville) with full descriptions, designer info, year built, course type, unique gallery images, amenities with icons, contact info
 3. **Score Tracking** - Log rounds with stats (putts, FIR, GIR), view history, averages, and USGA Handicap Index
-4. **AI Swing Analyzer** - Unified photo/video mode toggle; upload photo or record video for AI-powered analysis
+4. **AI Swing Analyzer** - Club-specific analysis (Driver, Fairway Wood, Hybrid, Long/Mid/Short Iron, Wedges, Putter); photo/video mode; AI prompt tailored per club type
 5. **Video Swing Playback** - Slow-motion playback (0.25x/0.5x/1x), frame extraction from video via expo-video-thumbnails, TrustVault studio editing
-6. **Swing Results** - Detailed breakdown with score meters, tips, and drills
+6. **Swing Results** - Detailed breakdown with score meters, tips, and drills (club-specific feedback)
 7. **Deals** - Browse discounted tee times and packages
-8. **Developer Dashboard** - Password-protected (0424) admin panel for managing courses and deals
+8. **Developer Dashboard** - Password-protected (0424) admin panel with: course/deal management, golf affiliate program directory (14 programs), course partnership pitch guide with elevator pitch, talking points, and partnership tiers
 9. **Profile** - User settings, theme toggle, stats overview
 10. **TrustVault Integration** - Media storage, video/image/audio editors via embedded iframe, webhook callbacks for render status
 11. **About & Roadmap** - Mission statement, executive summary, business plan, 5-phase product roadmap (accessible from hamburger menu)

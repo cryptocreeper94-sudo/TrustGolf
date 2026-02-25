@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import {
-  View, ScrollView, StyleSheet, Pressable, TextInput, Platform, Alert,
+  View, ScrollView, StyleSheet, Pressable, TextInput, Platform, Alert, Linking,
 } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -371,6 +371,109 @@ export default function DeveloperDashboard() {
         </GlassCard>
 
         <GlassCard style={{ marginTop: 14 }}>
+          <AccordionItem title="Golf Affiliate Programs" icon="link-outline">
+            <View style={{ gap: 12 }}>
+              <PremiumText variant="caption" color={colors.textSecondary} style={{ lineHeight: 18 }}>
+                Register for these affiliate programs to monetize Trust Golf through commissions on equipment, tee times, and memberships.
+              </PremiumText>
+              {[
+                { name: "Golf Galaxy / Dick's Sporting Goods", url: "https://www.dickssportinggoods.com/s/affiliate-program", category: "Equipment & Gear", commission: "5-7% per sale" },
+                { name: "TaylorMade Golf", url: "https://www.taylormadegolf.com/affiliate-program.html", category: "Clubs & Equipment", commission: "5-8% per sale" },
+                { name: "Callaway Golf", url: "https://www.callawaygolf.com/affiliate", category: "Clubs & Equipment", commission: "6-8% per sale" },
+                { name: "GlobalGolf / 3Balls", url: "https://www.globalgolf.com/affiliate/", category: "Used Clubs & Deals", commission: "5-9% per sale" },
+                { name: "Rain or Shine Golf", url: "https://www.rainorshinegolf.com/affiliate", category: "Golf Simulators", commission: "3-5% per sale" },
+                { name: "GolfNow / NBC Sports", url: "https://www.golfnow.com/affiliates", category: "Tee Time Booking", commission: "$1-3 per booking" },
+                { name: "Ship Sticks", url: "https://www.shipsticks.com/affiliates", category: "Club Shipping", commission: "10-15% per order" },
+                { name: "Titleist / Acushnet", url: "https://www.titleist.com", category: "Premium Equipment", commission: "Apply via CJ Affiliate" },
+                { name: "PGA Tour Superstore", url: "https://www.pgatoursuperstore.com/affiliate-program.html", category: "Full-Service Retail", commission: "4-6% per sale" },
+                { name: "Golfbreaks", url: "https://www.golfbreaks.com/affiliates/", category: "Golf Travel & Trips", commission: "3-5% per booking" },
+                { name: "Sunday Golf", url: "https://www.sundaygolf.com/affiliate", category: "Lightweight Bags", commission: "8-10% per sale" },
+                { name: "Vice Golf", url: "https://www.vicegolf.com", category: "Golf Balls", commission: "Apply via Impact" },
+                { name: "Arccos Golf", url: "https://www.arccosgolf.com", category: "Smart Sensors & Analytics", commission: "Apply direct" },
+                { name: "Amazon Associates", url: "https://affiliate-program.amazon.com", category: "Everything Golf", commission: "1-4% per sale" },
+              ].map((aff, i) => (
+                <Pressable
+                  key={i}
+                  onPress={() => Linking.openURL(aff.url)}
+                  style={[styles.listItem, { borderBottomColor: colors.border }]}
+                >
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <Ionicons name="open-outline" size={14} color={colors.primary} />
+                    <PremiumText variant="body" numberOfLines={1} style={{ flex: 1, fontSize: 14 }}>{aff.name}</PremiumText>
+                  </View>
+                  <PremiumText variant="caption" color={colors.textMuted}>
+                    {aff.category} | {aff.commission}
+                  </PremiumText>
+                </Pressable>
+              ))}
+            </View>
+          </AccordionItem>
+
+          <AccordionItem title="Course Partnership Pitch Guide" icon="business-outline">
+            <View style={{ gap: 14 }}>
+              <PremiumText variant="caption" color={colors.textSecondary} style={{ lineHeight: 18 }}>
+                Use this guide when approaching golf courses about partnering with Trust Golf.
+              </PremiumText>
+
+              <View style={[styles.pitchSection, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+                <PremiumText variant="label" color={colors.primary} style={{ fontSize: 11 }}>ELEVATOR PITCH</PremiumText>
+                <PremiumText variant="caption" color={colors.text} style={{ lineHeight: 18 }}>
+                  Trust Golf is a premium mobile app connecting golfers with courses through AI-powered swing analysis, score tracking, and exclusive deals. We drive new players to your course through featured listings, promotional deals, and our growing user base — at zero upfront cost.
+                </PremiumText>
+              </View>
+
+              <View style={[styles.pitchSection, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+                <PremiumText variant="label" color={colors.primary} style={{ fontSize: 11 }}>WHAT YOU OFFER COURSES</PremiumText>
+                {[
+                  "Featured course listing with photos, details, and amenities",
+                  "Promotional deals that drive bookings during slow periods",
+                  "AI swing analysis tied to their course — players come back to improve",
+                  "Handicap tracking that references course slope/rating — brand presence",
+                  "Future tee time booking integration — direct revenue channel",
+                  "Analytics dashboard showing impressions, clicks, and bookings (coming)",
+                ].map((item, i) => (
+                  <View key={i} style={{ flexDirection: "row", gap: 8, marginTop: 6 }}>
+                    <Ionicons name="checkmark-circle" size={14} color={colors.success} style={{ marginTop: 2 }} />
+                    <PremiumText variant="caption" color={colors.text} style={{ flex: 1, lineHeight: 18 }}>{item}</PremiumText>
+                  </View>
+                ))}
+              </View>
+
+              <View style={[styles.pitchSection, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+                <PremiumText variant="label" color={colors.primary} style={{ fontSize: 11 }}>PARTNERSHIP TIERS</PremiumText>
+                {[
+                  { tier: "Free Listing", desc: "Basic course profile with contact info and photos" },
+                  { tier: "Featured Partner", desc: "Priority placement, promotional deal slots, branded AI tips" },
+                  { tier: "Premium Partner", desc: "Tee time booking integration, analytics, dedicated support, co-branded experiences" },
+                ].map((t, i) => (
+                  <View key={i} style={{ marginTop: 8 }}>
+                    <PremiumText variant="body" style={{ fontSize: 13, fontWeight: "700" }}>{t.tier}</PremiumText>
+                    <PremiumText variant="caption" color={colors.textSecondary} style={{ lineHeight: 16 }}>{t.desc}</PremiumText>
+                  </View>
+                ))}
+              </View>
+
+              <View style={[styles.pitchSection, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+                <PremiumText variant="label" color={colors.primary} style={{ fontSize: 11 }}>TALKING POINTS</PremiumText>
+                {[
+                  "No upfront cost — we grow together",
+                  "Part of the DarkWave Trust Layer ecosystem (30+ connected apps)",
+                  "Cross-platform: iOS, Android, and Web (PWA)",
+                  "AI-powered — not just another booking app",
+                  "Local focus: Middle TN courses get priority featuring",
+                  "Built-in handicap system drives repeat engagement",
+                ].map((point, i) => (
+                  <View key={i} style={{ flexDirection: "row", gap: 8, marginTop: 6 }}>
+                    <Ionicons name="arrow-forward-circle" size={14} color={colors.accent} style={{ marginTop: 2 }} />
+                    <PremiumText variant="caption" color={colors.text} style={{ flex: 1, lineHeight: 18 }}>{point}</PremiumText>
+                  </View>
+                ))}
+              </View>
+            </View>
+          </AccordionItem>
+        </GlassCard>
+
+        <GlassCard style={{ marginTop: 14 }}>
           <AccordionItem title={`Course Catalog (${(courses || []).length})`} icon="list-outline">
             {(courses || []).map((c: any) => (
               <Pressable
@@ -467,5 +570,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
+  },
+  pitchSection: {
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 6,
   },
 });

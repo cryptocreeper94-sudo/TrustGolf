@@ -27,7 +27,7 @@ export default function SwingVideoScreen() {
   const insets = useSafeAreaInsets();
   const webTopInset = Platform.OS === "web" ? 67 : 0;
   const webBottomInset = Platform.OS === "web" ? 34 : 0;
-  const { uri } = useLocalSearchParams<{ uri: string }>();
+  const { uri, clubType } = useLocalSearchParams<{ uri: string; clubType?: string }>();
   const [rateIndex, setRateIndex] = useState(2);
   const [error, setError] = useState("");
   const [capturedFrame, setCapturedFrame] = useState<string | null>(null);
@@ -109,6 +109,7 @@ export default function SwingVideoScreen() {
       const res = await apiRequest("POST", "/api/swing-analyze", {
         userId: user?.id || "guest",
         imageBase64: base64Data,
+        clubType: clubType || undefined,
       });
       const analysis = await res.json();
       await AsyncStorage.setItem("last_swing_analysis", JSON.stringify(analysis));

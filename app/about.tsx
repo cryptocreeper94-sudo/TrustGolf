@@ -32,10 +32,12 @@ const ROADMAP_PHASES = [
     status: "active" as const,
     items: [
       "USGA Handicap Index calculation (live, updates per round)",
+      "Club-specific swing analysis (Driver, Woods, Irons, Wedges, Putter)",
+      "YouTube instructional video library (curated how-to content)",
       "Course Handicap per-course adjustments",
       "Handicap trend tracking and visualization",
       "Smart course recommendations based on skill level",
-      "Expanded AI analysis with drill video library",
+      "Golf affiliate program integrations",
     ],
   },
   {
@@ -49,6 +51,9 @@ const ROADMAP_PHASES = [
       "Leaderboards and tournament brackets",
       "Earn Trust Points redeemable for real deals",
       "Seasonal events and course challenges",
+      "Side-by-side swing comparison via TrustVault",
+      "Shot-by-shot tracking per hole",
+      "Practice drills with progress tracking",
     ],
   },
   {
@@ -60,6 +65,7 @@ const ROADMAP_PHASES = [
       "Course reviews and photo sharing",
       "Live scoring for group rounds",
       "Push notifications for deals, events, and game invites",
+      "GPS rangefinder with course maps",
     ],
   },
   {
@@ -71,6 +77,8 @@ const ROADMAP_PHASES = [
       "Tee time booking engine (direct course partnerships)",
       "Lesson booking with local pros",
       "Trust Golf Rewards loyalty program",
+      "Course partnership pitch tools and onboarding",
+      "Brand sponsorship and advertising platform",
     ],
   },
 ];
