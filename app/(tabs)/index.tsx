@@ -86,8 +86,19 @@ const CATEGORIES = [
 
 function ImageHero() {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const fadeOpacity = useSharedValue(1);
+  const [nextIndex, setNextIndex] = useState(1);
+  const [showNext, setShowNext] = useState(false);
+  const topOpacity = useSharedValue(1);
   const scale = useSharedValue(1);
+
+  useEffect(() => {
+    if (Platform.OS === "web") {
+      HERO_IMAGES.forEach((url) => {
+        const img = new (window as any).Image();
+        img.src = url;
+      });
+    }
+  }, []);
 
   useEffect(() => {
     scale.value = withRepeat(
@@ -99,39 +110,58 @@ function ImageHero() {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      fadeOpacity.value = withTiming(0.3, { duration: 500 }, (finished) => {
+      const next = (currentIndex + 1) % HERO_IMAGES.length;
+      setNextIndex(next);
+      setShowNext(true);
+      topOpacity.value = withTiming(0, { duration: 1200 }, (finished) => {
         if (finished) {
-          runOnJS(setCurrentIndex)((prev: number) => (prev + 1) % HERO_IMAGES.length);
+          runOnJS(setCurrentIndex)(next);
+          runOnJS(setShowNext)(false);
+          topOpacity.value = 1;
         }
       });
+      scale.value = 1;
+      scale.value = withRepeat(
+        withTiming(1.08, { duration: 8000, easing: Easing.inOut(Easing.ease) }),
+        -1,
+        true
+      );
     }, 7000);
     return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    fadeOpacity.value = withTiming(1, { duration: 800 });
-    scale.value = 1;
-    scale.value = withRepeat(
-      withTiming(1.08, { duration: 8000, easing: Easing.inOut(Easing.ease) }),
-      -1,
-      true
-    );
   }, [currentIndex]);
 
-  const animStyle = useAnimatedStyle(() => ({
-    opacity: fadeOpacity.value,
+  const topStyle = useAnimatedStyle(() => ({
+    opacity: topOpacity.value,
     transform: [{ scale: scale.value }],
   }));
 
-  const HeroImage = Platform.OS === "web" ? RNImage : Image;
-  const imageProps = Platform.OS === "web"
-    ? { source: { uri: HERO_IMAGES[currentIndex] }, style: { width: "100%" as any, height: "100%" as any }, resizeMode: "cover" as const }
-    : { source: { uri: HERO_IMAGES[currentIndex] }, style: { width: "100%" as any, height: "100%" as any }, contentFit: "cover" as const, priority: "high" as const, cachePolicy: "memory-disk" as const };
+  const bottomStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const isWeb = Platform.OS === "web";
+  const imgStyle = { width: "100%" as any, height: "100%" as any };
+  const fill = { position: "absolute" as const, top: 0, left: 0, right: 0, bottom: 0, width: "100%" as any, height: "100%" as any };
 
   return (
-    <Animated.View style={[{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, width: "100%", height: "100%" }, animStyle]}>
-      <HeroImage {...imageProps as any} />
-    </Animated.View>
+    <>
+      {showNext && (
+        <Animated.View style={[fill, bottomStyle]}>
+          {isWeb ? (
+            <RNImage source={{ uri: HERO_IMAGES[nextIndex] }} style={imgStyle} resizeMode="cover" />
+          ) : (
+            <Image source={{ uri: HERO_IMAGES[nextIndex] }} style={imgStyle} contentFit="cover" />
+          )}
+        </Animated.View>
+      )}
+      <Animated.View style={[fill, topStyle]}>
+        {isWeb ? (
+          <RNImage source={{ uri: HERO_IMAGES[currentIndex] }} style={imgStyle} resizeMode="cover" />
+        ) : (
+          <Image source={{ uri: HERO_IMAGES[currentIndex] }} style={imgStyle} contentFit="cover" />
+        )}
+      </Animated.View>
+    </>
   );
 }
 
