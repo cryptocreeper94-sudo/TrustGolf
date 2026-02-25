@@ -58,6 +58,16 @@ export class DatabaseStorage implements IStorage {
     return newCourse;
   }
 
+  async updateCourse(id: number, data: Partial<InsertCourse>): Promise<Course> {
+    const [updated] = await db.update(courses).set(data).where(eq(courses.id, id)).returning();
+    return updated;
+  }
+
+  async deleteCourse(id: number): Promise<boolean> {
+    const result = await db.delete(courses).where(eq(courses.id, id));
+    return true;
+  }
+
   async getRounds(userId: string): Promise<Round[]> {
     return db.select().from(rounds).where(eq(rounds.userId, userId)).orderBy(desc(rounds.date));
   }

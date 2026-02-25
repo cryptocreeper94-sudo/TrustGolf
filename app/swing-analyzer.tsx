@@ -60,6 +60,44 @@ export default function SwingAnalyzerScreen() {
     }
   };
 
+  const recordVideo = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== "granted") {
+        setError("Camera permission required");
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ["videos"],
+        videoMaxDuration: 15,
+        videoQuality: ImagePicker.UIImagePickerControllerQualityType.Medium,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        router.push({ pathname: "/swing-video", params: { uri: result.assets[0].uri } });
+      }
+    } catch (err: any) {
+      setError("Failed to record video");
+    }
+  };
+
+  const pickVideo = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["videos"],
+        videoMaxDuration: 30,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        router.push({ pathname: "/swing-video", params: { uri: result.assets[0].uri } });
+      }
+    } catch (err: any) {
+      setError("Failed to pick video");
+    }
+  };
+
   const analyzeSwing = async (base64: string) => {
     setAnalyzing(true);
     setError("");
@@ -117,28 +155,55 @@ export default function SwingAnalyzerScreen() {
                   <Ionicons name="scan" size={40} color={colors.primary} />
                 </View>
                 <PremiumText variant="title" style={{ textAlign: "center" }}>
-                  Upload Your Swing
+                  Analyze Your Swing
                 </PremiumText>
                 <PremiumText variant="body" color={colors.textSecondary} style={{ textAlign: "center" }}>
-                  Take a photo or upload an image of your golf swing for AI-powered analysis
+                  Take a photo, record a video, or upload from your gallery for AI-powered analysis
                 </PremiumText>
               </View>
             </GlassCard>
 
+            <PremiumText variant="label" color={colors.textMuted} style={{ marginTop: 4 }}>
+              PHOTO ANALYSIS
+            </PremiumText>
             <View style={styles.btnRow}>
               <Pressable
                 onPress={() => pickImage("camera")}
                 style={[styles.actionBtn, { backgroundColor: colors.primary }]}
+                testID="photo-camera-btn"
               >
-                <Ionicons name="camera" size={22} color="#fff" />
+                <Ionicons name="camera" size={20} color="#fff" />
                 <PremiumText variant="body" color="#fff">Camera</PremiumText>
               </Pressable>
               <Pressable
                 onPress={() => pickImage("library")}
                 style={[styles.actionBtn, { backgroundColor: colors.surfaceElevated, borderWidth: 1, borderColor: colors.border }]}
+                testID="photo-gallery-btn"
               >
-                <Ionicons name="images" size={22} color={colors.primary} />
+                <Ionicons name="images" size={20} color={colors.primary} />
                 <PremiumText variant="body" color={colors.text}>Gallery</PremiumText>
+              </Pressable>
+            </View>
+
+            <PremiumText variant="label" color={colors.textMuted} style={{ marginTop: 16 }}>
+              VIDEO ANALYSIS
+            </PremiumText>
+            <View style={styles.btnRow}>
+              <Pressable
+                onPress={recordVideo}
+                style={[styles.actionBtn, { backgroundColor: colors.accent }]}
+                testID="video-record-btn"
+              >
+                <Ionicons name="videocam" size={20} color="#fff" />
+                <PremiumText variant="body" color="#fff">Record</PremiumText>
+              </Pressable>
+              <Pressable
+                onPress={pickVideo}
+                style={[styles.actionBtn, { backgroundColor: colors.surfaceElevated, borderWidth: 1, borderColor: colors.border }]}
+                testID="video-gallery-btn"
+              >
+                <Ionicons name="film" size={20} color={colors.accent} />
+                <PremiumText variant="body" color={colors.text}>Video Library</PremiumText>
               </Pressable>
             </View>
           </View>
@@ -164,24 +229,24 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   content: { flex: 1, paddingHorizontal: 16, justifyContent: "center" },
-  uploadArea: { flex: 1, justifyContent: "center", gap: 20 },
-  uploadCard: { height: 280, justifyContent: "center" },
-  uploadContent: { alignItems: "center", gap: 12, padding: 20 },
+  uploadArea: { flex: 1, justifyContent: "center" },
+  uploadCard: { height: 240, justifyContent: "center" },
+  uploadContent: { alignItems: "center", gap: 10, padding: 20 },
   uploadIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 24,
+    width: 72,
+    height: 72,
+    borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
   },
-  btnRow: { flexDirection: "row", gap: 12 },
+  btnRow: { flexDirection: "row", gap: 12, marginTop: 8 },
   actionBtn: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    height: 52,
+    height: 50,
     borderRadius: 14,
   },
   previewContainer: { flex: 1, justifyContent: "center" },

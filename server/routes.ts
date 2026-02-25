@@ -2,6 +2,7 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "node:http";
 import { storage } from "./storage";
 import OpenAI from "openai";
+import * as trustvault from "./trustvault";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -35,6 +36,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/courses", async (req: Request, res: Response) => {
     const course = await storage.createCourse(req.body);
     res.status(201).json(course);
+  });
+
+  app.put("/api/courses/:id", async (req: Request, res: Response) => {
+    const id = parseInt(req.params.id);
+    const course = await storage.getCourse(id);
+    if (!course) return res.status(404).json({ error: "Course not found" });
+    const updated = await storage.updateCourse(id, req.body);
+    res.json(updated);
+  });
+
+  app.delete("/api/courses/:id", async (req: Request, res: Response) => {
+    const id = parseInt(req.params.id);
+    const deleted = await storage.deleteCourse(id);
+    res.json({ deleted });
   });
 
   app.get("/api/rounds/:userId", async (req: Request, res: Response) => {
@@ -135,6 +150,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
       course: r.courseName,
     }));
     res.json({ totalRounds, averageScore, bestScore, recentTrend });
+  });
+
+  app.post("/api/trustvault/webhook", async (req: Request, res: Response) => {
+    const appId = req.headers["x-app-id"] as string;
+    const appName = req.headers["x-app-name"] as string;
+    if (appId !== "dw_app_trustvault" || appName !== "Trust Vault") {
+      return res.status(403).json({ error: "Invalid webhook source" });
+    }
+    const { event, projectId, status, downloadUrl, error: renderError } = req.body;
+    console.log(`[TrustVault Webhook] ${event} — project ${projectId}, status: ${status}`);
+    if (event === "render.complete" && downloadUrl) {
+      console.log(`[TrustVault] Render complete, download: ${downloadUrl}`);
+    }
+    if (event === "render.failed" && renderError) {
+      console.error(`[TrustVault] Render failed: ${renderError}`);
+    }
+    res.json({ received: true });
+  });
+
+  app.get("/api/trustvault/capabilities", async (_req: Request, res: Response) => {
+    try {
+      const caps = await trustvault.getTrustVaultCapabilities();
+      res.json(caps);
+    } catch (err: any) {
+      res.status(502).json({ error: "TrustVault unavailable", details: err.message });
+    }
+  });
+
+  app.get("/api/trustvault/status", async (req: Request, res: Response) => {
+    const token = req.headers.authorization?.replace("Bearer ", "");
+    if (!token) return res.status(401).json({ error: "No token provided" });
+    try {
+      const status = await trustvault.getTrustVaultStatus(token);
+      res.json(status);
+    } catch (err: any) {
+      res.status(502).json({ error: "TrustVault connection failed", details: err.message });
+    }
+  });
+
+  app.get("/api/trustvault/media", async (req: Request, res: Response) => {
+    const token = req.headers.authorization?.replace("Bearer ", "");
+    if (!token) return res.status(401).json({ error: "No token provided" });
+    try {
+      const media = await trustvault.listMedia(token, {
+        category: req.query.category as string,
+        page: req.query.page ? parseInt(req.query.page as string) : undefined,
+        limit: req.query.limit ? parseInt(req.query.limit as string) : undefined,
+      });
+      res.json(media);
+    } catch (err: any) {
+      res.status(502).json({ error: "Failed to list media", details: err.message });
+    }
+  });
+
+  app.post("/api/trustvault/upload-url", async (req: Request, res: Response) => {
+    const token = req.headers.authorization?.replace("Bearer ", "");
+    if (!token) return res.status(401).json({ error: "No token provided" });
+    const { name, contentType, size } = req.body;
+    try {
+      const result = await trustvault.getUploadUrl(token, name, contentType, size);
+      res.json(result);
+    } catch (err: any) {
+      res.status(502).json({ error: "Failed to get upload URL", details: err.message });
+    }
+  });
+
+  app.post("/api/trustvault/confirm-upload", async (req: Request, res: Response) => {
+    const token = req.headers.authorization?.replace("Bearer ", "");
+    if (!token) return res.status(401).json({ error: "No token provided" });
+    try {
+      const result = await trustvault.confirmUpload(token, req.body);
+      res.json(result);
+    } catch (err: any) {
+      res.status(502).json({ error: "Failed to confirm upload", details: err.message });
+    }
+  });
+
+  app.post("/api/trustvault/editor-embed", async (req: Request, res: Response) => {
+    const token = req.headers.authorization?.replace("Bearer ", "");
+    if (!token) return res.status(401).json({ error: "No token provided" });
+    const { editorType, mediaId, returnUrl } = req.body;
+    try {
+      const result = await trustvault.getEditorEmbed(token, editorType, mediaId, returnUrl);
+      res.json(result);
+    } catch (err: any) {
+      res.status(502).json({ error: "Failed to get editor embed", details: err.message });
+    }
   });
 
   app.post("/api/seed", async (_req: Request, res: Response) => {
