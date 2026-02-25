@@ -21,6 +21,13 @@ export default function Root({ children }: PropsWithChildren) {
           body { background-color: #1B5E20; overflow: hidden; }
           #root { flex: 1; display: flex; }
         `}} />
+        <script dangerouslySetInnerHTML={{ __html: `
+          if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+              navigator.serviceWorker.register('/sw.js').catch(function() {});
+            });
+          }
+        `}} />
       </head>
       <body>{children}</body>
     </html>

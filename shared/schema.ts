@@ -143,6 +143,24 @@ export const dealsRelations = relations(deals, ({ one }) => ({
   course: one(courses, { fields: [deals.courseId], references: [courses.id] }),
 }));
 
+export const blogPosts = pgTable("blog_posts", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  slug: text("slug").notNull().unique(),
+  excerpt: text("excerpt"),
+  content: text("content").notNull(),
+  coverImage: text("cover_image"),
+  category: text("category").notNull().default("general"),
+  tags: text("tags"),
+  authorName: text("author_name").notNull().default("Trust Golf"),
+  status: text("status").notNull().default("draft"),
+  publishedAt: timestamp("published_at"),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+  updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+export const insertBlogPostSchema = createInsertSchema(blogPosts).omit({ id: true, createdAt: true, updatedAt: true });
+
 export const analyticsSessions = pgTable("analytics_sessions", {
   id: serial("id").primaryKey(),
   visitorId: text("visitor_id").notNull(),
@@ -219,3 +237,5 @@ export type Message = typeof messages.$inferSelect;
 export type AnalyticsSession = typeof analyticsSessions.$inferSelect;
 export type AnalyticsPageView = typeof analyticsPageViews.$inferSelect;
 export type AnalyticsEvent = typeof analyticsEvents.$inferSelect;
+export type BlogPost = typeof blogPosts.$inferSelect;
+export type InsertBlogPost = z.infer<typeof insertBlogPostSchema>;

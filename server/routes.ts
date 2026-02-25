@@ -410,6 +410,101 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(data);
   });
 
+  app.get("/api/blog", async (req: Request, res: Response) => {
+    const status = req.query.status as string || undefined;
+    const posts = await storage.getBlogPosts(status === "all" ? undefined : (status || "published"));
+    res.json(posts);
+  });
+
+  app.get("/api/blog/:slug", async (req: Request, res: Response) => {
+    const post = await storage.getBlogPostBySlug(req.params.slug);
+    if (!post) return res.status(404).json({ error: "Post not found" });
+    res.json(post);
+  });
+
+  app.post("/api/blog", async (req: Request, res: Response) => {
+    try {
+      const { title, slug, excerpt, content, coverImage, category, tags, authorName, status } = req.body;
+      if (!title || !content) return res.status(400).json({ error: "Title and content required" });
+      const finalSlug = slug || title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      const post = await storage.createBlogPost({
+        title, slug: finalSlug, excerpt, content, coverImage,
+        category: category || "general",
+        tags: tags || "",
+        authorName: authorName || "Trust Golf",
+        status: status || "draft",
+        publishedAt: status === "published" ? new Date() : null,
+      });
+      res.status(201).json(post);
+    } catch (err: any) {
+      if (err.message?.includes("unique")) return res.status(409).json({ error: "A post with this slug already exists" });
+      res.status(500).json({ error: "Failed to create post" });
+    }
+  });
+
+  app.patch("/api/blog/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const data = req.body;
+      if (data.status === "published" && !data.publishedAt) {
+        data.publishedAt = new Date();
+      }
+      if (data.title && !data.slug) {
+        data.slug = data.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      }
+      const updated = await storage.updateBlogPost(id, data);
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ error: "Failed to update post" });
+    }
+  });
+
+  app.delete("/api/blog/:id", async (req: Request, res: Response) => {
+    try {
+      await storage.deleteBlogPost(parseInt(req.params.id));
+      res.json({ ok: true });
+    } catch (err: any) {
+      res.status(500).json({ error: "Failed to delete post" });
+    }
+  });
+
+  app.post("/api/blog/generate", async (req: Request, res: Response) => {
+    try {
+      const { topic, category, tone } = req.body;
+      if (!topic) return res.status(400).json({ error: "Topic required" });
+
+      const systemPrompt = `You are an expert golf content writer for Trust Golf, a premium golf platform by DarkWave Studios LLC. Write SEO-optimized blog posts that drive organic search traffic. Target keywords naturally. Write in ${tone || "professional yet approachable"} tone.
+
+Return a JSON object with these fields:
+- title: SEO-friendly headline (60 chars max)
+- slug: URL-friendly slug
+- excerpt: Compelling meta description (155 chars max)
+- content: Full article in Markdown format (800-1200 words). Use ## for h2, ### for h3, **bold**, *italic*, bullet lists, and numbered lists. Include a strong intro, 3-5 main sections, and a conclusion with a call to action.
+- tags: Comma-separated relevant tags
+- category: "${category || "tips"}"
+
+IMPORTANT: Return ONLY valid JSON, no markdown code fences.`;
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: `Write a blog post about: ${topic}` },
+        ],
+        temperature: 0.8,
+        max_tokens: 2000,
+      });
+
+      const raw = completion.choices[0]?.message?.content || "";
+      const cleaned = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+      const parsed = JSON.parse(cleaned);
+      res.json(parsed);
+    } catch (err: any) {
+      console.error("Blog generation error:", err.message);
+      res.status(500).json({ error: "Failed to generate blog post" });
+    }
+  });
+
   app.get("/api/swing-analyses/:userId", async (req: Request, res: Response) => {
     const analyses = await storage.getSwingAnalyses(req.params.userId);
     res.json(analyses);

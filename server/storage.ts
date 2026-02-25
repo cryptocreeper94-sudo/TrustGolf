@@ -1,11 +1,12 @@
 import { 
   users, courses, rounds, swingAnalyses, deals, vendorApplications, conversations, messages,
-  analyticsSessions, analyticsPageViews, analyticsEvents,
+  analyticsSessions, analyticsPageViews, analyticsEvents, blogPosts,
   type User, type InsertUser, type Course, type InsertCourse, 
   type Round, type InsertRound, type SwingAnalysis, type Deal, type InsertDeal,
   type VendorApplication, type InsertVendorApplication,
   type Conversation, type Message,
-  type AnalyticsSession, type AnalyticsPageView, type AnalyticsEvent
+  type AnalyticsSession, type AnalyticsPageView, type AnalyticsEvent,
+  type BlogPost, type InsertBlogPost
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, gte, and, count } from "drizzle-orm";
@@ -42,6 +43,12 @@ export interface IStorage {
   getDeviceBreakdown(days: number): Promise<any[]>;
   getBrowserBreakdown(days: number): Promise<any[]>;
   getRecentEvents(days: number): Promise<any[]>;
+  getBlogPosts(status?: string): Promise<BlogPost[]>;
+  getBlogPost(id: number): Promise<BlogPost | undefined>;
+  getBlogPostBySlug(slug: string): Promise<BlogPost | undefined>;
+  createBlogPost(post: Partial<BlogPost>): Promise<BlogPost>;
+  updateBlogPost(id: number, data: Partial<BlogPost>): Promise<BlogPost>;
+  deleteBlogPost(id: number): Promise<void>;
   getConversation(id: number): Promise<Conversation | undefined>;
   getAllConversations(): Promise<Conversation[]>;
   createConversation(title: string): Promise<Conversation>;
@@ -184,6 +191,37 @@ export class DatabaseStorage implements IStorage {
   async createMessage(conversationId: number, role: string, content: string): Promise<Message> {
     const [message] = await db.insert(messages).values({ conversationId, role, content }).returning();
     return message;
+  }
+
+  async getBlogPosts(status?: string): Promise<BlogPost[]> {
+    if (status) {
+      return db.select().from(blogPosts).where(eq(blogPosts.status, status)).orderBy(desc(blogPosts.publishedAt));
+    }
+    return db.select().from(blogPosts).orderBy(desc(blogPosts.createdAt));
+  }
+
+  async getBlogPost(id: number): Promise<BlogPost | undefined> {
+    const [post] = await db.select().from(blogPosts).where(eq(blogPosts.id, id));
+    return post || undefined;
+  }
+
+  async getBlogPostBySlug(slug: string): Promise<BlogPost | undefined> {
+    const [post] = await db.select().from(blogPosts).where(eq(blogPosts.slug, slug));
+    return post || undefined;
+  }
+
+  async createBlogPost(post: Partial<BlogPost>): Promise<BlogPost> {
+    const [newPost] = await db.insert(blogPosts).values(post as any).returning();
+    return newPost;
+  }
+
+  async updateBlogPost(id: number, data: Partial<BlogPost>): Promise<BlogPost> {
+    const [updated] = await db.update(blogPosts).set({ ...data, updatedAt: new Date() } as any).where(eq(blogPosts.id, id)).returning();
+    return updated;
+  }
+
+  async deleteBlogPost(id: number): Promise<void> {
+    await db.delete(blogPosts).where(eq(blogPosts.id, id));
   }
 
   async createAnalyticsSession(data: Partial<AnalyticsSession>): Promise<AnalyticsSession> {
