@@ -6,6 +6,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AppSplash } from "@/components/AppSplash";
+import { InstallBanner } from "@/components/InstallBanner";
 import { queryClient, apiRequest } from "@/lib/query-client";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -58,6 +59,7 @@ export default function RootLayout() {
             <ThemeProvider>
               <AuthProvider>
                 <RootLayoutNav />
+                {!showSplash && <InstallBanner />}
                 {showSplash && <AppSplash onFinish={() => setShowSplash(false)} />}
               </AuthProvider>
             </ThemeProvider>
