@@ -1,6 +1,9 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "node:http";
 import { storage } from "./storage";
+import { db } from "./db";
+import { users } from "@shared/schema";
+import { eq } from "drizzle-orm";
 import OpenAI from "openai";
 import * as trustvault from "./trustvault";
 
@@ -138,7 +141,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/stats/:userId", async (req: Request, res: Response) => {
     const userRounds = await storage.getRounds(req.params.userId);
     if (userRounds.length === 0) {
-      return res.json({ totalRounds: 0, averageScore: 0, bestScore: 0, recentTrend: [] });
+      return res.json({ totalRounds: 0, averageScore: 0, bestScore: 0, handicapIndex: null, recentTrend: [] });
     }
     const scores = userRounds.map(r => r.totalScore);
     const totalRounds = scores.length;
@@ -149,7 +152,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       score: r.totalScore,
       course: r.courseName,
     }));
-    res.json({ totalRounds, averageScore, bestScore, recentTrend });
+
+    let handicapIndex: number | null = null;
+    if (totalRounds >= 3) {
+      const allCourses = await storage.getCourses();
+      const courseMap = new Map(allCourses.map(c => [c.id, c]));
+
+      const differentials: number[] = [];
+      for (const round of userRounds) {
+        const course = round.courseId ? courseMap.get(round.courseId) : null;
+        const courseRating = course?.rating || 72.0;
+        const slopeRating = course?.slope || 113;
+        const diff = ((round.totalScore - courseRating) * 113) / slopeRating;
+        differentials.push(parseFloat(diff.toFixed(1)));
+      }
+
+      differentials.sort((a, b) => a - b);
+
+      let useDiffs: number;
+      if (totalRounds <= 4) useDiffs = 1;
+      else if (totalRounds <= 6) useDiffs = 2;
+      else if (totalRounds <= 8) useDiffs = 3;
+      else if (totalRounds <= 11) useDiffs = 4;
+      else if (totalRounds <= 14) useDiffs = 5;
+      else if (totalRounds <= 16) useDiffs = 6;
+      else if (totalRounds <= 18) useDiffs = 7;
+      else useDiffs = 8;
+
+      const bestDiffs = differentials.slice(0, useDiffs);
+      const avgDiff = bestDiffs.reduce((a, b) => a + b, 0) / bestDiffs.length;
+      handicapIndex = parseFloat((avgDiff * 0.96).toFixed(1));
+      if (handicapIndex < 0) handicapIndex = 0;
+
+      await db.update(users).set({ handicap: handicapIndex }).where(eq(users.id, req.params.userId));
+    }
+
+    res.json({ totalRounds, averageScore, bestScore, handicapIndex, recentTrend });
   });
 
   app.post("/api/trustvault/webhook", async (req: Request, res: Response) => {

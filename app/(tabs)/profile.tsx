@@ -76,32 +76,47 @@ export default function ProfileScreen() {
         </GlassCard>
 
         {stats && stats.totalRounds > 0 && (
-          <BentoRow style={{ marginTop: 14 }}>
-            <BentoCell>
-              <GlassCard style={{ height: 80 }}>
-                <View style={styles.statItem}>
-                  <PremiumText variant="label" color={colors.textMuted}>ROUNDS</PremiumText>
-                  <PremiumText variant="title" accent>{stats.totalRounds}</PremiumText>
+          <View style={{ marginTop: 14, gap: 10 }}>
+            {stats.handicapIndex != null && (
+              <GlassCard style={{ height: 72 }}>
+                <View style={styles.handicapRow}>
+                  <View style={[styles.handicapIcon, { backgroundColor: colors.primary + "15" }]}>
+                    <Ionicons name="analytics" size={22} color={colors.primary} />
+                  </View>
+                  <View>
+                    <PremiumText variant="label" color={colors.textMuted}>HANDICAP INDEX</PremiumText>
+                    <PremiumText variant="title" accent style={{ fontSize: 24 }}>{stats.handicapIndex}</PremiumText>
+                  </View>
                 </View>
               </GlassCard>
-            </BentoCell>
-            <BentoCell>
-              <GlassCard style={{ height: 80 }}>
-                <View style={styles.statItem}>
-                  <PremiumText variant="label" color={colors.textMuted}>AVG</PremiumText>
-                  <PremiumText variant="title">{stats.averageScore}</PremiumText>
-                </View>
-              </GlassCard>
-            </BentoCell>
-            <BentoCell>
-              <GlassCard style={{ height: 80 }}>
-                <View style={styles.statItem}>
-                  <PremiumText variant="label" color={colors.textMuted}>ANALYSES</PremiumText>
-                  <PremiumText variant="title">{(analyses || []).length}</PremiumText>
-                </View>
-              </GlassCard>
-            </BentoCell>
-          </BentoRow>
+            )}
+            <BentoRow>
+              <BentoCell>
+                <GlassCard style={{ height: 80 }}>
+                  <View style={styles.statItem}>
+                    <PremiumText variant="label" color={colors.textMuted}>ROUNDS</PremiumText>
+                    <PremiumText variant="title" accent>{stats.totalRounds}</PremiumText>
+                  </View>
+                </GlassCard>
+              </BentoCell>
+              <BentoCell>
+                <GlassCard style={{ height: 80 }}>
+                  <View style={styles.statItem}>
+                    <PremiumText variant="label" color={colors.textMuted}>AVG</PremiumText>
+                    <PremiumText variant="title">{stats.averageScore}</PremiumText>
+                  </View>
+                </GlassCard>
+              </BentoCell>
+              <BentoCell>
+                <GlassCard style={{ height: 80 }}>
+                  <View style={styles.statItem}>
+                    <PremiumText variant="label" color={colors.textMuted}>ANALYSES</PremiumText>
+                    <PremiumText variant="title">{(analyses || []).length}</PremiumText>
+                  </View>
+                </GlassCard>
+              </BentoCell>
+            </BentoRow>
+          </View>
         )}
 
         <GlassCard style={{ marginTop: 14 }}>
@@ -176,6 +191,8 @@ const styles = StyleSheet.create({
   profileHeader: { flexDirection: "row", alignItems: "center", gap: 16 },
   avatar: { width: 60, height: 60, borderRadius: 20, alignItems: "center", justifyContent: "center" },
   statItem: { flex: 1, alignItems: "center", justifyContent: "center", gap: 2 },
+  handicapRow: { flex: 1, flexDirection: "row", alignItems: "center", gap: 14 },
+  handicapIcon: { width: 44, height: 44, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   themeOptions: { flexDirection: "row", gap: 10 },
   themeOption: {
     flex: 1,

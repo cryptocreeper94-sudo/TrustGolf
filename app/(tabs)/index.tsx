@@ -567,6 +567,14 @@ export default function ExploreScreen() {
 
             <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
 
+            <Pressable
+              onPress={() => { setMenuOpen(false); router.push("/about"); }}
+              style={styles.menuItem}
+            >
+              <Ionicons name="document-text-outline" size={20} color={colors.text} />
+              <PremiumText variant="body">About & Roadmap</PremiumText>
+            </Pressable>
+
             <Pressable onPress={toggleTheme} style={styles.menuItem}>
               <Ionicons name={isDark ? "sunny-outline" : "moon-outline"} size={20} color={colors.text} />
               <PremiumText variant="body">{isDark ? "Light Mode" : "Dark Mode"}</PremiumText>

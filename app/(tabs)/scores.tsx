@@ -114,32 +114,51 @@ export default function ScoresScreen() {
       </View>
 
       {stats && stats.totalRounds > 0 && (
-        <BentoRow style={{ paddingHorizontal: 16, marginBottom: 12 }}>
-          <BentoCell>
+        <View style={{ paddingHorizontal: 16, marginBottom: 12, gap: 10 }}>
+          {stats.handicapIndex != null && (
             <GlassCard style={{ height: 72 }}>
-              <View style={styles.statItem}>
-                <PremiumText variant="label" color={colors.textMuted}>ROUNDS</PremiumText>
-                <PremiumText variant="title" accent>{stats.totalRounds}</PremiumText>
+              <View style={styles.handicapRow}>
+                <View style={[styles.handicapIcon, { backgroundColor: colors.primary + "15" }]}>
+                  <Ionicons name="analytics" size={22} color={colors.primary} />
+                </View>
+                <View>
+                  <PremiumText variant="label" color={colors.textMuted}>HANDICAP INDEX</PremiumText>
+                  <PremiumText variant="title" accent style={{ fontSize: 24 }}>{stats.handicapIndex}</PremiumText>
+                </View>
+                <View style={{ flex: 1 }} />
+                <PremiumText variant="caption" color={colors.textMuted} style={{ textAlign: "right" }}>
+                  USGA{"\n"}Formula
+                </PremiumText>
               </View>
             </GlassCard>
-          </BentoCell>
-          <BentoCell>
-            <GlassCard style={{ height: 72 }}>
-              <View style={styles.statItem}>
-                <PremiumText variant="label" color={colors.textMuted}>AVG</PremiumText>
-                <PremiumText variant="title">{stats.averageScore}</PremiumText>
-              </View>
-            </GlassCard>
-          </BentoCell>
-          <BentoCell>
-            <GlassCard style={{ height: 72 }}>
-              <View style={styles.statItem}>
-                <PremiumText variant="label" color={colors.textMuted}>BEST</PremiumText>
-                <PremiumText variant="title" style={{ color: colors.success }}>{stats.bestScore}</PremiumText>
-              </View>
-            </GlassCard>
-          </BentoCell>
-        </BentoRow>
+          )}
+          <BentoRow>
+            <BentoCell>
+              <GlassCard style={{ height: 72 }}>
+                <View style={styles.statItem}>
+                  <PremiumText variant="label" color={colors.textMuted}>ROUNDS</PremiumText>
+                  <PremiumText variant="title" accent>{stats.totalRounds}</PremiumText>
+                </View>
+              </GlassCard>
+            </BentoCell>
+            <BentoCell>
+              <GlassCard style={{ height: 72 }}>
+                <View style={styles.statItem}>
+                  <PremiumText variant="label" color={colors.textMuted}>AVG</PremiumText>
+                  <PremiumText variant="title">{stats.averageScore}</PremiumText>
+                </View>
+              </GlassCard>
+            </BentoCell>
+            <BentoCell>
+              <GlassCard style={{ height: 72 }}>
+                <View style={styles.statItem}>
+                  <PremiumText variant="label" color={colors.textMuted}>BEST</PremiumText>
+                  <PremiumText variant="title" style={{ color: colors.success }}>{stats.bestScore}</PremiumText>
+                </View>
+              </GlassCard>
+            </BentoCell>
+          </BentoRow>
+        </View>
       )}
 
       {isLoading ? (
@@ -188,6 +207,8 @@ const styles = StyleSheet.create({
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingBottom: 12 },
   addBtn: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   statItem: { flex: 1, alignItems: "center", justifyContent: "center", gap: 2 },
+  handicapRow: { flex: 1, flexDirection: "row", alignItems: "center", gap: 14 },
+  handicapIcon: { width: 44, height: 44, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   list: { paddingHorizontal: 16, gap: 12, paddingBottom: 100 },
   roundCard: {},
   roundHeader: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
