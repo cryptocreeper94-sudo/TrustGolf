@@ -377,10 +377,11 @@ export default function ExploreScreen() {
             <View style={styles.sectionHeader}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                 <Ionicons name="star" size={20} color="#FFD700" />
-                <PremiumText variant="subtitle">Top Courses</PremiumText>
+                <PremiumText variant="subtitle">Featured Courses</PremiumText>
               </View>
-              <Pressable onPress={() => router.push("/(tabs)/courses")}>
-                <PremiumText variant="caption" color={colors.primary}>See All</PremiumText>
+              <Pressable onPress={() => router.push("/(tabs)/courses")} style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                <PremiumText variant="caption" color={colors.primary} style={{ fontWeight: "700" }}>All {courses.length}</PremiumText>
+                <Ionicons name="chevron-forward" size={14} color={colors.primary} />
               </Pressable>
             </View>
             {coursesLoading ? (
@@ -433,6 +434,29 @@ export default function ExploreScreen() {
                 )}
               />
             )}
+            <Pressable
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                router.push("/(tabs)/courses");
+              }}
+              style={{
+                marginTop: 14,
+                marginHorizontal: 16,
+                paddingVertical: 14,
+                borderRadius: 14,
+                backgroundColor: colors.primary,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+              }}
+            >
+              <Ionicons name="map" size={18} color="#fff" />
+              <PremiumText variant="subtitle" color="#fff" style={{ fontSize: 15 }}>
+                Browse All {courses.length} Courses by State
+              </PremiumText>
+              <Ionicons name="chevron-forward" size={16} color="#fff" />
+            </Pressable>
           </View>
 
           <View style={{ marginTop: 28, position: "relative" }}>

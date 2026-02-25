@@ -38,7 +38,7 @@ A premium mobile-first golf platform built with React Native + Expo, featuring a
 
 ## Key Features
 1. **Cinematic Explorer Page** - Image slideshow hero with Ken Burns effect, category carousels, hot deals, top courses, quick actions
-2. **Course Catalog** - 45 courses (20 world-class + 8 Upstate SC + 17 Middle TN/Nashville) with full descriptions, designer info, year built, course type, unique gallery images, amenities with icons, contact info
+2. **Course Catalog** - 45 courses (20 world-class + 8 Upstate SC + 17 Middle TN/Nashville) organized by state with filterable chips, SectionList grouped by state, full descriptions, designer info, year built, course type, unique gallery images, amenities with icons, contact info
 3. **Score Tracking** - Log rounds with stats (putts, FIR, GIR), view history, averages, and USGA Handicap Index. Real hole-by-hole scorecards for Middle TN/Nashville courses (17 courses with full hole data: par, yardage, handicap per hole)
 4. **AI Swing Analyzer** - Club-specific analysis (Driver, Fairway Wood, Hybrid, Long/Mid/Short Iron, Wedges, Putter); photo/video mode; AI prompt tailored per club type
 5. **Video Swing Playback** - Slow-motion playback (0.25x/0.5x/1x), frame extraction from video via expo-video-thumbnails, TrustVault studio editing
