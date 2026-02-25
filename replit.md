@@ -51,6 +51,8 @@ A premium mobile-first golf platform built with React Native + Expo, featuring a
 12. **USGA Handicap System** - Auto-calculated Handicap Index using score differentials, updates after each round, displayed on Scores and Profile screens
 13. **Vendor/Partner Signup** - Public partner application form at /partner, business info + type + partnership tier selection, Resend confirmation email, developer dashboard management with approve/reject, hamburger menu "Partner With Us" link
 14. **Self-Hosted Analytics** - First-party tracking system (no Google Analytics): sessions, page views, events, UTM params, device/browser/referrer detection, bounce rate, avg session duration. Client hook in hooks/useAnalytics.ts auto-tracks route changes. Developer dashboard shows 6 KPI cards (Active Now, Page Views, Visitors, Sessions, Avg Duration, Bounce Rate), daily traffic bars, top pages, devices, browsers, referrers, tracked events. Date range filter (7/30/90 days).
+15. **AI-Driven Blog** - SEO-focused blog system: AI blog generator (GPT-4o) creates SEO-optimized posts by topic/category, Markdown content with full formatting, developer dashboard blog management (generate/edit/publish/unpublish/delete), public blog listing at /blog with category filters, post detail at /blog-post?slug=X, hamburger menu "Blog" link. Categories: Tips, Course Spotlights, Equipment, News, Fitness, Strategy.
+16. **PWA** - Service worker (public/sw.js) for offline caching and installability, manifest.json with icons, registered in app/+html.tsx, install banner component, beforeinstallprompt handling.
 
 ## Analytics System
 - **Tables**: analytics_sessions, analytics_page_views, analytics_events

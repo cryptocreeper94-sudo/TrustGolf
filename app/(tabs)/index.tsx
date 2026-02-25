@@ -644,6 +644,14 @@ export default function ExploreScreen() {
             <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
 
             <Pressable
+              onPress={() => { setMenuOpen(false); router.push("/blog"); }}
+              style={styles.menuItem}
+            >
+              <Ionicons name="newspaper-outline" size={20} color={colors.text} />
+              <PremiumText variant="body">Blog</PremiumText>
+            </Pressable>
+
+            <Pressable
               onPress={() => { setMenuOpen(false); router.push("/about"); }}
               style={styles.menuItem}
             >

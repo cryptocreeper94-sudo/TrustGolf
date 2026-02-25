@@ -93,6 +93,21 @@ export default function DeveloperDashboard() {
     queryFn: getQueryFn({ on401: "throw" }),
   });
 
+  const { data: blogPostsData, refetch: refetchBlog } = useQuery<any[]>({
+    queryKey: ["/api/blog?status=all"],
+    queryFn: getQueryFn({ on401: "throw" }),
+  });
+
+  const [blogTopic, setBlogTopic] = useState("");
+  const [blogCategory, setBlogCategory] = useState("tips");
+  const [blogGenerating, setBlogGenerating] = useState(false);
+  const [blogEditId, setBlogEditId] = useState<number | null>(null);
+  const [blogEditTitle, setBlogEditTitle] = useState("");
+  const [blogEditContent, setBlogEditContent] = useState("");
+  const [blogEditExcerpt, setBlogEditExcerpt] = useState("");
+  const [blogEditCategory, setBlogEditCategory] = useState("");
+  const [blogEditTags, setBlogEditTags] = useState("");
+
   const [analyticsDays, setAnalyticsDays] = useState(7);
 
   const { data: analyticsSummary } = useQuery<any>({
@@ -147,6 +162,62 @@ export default function DeveloperDashboard() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
   });
+
+  const generateBlogPost = async () => {
+    if (!blogTopic.trim()) return;
+    setBlogGenerating(true);
+    try {
+      const res = await apiRequest("POST", "/api/blog/generate", { topic: blogTopic, category: blogCategory });
+      const generated = await res.json();
+      const saveRes = await apiRequest("POST", "/api/blog", {
+        ...generated,
+        category: generated.category || blogCategory,
+        status: "draft",
+        authorName: "Trust Golf",
+      });
+      setBlogTopic("");
+      refetchBlog();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert("Draft Created", "AI-generated blog post saved as draft. Review and publish from below.");
+    } catch (err: any) {
+      Alert.alert("Error", "Failed to generate blog post");
+    } finally {
+      setBlogGenerating(false);
+    }
+  };
+
+  const publishBlogPost = async (id: number) => {
+    await apiRequest("PATCH", `/api/blog/${id}`, { status: "published" });
+    refetchBlog();
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  };
+
+  const unpublishBlogPost = async (id: number) => {
+    await apiRequest("PATCH", `/api/blog/${id}`, { status: "draft" });
+    refetchBlog();
+  };
+
+  const deleteBlogPost = async (id: number) => {
+    Alert.alert("Delete Post", "This cannot be undone.", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Delete", style: "destructive", onPress: async () => {
+        await apiRequest("DELETE", `/api/blog/${id}`);
+        refetchBlog();
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }},
+    ]);
+  };
+
+  const saveBlogEdit = async () => {
+    if (blogEditId === null) return;
+    await apiRequest("PATCH", `/api/blog/${blogEditId}`, {
+      title: blogEditTitle, content: blogEditContent, excerpt: blogEditExcerpt,
+      category: blogEditCategory, tags: blogEditTags,
+    });
+    setBlogEditId(null);
+    refetchBlog();
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  };
 
   const resetCourseForm = () => {
     setCName(""); setCLocation(""); setCCity(""); setCState(""); setCFee("");
@@ -278,6 +349,16 @@ export default function DeveloperDashboard() {
                 <Ionicons name="handshake" size={22} color="#7C4DFF" />
                 <PremiumText variant="title">{(vendorApps || []).length}</PremiumText>
                 <PremiumText variant="caption" color={colors.textMuted}>Vendors</PremiumText>
+              </View>
+            </GlassCard>
+          </BentoCell>
+          <BentoCell>
+            <GlassCard style={{ height: 90 }}>
+              <OrbEffect color="#FF980020" size={80} />
+              <View style={styles.statItem}>
+                <Ionicons name="newspaper" size={22} color="#FF9800" />
+                <PremiumText variant="title">{(blogPostsData || []).length}</PremiumText>
+                <PremiumText variant="caption" color={colors.textMuted}>Blog Posts</PremiumText>
               </View>
             </GlassCard>
           </BentoCell>
@@ -731,6 +812,155 @@ export default function DeveloperDashboard() {
         </GlassCard>
 
         <GlassCard style={{ marginTop: 14 }}>
+          <AccordionItem title={`Blog Management (${(blogPostsData || []).length})`} icon="newspaper-outline" defaultOpen>
+            <View style={{ gap: 12 }}>
+              <PremiumText variant="caption" color={colors.textSecondary} style={{ lineHeight: 18 }}>
+                Generate SEO-optimized blog posts with AI or create them manually. Posts appear on the public Blog page.
+              </PremiumText>
+
+              <View style={[styles.genBox, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+                <PremiumText variant="body" style={{ fontWeight: "700", fontSize: 13, marginBottom: 8 }}>AI Blog Generator</PremiumText>
+                <TextInput
+                  style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
+                  value={blogTopic}
+                  onChangeText={setBlogTopic}
+                  placeholder="Topic (e.g., 'Best putting drills for beginners')"
+                  placeholderTextColor={colors.textMuted}
+                />
+                <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
+                  {["tips", "course spotlights", "equipment", "news", "fitness", "strategy"].map((cat) => (
+                    <Pressable
+                      key={cat}
+                      onPress={() => setBlogCategory(cat)}
+                      style={[styles.catChip, {
+                        backgroundColor: blogCategory === cat ? colors.primary : "transparent",
+                        borderColor: blogCategory === cat ? colors.primary : colors.border,
+                      }]}
+                    >
+                      <PremiumText variant="caption" color={blogCategory === cat ? "#fff" : colors.textSecondary} style={{ fontSize: 10 }}>
+                        {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                      </PremiumText>
+                    </Pressable>
+                  ))}
+                </View>
+                <Pressable
+                  onPress={generateBlogPost}
+                  disabled={blogGenerating || !blogTopic.trim()}
+                  style={[styles.genBtn, { backgroundColor: blogGenerating ? colors.textMuted : colors.primary, opacity: !blogTopic.trim() ? 0.5 : 1 }]}
+                >
+                  <Ionicons name={blogGenerating ? "hourglass" : "sparkles"} size={16} color="#fff" />
+                  <PremiumText variant="body" color="#fff" style={{ fontWeight: "700", fontSize: 13 }}>
+                    {blogGenerating ? "Generating..." : "Generate Draft"}
+                  </PremiumText>
+                </Pressable>
+              </View>
+
+              {blogEditId !== null && (
+                <View style={[styles.genBox, { backgroundColor: colors.surfaceElevated, borderColor: colors.accent }]}>
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                    <PremiumText variant="body" style={{ fontWeight: "700", fontSize: 13 }}>Editing Post</PremiumText>
+                    <Pressable onPress={() => setBlogEditId(null)}>
+                      <Ionicons name="close-circle" size={20} color={colors.textMuted} />
+                    </Pressable>
+                  </View>
+                  <FieldInput label="Title" value={blogEditTitle} onChangeText={setBlogEditTitle} colors={colors} />
+                  <FieldInput label="Excerpt" value={blogEditExcerpt} onChangeText={setBlogEditExcerpt} colors={colors} style={{ marginTop: 8 }} />
+                  <FieldInput label="Category" value={blogEditCategory} onChangeText={setBlogEditCategory} colors={colors} style={{ marginTop: 8 }} />
+                  <FieldInput label="Tags (comma-separated)" value={blogEditTags} onChangeText={setBlogEditTags} colors={colors} style={{ marginTop: 8 }} />
+                  <FieldInput label="Content (Markdown)" value={blogEditContent} onChangeText={setBlogEditContent} colors={colors} multiline style={{ marginTop: 8 }} />
+                  <Pressable onPress={saveBlogEdit} style={[styles.genBtn, { backgroundColor: colors.accent, marginTop: 8 }]}>
+                    <Ionicons name="save" size={16} color="#fff" />
+                    <PremiumText variant="body" color="#fff" style={{ fontWeight: "700", fontSize: 13 }}>Save Changes</PremiumText>
+                  </Pressable>
+                </View>
+              )}
+
+              {(blogPostsData || []).length === 0 ? (
+                <View style={{ paddingVertical: 16, alignItems: "center" }}>
+                  <Ionicons name="document-text-outline" size={32} color={colors.textMuted} />
+                  <PremiumText variant="caption" color={colors.textMuted} style={{ marginTop: 8 }}>No blog posts yet</PremiumText>
+                  <PremiumText variant="caption" color={colors.textSecondary} style={{ marginTop: 4, textAlign: "center", lineHeight: 16 }}>
+                    Use the AI generator above to create your first post
+                  </PremiumText>
+                </View>
+              ) : (
+                <View style={{ gap: 10 }}>
+                  {(blogPostsData || []).map((post: any) => {
+                    const isPublished = post.status === "published";
+                    return (
+                      <View key={post.id} style={[styles.vendorCard, { borderColor: colors.border, backgroundColor: colors.surfaceElevated }]}>
+                        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
+                          <View style={{ flex: 1 }}>
+                            <PremiumText variant="body" style={{ fontWeight: "700", fontSize: 14 }} numberOfLines={2}>{post.title}</PremiumText>
+                            {post.excerpt && (
+                              <PremiumText variant="caption" color={colors.textSecondary} numberOfLines={1} style={{ marginTop: 2 }}>
+                                {post.excerpt}
+                              </PremiumText>
+                            )}
+                          </View>
+                          <View style={[styles.statusBadge, { backgroundColor: isPublished ? "#4CAF5020" : "#FF980020" }]}>
+                            <PremiumText variant="caption" color={isPublished ? "#4CAF50" : "#FF9800"} style={{ fontSize: 10, fontWeight: "700" }}>
+                              {post.status.toUpperCase()}
+                            </PremiumText>
+                          </View>
+                        </View>
+                        <View style={{ flexDirection: "row", gap: 8, marginTop: 6 }}>
+                          <View style={[styles.tagPill, { backgroundColor: colors.primary + "15" }]}>
+                            <PremiumText variant="caption" color={colors.primary} style={{ fontSize: 10 }}>{post.category}</PremiumText>
+                          </View>
+                          <PremiumText variant="caption" color={colors.textMuted} style={{ fontSize: 10 }}>
+                            {new Date(post.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                          </PremiumText>
+                        </View>
+                        <View style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>
+                          <Pressable
+                            onPress={() => {
+                              setBlogEditId(post.id);
+                              setBlogEditTitle(post.title);
+                              setBlogEditContent(post.content);
+                              setBlogEditExcerpt(post.excerpt || "");
+                              setBlogEditCategory(post.category || "");
+                              setBlogEditTags(post.tags || "");
+                            }}
+                            style={[styles.actionBtn, { backgroundColor: "#2196F310", borderColor: "#2196F3" }]}
+                          >
+                            <Ionicons name="create" size={14} color="#2196F3" />
+                            <PremiumText variant="caption" color="#2196F3" style={{ fontWeight: "700" }}>Edit</PremiumText>
+                          </Pressable>
+                          {isPublished ? (
+                            <Pressable
+                              onPress={() => unpublishBlogPost(post.id)}
+                              style={[styles.actionBtn, { backgroundColor: "#FF980010", borderColor: "#FF9800" }]}
+                            >
+                              <Ionicons name="eye-off" size={14} color="#FF9800" />
+                              <PremiumText variant="caption" color="#FF9800" style={{ fontWeight: "700" }}>Unpublish</PremiumText>
+                            </Pressable>
+                          ) : (
+                            <Pressable
+                              onPress={() => publishBlogPost(post.id)}
+                              style={[styles.actionBtn, { backgroundColor: "#4CAF5015", borderColor: "#4CAF50" }]}
+                            >
+                              <Ionicons name="globe" size={14} color="#4CAF50" />
+                              <PremiumText variant="caption" color="#4CAF50" style={{ fontWeight: "700" }}>Publish</PremiumText>
+                            </Pressable>
+                          )}
+                          <Pressable
+                            onPress={() => deleteBlogPost(post.id)}
+                            style={[styles.actionBtn, { backgroundColor: "#B71C1C10", borderColor: "#B71C1C" }]}
+                          >
+                            <Ionicons name="trash" size={14} color="#B71C1C" />
+                          </Pressable>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
+            </View>
+          </AccordionItem>
+        </GlassCard>
+
+        <GlassCard style={{ marginTop: 14 }}>
           <AccordionItem title="Golf Affiliate Programs" icon="link-outline">
             <View style={{ gap: 12 }}>
               <PremiumText variant="caption" color={colors.textSecondary} style={{ lineHeight: 18 }}>
@@ -973,6 +1203,26 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: 12,
     paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  genBox: {
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  genBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    height: 44,
+    borderRadius: 10,
+    marginTop: 12,
+  },
+  catChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 8,
     borderWidth: 1,
   },

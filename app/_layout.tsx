@@ -39,6 +39,8 @@ function RootLayoutNav() {
       <Stack.Screen name="swing-result" options={{ presentation: "modal" }} />
       <Stack.Screen name="scorecard" options={{ presentation: "modal" }} />
       <Stack.Screen name="about" options={{ presentation: "modal" }} />
+      <Stack.Screen name="blog" options={{ presentation: "modal" }} />
+      <Stack.Screen name="blog-post" options={{ presentation: "modal" }} />
       <Stack.Screen name="partner" options={{ presentation: "modal" }} />
     </Stack>
   );
