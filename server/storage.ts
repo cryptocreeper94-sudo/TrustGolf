@@ -1,7 +1,8 @@
 import { 
-  users, courses, rounds, swingAnalyses, deals, conversations, messages,
+  users, courses, rounds, swingAnalyses, deals, vendorApplications, conversations, messages,
   type User, type InsertUser, type Course, type InsertCourse, 
   type Round, type InsertRound, type SwingAnalysis, type Deal, type InsertDeal,
+  type VendorApplication, type InsertVendorApplication,
   type Conversation, type Message
 } from "@shared/schema";
 import { db } from "./db";
@@ -23,6 +24,10 @@ export interface IStorage {
   createSwingAnalysis(analysis: Partial<SwingAnalysis>): Promise<SwingAnalysis>;
   getDeals(): Promise<Deal[]>;
   createDeal(deal: InsertDeal): Promise<Deal>;
+  getVendorApplications(): Promise<VendorApplication[]>;
+  getVendorApplication(id: number): Promise<VendorApplication | undefined>;
+  createVendorApplication(app: InsertVendorApplication): Promise<VendorApplication>;
+  updateVendorApplicationStatus(id: number, status: string, notes?: string): Promise<VendorApplication>;
   getConversation(id: number): Promise<Conversation | undefined>;
   getAllConversations(): Promise<Conversation[]>;
   createConversation(title: string): Promise<Conversation>;
@@ -115,6 +120,27 @@ export class DatabaseStorage implements IStorage {
 
   async updateDeal(id: number, data: Partial<InsertDeal>): Promise<Deal> {
     const [updated] = await db.update(deals).set(data).where(eq(deals.id, id)).returning();
+    return updated;
+  }
+
+  async getVendorApplications(): Promise<VendorApplication[]> {
+    return db.select().from(vendorApplications).orderBy(desc(vendorApplications.createdAt));
+  }
+
+  async getVendorApplication(id: number): Promise<VendorApplication | undefined> {
+    const [app] = await db.select().from(vendorApplications).where(eq(vendorApplications.id, id));
+    return app || undefined;
+  }
+
+  async createVendorApplication(app: InsertVendorApplication): Promise<VendorApplication> {
+    const [newApp] = await db.insert(vendorApplications).values(app).returning();
+    return newApp;
+  }
+
+  async updateVendorApplicationStatus(id: number, status: string, notes?: string): Promise<VendorApplication> {
+    const data: any = { status };
+    if (notes !== undefined) data.notes = notes;
+    const [updated] = await db.update(vendorApplications).set(data).where(eq(vendorApplications.id, id)).returning();
     return updated;
   }
 

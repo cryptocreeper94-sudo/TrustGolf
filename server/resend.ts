@@ -41,6 +41,49 @@ export async function getUncachableResendClient() {
   };
 }
 
+export async function sendVendorConfirmationEmail(toEmail: string, businessName: string, contactName: string, tier: string) {
+  const { client, fromEmail } = await getUncachableResendClient();
+
+  const tierLabels: Record<string, string> = {
+    free_listing: "Free Listing",
+    featured: "Featured Partner",
+    premium: "Premium Partner",
+  };
+
+  await client.emails.send({
+    from: fromEmail || 'Trust Golf <noreply@resend.dev>',
+    to: toEmail,
+    subject: 'Trust Golf — Partner Application Received',
+    html: `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 500px; margin: 0 auto; padding: 40px 20px;">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <div style="width: 60px; height: 60px; background: #1B5E20; border-radius: 16px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 12px;">
+            <span style="font-size: 28px;">⛳</span>
+          </div>
+          <h1 style="color: #1B5E20; font-size: 24px; margin: 0;">Trust Golf</h1>
+          <p style="color: #666; font-size: 12px; letter-spacing: 2px; margin: 4px 0 0;">PARTNER PROGRAM</p>
+        </div>
+        <h2 style="color: #333; font-size: 20px; text-align: center;">Welcome, ${contactName}!</h2>
+        <p style="color: #555; font-size: 15px; line-height: 1.6; text-align: center;">
+          We've received your partner application for <strong>${businessName}</strong> at the <strong>${tierLabels[tier] || tier}</strong> level.
+        </p>
+        <div style="background: #f8f9f8; border-radius: 12px; padding: 20px; margin: 24px 0; border-left: 4px solid #1B5E20;">
+          <p style="color: #333; font-size: 14px; line-height: 1.6; margin: 0;">
+            Our team will review your application and reach out within <strong>2-3 business days</strong>. We're excited about the possibility of partnering with you to bring more golfers to your business.
+          </p>
+        </div>
+        <p style="color: #555; font-size: 14px; text-align: center; line-height: 1.6;">
+          In the meantime, feel free to explore Trust Golf and see how we're connecting golfers with premier courses and shops across the country.
+        </p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;" />
+        <p style="color: #bbb; font-size: 11px; text-align: center;">
+          &copy; 2026 DarkWave Studios LLC — darkwavestudios.io
+        </p>
+      </div>
+    `,
+  });
+}
+
 export async function sendVerificationEmail(toEmail: string, displayName: string, token: string) {
   const { client, fromEmail } = await getUncachableResendClient();
 

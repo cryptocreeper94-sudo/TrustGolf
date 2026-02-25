@@ -667,6 +667,14 @@ export default function ExploreScreen() {
               <PremiumText variant="body">About & Roadmap</PremiumText>
             </Pressable>
 
+            <Pressable
+              onPress={() => { setMenuOpen(false); router.push("/partner"); }}
+              style={styles.menuItem}
+            >
+              <Ionicons name="handshake-outline" size={20} color={colors.accent} />
+              <PremiumText variant="body" color={colors.accent}>Partner With Us</PremiumText>
+            </Pressable>
+
             {Platform.OS === "web" && (
               <Pressable
                 onPress={() => {

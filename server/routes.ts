@@ -8,7 +8,7 @@ import OpenAI from "openai";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import * as trustvault from "./trustvault";
-import { sendVerificationEmail } from "./resend";
+import { sendVerificationEmail, sendVendorConfirmationEmail } from "./resend";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -253,6 +253,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/deals", async (req: Request, res: Response) => {
     const deal = await storage.createDeal(req.body);
     res.status(201).json(deal);
+  });
+
+  app.post("/api/vendor-applications", async (req: Request, res: Response) => {
+    try {
+      const { businessName, contactName, email, phone, location, businessType, message, partnershipTier } = req.body;
+      if (!businessName || !contactName || !email || !businessType) {
+        return res.status(400).json({ error: "Business name, contact name, email, and business type are required" });
+      }
+      const application = await storage.createVendorApplication({
+        businessName, contactName, email, phone, location, businessType,
+        message, partnershipTier: partnershipTier || "free_listing",
+      });
+      try {
+        await sendVendorConfirmationEmail(email, businessName, contactName, application.partnershipTier);
+      } catch (emailErr: any) {
+        console.error("Failed to send vendor confirmation email:", emailErr.message);
+      }
+      res.status(201).json(application);
+    } catch (err: any) {
+      console.error("Vendor application error:", err);
+      res.status(500).json({ error: "Failed to submit application" });
+    }
+  });
+
+  app.get("/api/vendor-applications", async (req: Request, res: Response) => {
+    const applications = await storage.getVendorApplications();
+    res.json(applications);
+  });
+
+  app.patch("/api/vendor-applications/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { status, notes } = req.body;
+      if (!status || !["pending", "approved", "rejected"].includes(status)) {
+        return res.status(400).json({ error: "Valid status required: pending, approved, rejected" });
+      }
+      const updated = await storage.updateVendorApplicationStatus(id, status, notes);
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ error: "Failed to update application" });
+    }
   });
 
   app.get("/api/swing-analyses/:userId", async (req: Request, res: Response) => {

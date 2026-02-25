@@ -91,6 +91,21 @@ export const deals = pgTable("deals", {
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
+export const vendorApplications = pgTable("vendor_applications", {
+  id: serial("id").primaryKey(),
+  businessName: text("business_name").notNull(),
+  contactName: text("contact_name").notNull(),
+  email: text("email").notNull(),
+  phone: text("phone"),
+  location: text("location"),
+  businessType: text("business_type").notNull(),
+  message: text("message"),
+  partnershipTier: text("partnership_tier").notNull().default("free_listing"),
+  status: text("status").notNull().default("pending"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
 export const conversations = pgTable("conversations", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
@@ -146,6 +161,7 @@ export const insertUserSchema = createInsertSchema(users).pick({
 export const insertCourseSchema = createInsertSchema(courses).omit({ id: true, createdAt: true });
 export const insertRoundSchema = createInsertSchema(rounds).omit({ id: true, createdAt: true });
 export const insertDealSchema = createInsertSchema(deals).omit({ id: true, createdAt: true });
+export const insertVendorApplicationSchema = createInsertSchema(vendorApplications).omit({ id: true, createdAt: true, status: true, notes: true });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -156,5 +172,7 @@ export type InsertRound = z.infer<typeof insertRoundSchema>;
 export type SwingAnalysis = typeof swingAnalyses.$inferSelect;
 export type Deal = typeof deals.$inferSelect;
 export type InsertDeal = z.infer<typeof insertDealSchema>;
+export type VendorApplication = typeof vendorApplications.$inferSelect;
+export type InsertVendorApplication = z.infer<typeof insertVendorApplicationSchema>;
 export type Conversation = typeof conversations.$inferSelect;
 export type Message = typeof messages.$inferSelect;

@@ -88,6 +88,21 @@ export default function DeveloperDashboard() {
     queryFn: getQueryFn({ on401: "throw" }),
   });
 
+  const { data: vendorApps } = useQuery<any[]>({
+    queryKey: ["/api/vendor-applications"],
+    queryFn: getQueryFn({ on401: "throw" }),
+  });
+
+  const updateVendorStatus = useMutation({
+    mutationFn: async ({ id, status }: { id: number; status: string }) => {
+      await apiRequest("PATCH", `/api/vendor-applications/${id}`, { status });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/vendor-applications"] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+  });
+
   const resetCourseForm = () => {
     setCName(""); setCLocation(""); setCCity(""); setCState(""); setCFee("");
     setCPar("72"); setCHoles("18"); setCYardage(""); setCSlope(""); setCRating("");
@@ -208,6 +223,16 @@ export default function DeveloperDashboard() {
                 <Ionicons name="flame" size={22} color={colors.error} />
                 <PremiumText variant="title">{(deals || []).filter((d: any) => d.isHot).length}</PremiumText>
                 <PremiumText variant="caption" color={colors.textMuted}>Hot Deals</PremiumText>
+              </View>
+            </GlassCard>
+          </BentoCell>
+          <BentoCell>
+            <GlassCard style={{ height: 90 }}>
+              <OrbEffect color="#7C4DFF20" size={80} />
+              <View style={styles.statItem}>
+                <Ionicons name="handshake" size={22} color="#7C4DFF" />
+                <PremiumText variant="title">{(vendorApps || []).length}</PremiumText>
+                <PremiumText variant="caption" color={colors.textMuted}>Vendors</PremiumText>
               </View>
             </GlassCard>
           </BentoCell>
@@ -370,6 +395,91 @@ export default function DeveloperDashboard() {
                 </PremiumText>
               </Pressable>
             </View>
+          </AccordionItem>
+        </GlassCard>
+
+        <GlassCard style={{ marginTop: 14 }}>
+          <AccordionItem title={`Vendor Applications (${(vendorApps || []).length})`} icon="handshake-outline" defaultOpen>
+            {(vendorApps || []).length === 0 ? (
+              <View style={{ paddingVertical: 16, alignItems: "center" }}>
+                <Ionicons name="folder-open-outline" size={32} color={colors.textMuted} />
+                <PremiumText variant="caption" color={colors.textMuted} style={{ marginTop: 8 }}>
+                  No vendor applications yet
+                </PremiumText>
+                <PremiumText variant="caption" color={colors.textSecondary} style={{ marginTop: 4, textAlign: "center", lineHeight: 16 }}>
+                  Share the "Partner With Us" page to start receiving applications
+                </PremiumText>
+              </View>
+            ) : (
+              <View style={{ gap: 10 }}>
+                {(vendorApps || []).map((app: any) => {
+                  const statusColors: Record<string, string> = { pending: "#FF9800", approved: "#4CAF50", rejected: "#B71C1C" };
+                  const tierLabels: Record<string, string> = { free_listing: "Free", featured: "Featured", premium: "Premium" };
+                  const typeLabels: Record<string, string> = { course: "Course", pro_shop: "Pro Shop", driving_range: "Range", retail: "Retail", other: "Other" };
+                  return (
+                    <View key={app.id} style={[styles.vendorCard, { borderColor: colors.border, backgroundColor: colors.surfaceElevated }]}>
+                      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
+                        <View style={{ flex: 1 }}>
+                          <PremiumText variant="body" style={{ fontWeight: "700", fontSize: 14 }}>{app.businessName}</PremiumText>
+                          <PremiumText variant="caption" color={colors.textSecondary}>
+                            {app.contactName} — {app.email}
+                          </PremiumText>
+                        </View>
+                        <View style={[styles.statusBadge, { backgroundColor: (statusColors[app.status] || "#999") + "20" }]}>
+                          <PremiumText variant="caption" color={statusColors[app.status] || "#999"} style={{ fontSize: 10, fontWeight: "700" }}>
+                            {app.status.toUpperCase()}
+                          </PremiumText>
+                        </View>
+                      </View>
+                      <View style={{ flexDirection: "row", gap: 8, marginTop: 6 }}>
+                        <View style={[styles.tagPill, { backgroundColor: colors.primary + "15" }]}>
+                          <PremiumText variant="caption" color={colors.primary} style={{ fontSize: 10 }}>{typeLabels[app.businessType] || app.businessType}</PremiumText>
+                        </View>
+                        <View style={[styles.tagPill, { backgroundColor: colors.accent + "15" }]}>
+                          <PremiumText variant="caption" color={colors.accent} style={{ fontSize: 10 }}>{tierLabels[app.partnershipTier] || app.partnershipTier}</PremiumText>
+                        </View>
+                        {app.location && (
+                          <View style={[styles.tagPill, { backgroundColor: colors.textMuted + "15" }]}>
+                            <PremiumText variant="caption" color={colors.textMuted} style={{ fontSize: 10 }}>{app.location}</PremiumText>
+                          </View>
+                        )}
+                      </View>
+                      {app.phone && (
+                        <PremiumText variant="caption" color={colors.textMuted} style={{ marginTop: 4 }}>
+                          {app.phone}
+                        </PremiumText>
+                      )}
+                      {app.message && (
+                        <PremiumText variant="caption" color={colors.textSecondary} style={{ marginTop: 6, lineHeight: 16, fontStyle: "italic" }}>
+                          "{app.message}"
+                        </PremiumText>
+                      )}
+                      <PremiumText variant="caption" color={colors.textMuted} style={{ marginTop: 4, fontSize: 10 }}>
+                        {new Date(app.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      </PremiumText>
+                      {app.status === "pending" && (
+                        <View style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>
+                          <Pressable
+                            onPress={() => updateVendorStatus.mutate({ id: app.id, status: "approved" })}
+                            style={[styles.actionBtn, { backgroundColor: "#4CAF5015", borderColor: "#4CAF50" }]}
+                          >
+                            <Ionicons name="checkmark" size={14} color="#4CAF50" />
+                            <PremiumText variant="caption" color="#4CAF50" style={{ fontWeight: "700" }}>Approve</PremiumText>
+                          </Pressable>
+                          <Pressable
+                            onPress={() => updateVendorStatus.mutate({ id: app.id, status: "rejected" })}
+                            style={[styles.actionBtn, { backgroundColor: "#B71C1C10", borderColor: "#B71C1C" }]}
+                          >
+                            <Ionicons name="close" size={14} color="#B71C1C" />
+                            <PremiumText variant="caption" color="#B71C1C" style={{ fontWeight: "700" }}>Reject</PremiumText>
+                          </Pressable>
+                        </View>
+                      )}
+                    </View>
+                  );
+                })}
+              </View>
+            )}
           </AccordionItem>
         </GlassCard>
 
