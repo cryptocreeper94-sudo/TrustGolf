@@ -46,6 +46,7 @@ export const courses = pgTable("courses", {
   designer: text("designer"),
   yearBuilt: integer("year_built"),
   galleryImages: jsonb("gallery_images"),
+  holeData: jsonb("hole_data"),
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 

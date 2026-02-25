@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeInUp, FadeIn } from "react-native-reanimated";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { GlassCard } from "@/components/GlassCard";
 import { BentoRow, BentoCell } from "@/components/BentoGrid";
 import { AccordionItem } from "@/components/AccordionItem";
@@ -68,6 +69,7 @@ function getAmenityIcon(amenity: string): string {
 export default function CourseDetailScreen() {
   const { id } = useLocalSearchParams();
   const { colors, isDark } = useTheme();
+  const { isLoggedIn } = useAuth();
   const insets = useSafeAreaInsets();
   const webTopInset = Platform.OS === "web" ? 67 : 0;
   const [galleryIndex, setGalleryIndex] = useState(0);
@@ -260,6 +262,30 @@ export default function CourseDetailScreen() {
             </BentoCell>
           </BentoRow>
 
+          {course.holeData && (
+            <Pressable
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                if (!isLoggedIn) {
+                  router.push({ pathname: "/login", params: { reason: "Sign in to use the scorecard", redirect: `/scorecard?courseId=${course.id}&courseName=${encodeURIComponent(course.name)}` } });
+                  return;
+                }
+                router.push({ pathname: "/scorecard", params: { courseId: String(course.id), courseName: course.name } });
+              }}
+              style={[styles.playCourseBtn, { backgroundColor: colors.primary }]}
+            >
+              <Ionicons name="golf" size={20} color="#fff" />
+              <PremiumText variant="body" color="#fff" style={{ fontWeight: "700", fontSize: 15 }}>
+                Play This Course
+              </PremiumText>
+              <View style={{ flex: 1 }} />
+              <PremiumText variant="caption" color="rgba(255,255,255,0.8)" style={{ fontSize: 11 }}>
+                Scorecard
+              </PremiumText>
+              <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.8)" />
+            </Pressable>
+          )}
+
           <Animated.View entering={FadeIn.delay(200).duration(400)}>
             <GlassCard style={{ marginTop: 16 }}>
               <AccordionItem title="About This Course" icon="information-circle-outline" defaultOpen>
@@ -433,5 +459,14 @@ const styles = StyleSheet.create({
     height: 52,
     borderRadius: 14,
     marginTop: 20,
+  },
+  playCourseBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 14,
   },
 });

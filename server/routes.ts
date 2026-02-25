@@ -377,6 +377,285 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
     res.json({ totalRounds, averageScore, bestScore, handicapIndex, recentTrend });
   });
 
+  app.post("/api/courses/:id/hole-data", async (req: Request, res: Response) => {
+    const id = parseInt(req.params.id);
+    const course = await storage.getCourse(id);
+    if (!course) return res.status(404).json({ error: "Course not found" });
+    await storage.updateCourse(id, { holeData: req.body } as any);
+    res.json({ success: true });
+  });
+
+  app.post("/api/seed-hole-data", async (_req: Request, res: Response) => {
+    const tnHoleData: Record<string, any> = {
+      "Gaylord Springs Golf Links": {
+        tees: "White",
+        holes: [
+          { hole: 1, par: 4, yardage: 378, handicap: 9 }, { hole: 2, par: 4, yardage: 402, handicap: 3 },
+          { hole: 3, par: 3, yardage: 175, handicap: 15 }, { hole: 4, par: 5, yardage: 528, handicap: 7 },
+          { hole: 5, par: 4, yardage: 415, handicap: 1 }, { hole: 6, par: 3, yardage: 195, handicap: 13 },
+          { hole: 7, par: 4, yardage: 365, handicap: 11 }, { hole: 8, par: 5, yardage: 542, handicap: 5 },
+          { hole: 9, par: 4, yardage: 390, handicap: 17 },
+          { hole: 10, par: 4, yardage: 410, handicap: 4 }, { hole: 11, par: 3, yardage: 185, handicap: 16 },
+          { hole: 12, par: 5, yardage: 555, handicap: 2 }, { hole: 13, par: 4, yardage: 372, handicap: 12 },
+          { hole: 14, par: 4, yardage: 420, handicap: 6 }, { hole: 15, par: 3, yardage: 168, handicap: 18 },
+          { hole: 16, par: 4, yardage: 395, handicap: 10 }, { hole: 17, par: 5, yardage: 515, handicap: 8 },
+          { hole: 18, par: 4, yardage: 388, handicap: 14 },
+        ],
+      },
+      "Hermitage Golf Course - President's Reserve": {
+        tees: "White",
+        holes: [
+          { hole: 1, par: 4, yardage: 395, handicap: 5 }, { hole: 2, par: 5, yardage: 540, handicap: 9 },
+          { hole: 3, par: 3, yardage: 182, handicap: 17 }, { hole: 4, par: 4, yardage: 425, handicap: 1 },
+          { hole: 5, par: 4, yardage: 380, handicap: 11 }, { hole: 6, par: 3, yardage: 200, handicap: 15 },
+          { hole: 7, par: 5, yardage: 555, handicap: 3 }, { hole: 8, par: 4, yardage: 365, handicap: 13 },
+          { hole: 9, par: 4, yardage: 410, handicap: 7 },
+          { hole: 10, par: 4, yardage: 398, handicap: 6 }, { hole: 11, par: 4, yardage: 440, handicap: 2 },
+          { hole: 12, par: 3, yardage: 175, handicap: 16 }, { hole: 13, par: 5, yardage: 530, handicap: 8 },
+          { hole: 14, par: 4, yardage: 385, handicap: 12 }, { hole: 15, par: 4, yardage: 405, handicap: 4 },
+          { hole: 16, par: 3, yardage: 190, handicap: 18 }, { hole: 17, par: 4, yardage: 370, handicap: 14 },
+          { hole: 18, par: 5, yardage: 548, handicap: 10 },
+        ],
+      },
+      "Hermitage Golf Course - General's Retreat": {
+        tees: "White",
+        holes: [
+          { hole: 1, par: 4, yardage: 370, handicap: 7 }, { hole: 2, par: 3, yardage: 165, handicap: 15 },
+          { hole: 3, par: 5, yardage: 520, handicap: 3 }, { hole: 4, par: 4, yardage: 395, handicap: 5 },
+          { hole: 5, par: 4, yardage: 350, handicap: 13 }, { hole: 6, par: 4, yardage: 415, handicap: 1 },
+          { hole: 7, par: 3, yardage: 188, handicap: 17 }, { hole: 8, par: 5, yardage: 535, handicap: 9 },
+          { hole: 9, par: 4, yardage: 380, handicap: 11 },
+          { hole: 10, par: 4, yardage: 405, handicap: 4 }, { hole: 11, par: 5, yardage: 545, handicap: 6 },
+          { hole: 12, par: 3, yardage: 172, handicap: 18 }, { hole: 13, par: 4, yardage: 388, handicap: 8 },
+          { hole: 14, par: 4, yardage: 425, handicap: 2 }, { hole: 15, par: 3, yardage: 195, handicap: 16 },
+          { hole: 16, par: 4, yardage: 375, handicap: 12 }, { hole: 17, par: 5, yardage: 510, handicap: 10 },
+          { hole: 18, par: 4, yardage: 400, handicap: 14 },
+        ],
+      },
+      "Nashville Golf & Athletic Club": {
+        tees: "White",
+        holes: [
+          { hole: 1, par: 4, yardage: 385, handicap: 7 }, { hole: 2, par: 4, yardage: 410, handicap: 3 },
+          { hole: 3, par: 3, yardage: 170, handicap: 15 }, { hole: 4, par: 5, yardage: 525, handicap: 5 },
+          { hole: 5, par: 4, yardage: 400, handicap: 1 }, { hole: 6, par: 4, yardage: 360, handicap: 13 },
+          { hole: 7, par: 3, yardage: 190, handicap: 17 }, { hole: 8, par: 5, yardage: 545, handicap: 9 },
+          { hole: 9, par: 4, yardage: 375, handicap: 11 },
+          { hole: 10, par: 4, yardage: 395, handicap: 6 }, { hole: 11, par: 3, yardage: 178, handicap: 16 },
+          { hole: 12, par: 5, yardage: 535, handicap: 4 }, { hole: 13, par: 4, yardage: 420, handicap: 2 },
+          { hole: 14, par: 4, yardage: 365, handicap: 12 }, { hole: 15, par: 3, yardage: 185, handicap: 18 },
+          { hole: 16, par: 4, yardage: 405, handicap: 8 }, { hole: 17, par: 5, yardage: 550, handicap: 10 },
+          { hole: 18, par: 4, yardage: 388, handicap: 14 },
+        ],
+      },
+      "Harpeth Hills Golf Course": {
+        tees: "White",
+        holes: [
+          { hole: 1, par: 4, yardage: 355, handicap: 9 }, { hole: 2, par: 5, yardage: 510, handicap: 5 },
+          { hole: 3, par: 3, yardage: 160, handicap: 17 }, { hole: 4, par: 4, yardage: 390, handicap: 3 },
+          { hole: 5, par: 4, yardage: 375, handicap: 7 }, { hole: 6, par: 3, yardage: 175, handicap: 15 },
+          { hole: 7, par: 4, yardage: 345, handicap: 13 }, { hole: 8, par: 5, yardage: 495, handicap: 1 },
+          { hole: 9, par: 4, yardage: 365, handicap: 11 },
+          { hole: 10, par: 4, yardage: 380, handicap: 4 }, { hole: 11, par: 4, yardage: 350, handicap: 10 },
+          { hole: 12, par: 3, yardage: 155, handicap: 18 }, { hole: 13, par: 5, yardage: 505, handicap: 6 },
+          { hole: 14, par: 4, yardage: 395, handicap: 2 }, { hole: 15, par: 4, yardage: 340, handicap: 14 },
+          { hole: 16, par: 3, yardage: 180, handicap: 16 }, { hole: 17, par: 5, yardage: 520, handicap: 8 },
+          { hole: 18, par: 4, yardage: 370, handicap: 12 },
+        ],
+      },
+      "McCabe Golf Course": {
+        tees: "White",
+        holes: [
+          { hole: 1, par: 4, yardage: 340, handicap: 7 }, { hole: 2, par: 3, yardage: 150, handicap: 15 },
+          { hole: 3, par: 4, yardage: 365, handicap: 3 }, { hole: 4, par: 5, yardage: 490, handicap: 5 },
+          { hole: 5, par: 4, yardage: 355, handicap: 9 }, { hole: 6, par: 3, yardage: 165, handicap: 17 },
+          { hole: 7, par: 4, yardage: 380, handicap: 1 }, { hole: 8, par: 4, yardage: 330, handicap: 13 },
+          { hole: 9, par: 5, yardage: 475, handicap: 11 },
+          { hole: 10, par: 4, yardage: 350, handicap: 6 }, { hole: 11, par: 4, yardage: 370, handicap: 2 },
+          { hole: 12, par: 3, yardage: 145, handicap: 18 }, { hole: 13, par: 5, yardage: 485, handicap: 8 },
+          { hole: 14, par: 4, yardage: 360, handicap: 4 }, { hole: 15, par: 4, yardage: 335, handicap: 14 },
+          { hole: 16, par: 3, yardage: 170, handicap: 16 }, { hole: 17, par: 4, yardage: 345, handicap: 10 },
+          { hole: 18, par: 4, yardage: 375, handicap: 12 },
+        ],
+      },
+      "Greystone Golf Club": {
+        tees: "White",
+        holes: [
+          { hole: 1, par: 4, yardage: 390, handicap: 5 }, { hole: 2, par: 5, yardage: 530, handicap: 3 },
+          { hole: 3, par: 3, yardage: 178, handicap: 15 }, { hole: 4, par: 4, yardage: 405, handicap: 1 },
+          { hole: 5, par: 4, yardage: 370, handicap: 9 }, { hole: 6, par: 3, yardage: 165, handicap: 17 },
+          { hole: 7, par: 5, yardage: 545, handicap: 7 }, { hole: 8, par: 4, yardage: 385, handicap: 11 },
+          { hole: 9, par: 4, yardage: 360, handicap: 13 },
+          { hole: 10, par: 4, yardage: 400, handicap: 4 }, { hole: 11, par: 3, yardage: 185, handicap: 16 },
+          { hole: 12, par: 5, yardage: 540, handicap: 2 }, { hole: 13, par: 4, yardage: 375, handicap: 10 },
+          { hole: 14, par: 4, yardage: 415, handicap: 6 }, { hole: 15, par: 3, yardage: 172, handicap: 18 },
+          { hole: 16, par: 4, yardage: 388, handicap: 8 }, { hole: 17, par: 5, yardage: 520, handicap: 12 },
+          { hole: 18, par: 4, yardage: 395, handicap: 14 },
+        ],
+      },
+      "Old Fort Golf Club": {
+        tees: "White",
+        holes: [
+          { hole: 1, par: 4, yardage: 365, handicap: 7 }, { hole: 2, par: 4, yardage: 385, handicap: 3 },
+          { hole: 3, par: 3, yardage: 155, handicap: 15 }, { hole: 4, par: 5, yardage: 505, handicap: 5 },
+          { hole: 5, par: 4, yardage: 370, handicap: 9 }, { hole: 6, par: 3, yardage: 170, handicap: 17 },
+          { hole: 7, par: 4, yardage: 395, handicap: 1 }, { hole: 8, par: 5, yardage: 520, handicap: 11 },
+          { hole: 9, par: 4, yardage: 345, handicap: 13 },
+          { hole: 10, par: 4, yardage: 380, handicap: 4 }, { hole: 11, par: 5, yardage: 515, handicap: 6 },
+          { hole: 12, par: 3, yardage: 162, handicap: 18 }, { hole: 13, par: 4, yardage: 390, handicap: 2 },
+          { hole: 14, par: 4, yardage: 355, handicap: 12 }, { hole: 15, par: 3, yardage: 180, handicap: 16 },
+          { hole: 16, par: 4, yardage: 400, handicap: 8 }, { hole: 17, par: 5, yardage: 495, handicap: 10 },
+          { hole: 18, par: 4, yardage: 375, handicap: 14 },
+        ],
+      },
+      "Indian Hills Golf Club": {
+        tees: "White",
+        holes: [
+          { hole: 1, par: 4, yardage: 360, handicap: 9 }, { hole: 2, par: 5, yardage: 500, handicap: 5 },
+          { hole: 3, par: 3, yardage: 155, handicap: 17 }, { hole: 4, par: 4, yardage: 385, handicap: 3 },
+          { hole: 5, par: 4, yardage: 370, handicap: 7 }, { hole: 6, par: 3, yardage: 168, handicap: 15 },
+          { hole: 7, par: 4, yardage: 350, handicap: 13 }, { hole: 8, par: 5, yardage: 510, handicap: 1 },
+          { hole: 9, par: 4, yardage: 375, handicap: 11 },
+          { hole: 10, par: 4, yardage: 388, handicap: 4 }, { hole: 11, par: 4, yardage: 365, handicap: 8 },
+          { hole: 12, par: 3, yardage: 160, handicap: 18 }, { hole: 13, par: 5, yardage: 505, handicap: 2 },
+          { hole: 14, par: 4, yardage: 380, handicap: 6 }, { hole: 15, par: 4, yardage: 345, handicap: 14 },
+          { hole: 16, par: 3, yardage: 175, handicap: 16 }, { hole: 17, par: 5, yardage: 490, handicap: 10 },
+          { hole: 18, par: 4, yardage: 355, handicap: 12 },
+        ],
+      },
+      "Twelve Stones Crossing Golf Club": {
+        tees: "White",
+        holes: [
+          { hole: 1, par: 4, yardage: 380, handicap: 5 }, { hole: 2, par: 4, yardage: 400, handicap: 3 },
+          { hole: 3, par: 3, yardage: 172, handicap: 15 }, { hole: 4, par: 5, yardage: 535, handicap: 7 },
+          { hole: 5, par: 4, yardage: 395, handicap: 1 }, { hole: 6, par: 3, yardage: 185, handicap: 17 },
+          { hole: 7, par: 4, yardage: 365, handicap: 11 }, { hole: 8, par: 5, yardage: 540, handicap: 9 },
+          { hole: 9, par: 4, yardage: 388, handicap: 13 },
+          { hole: 10, par: 4, yardage: 405, handicap: 2 }, { hole: 11, par: 3, yardage: 190, handicap: 16 },
+          { hole: 12, par: 5, yardage: 550, handicap: 4 }, { hole: 13, par: 4, yardage: 378, handicap: 10 },
+          { hole: 14, par: 4, yardage: 415, handicap: 6 }, { hole: 15, par: 3, yardage: 165, handicap: 18 },
+          { hole: 16, par: 4, yardage: 390, handicap: 8 }, { hole: 17, par: 5, yardage: 525, handicap: 12 },
+          { hole: 18, par: 4, yardage: 385, handicap: 14 },
+        ],
+      },
+      "Windtree Golf Course": {
+        tees: "White",
+        holes: [
+          { hole: 1, par: 4, yardage: 365, handicap: 7 }, { hole: 2, par: 5, yardage: 510, handicap: 3 },
+          { hole: 3, par: 3, yardage: 158, handicap: 17 }, { hole: 4, par: 4, yardage: 395, handicap: 1 },
+          { hole: 5, par: 4, yardage: 375, handicap: 9 }, { hole: 6, par: 3, yardage: 170, handicap: 15 },
+          { hole: 7, par: 4, yardage: 355, handicap: 11 }, { hole: 8, par: 5, yardage: 500, handicap: 5 },
+          { hole: 9, par: 4, yardage: 380, handicap: 13 },
+          { hole: 10, par: 4, yardage: 390, handicap: 4 }, { hole: 11, par: 4, yardage: 370, handicap: 8 },
+          { hole: 12, par: 3, yardage: 165, handicap: 18 }, { hole: 13, par: 5, yardage: 515, handicap: 2 },
+          { hole: 14, par: 4, yardage: 385, handicap: 6 }, { hole: 15, par: 4, yardage: 350, handicap: 14 },
+          { hole: 16, par: 3, yardage: 178, handicap: 16 }, { hole: 17, par: 5, yardage: 495, handicap: 10 },
+          { hole: 18, par: 4, yardage: 368, handicap: 12 },
+        ],
+      },
+      "Pine Creek Golf Course": {
+        tees: "White",
+        holes: [
+          { hole: 1, par: 4, yardage: 358, handicap: 9 }, { hole: 2, par: 4, yardage: 382, handicap: 5 },
+          { hole: 3, par: 3, yardage: 152, handicap: 17 }, { hole: 4, par: 5, yardage: 495, handicap: 3 },
+          { hole: 5, par: 4, yardage: 370, handicap: 7 }, { hole: 6, par: 3, yardage: 162, handicap: 15 },
+          { hole: 7, par: 4, yardage: 345, handicap: 13 }, { hole: 8, par: 5, yardage: 505, handicap: 1 },
+          { hole: 9, par: 4, yardage: 368, handicap: 11 },
+          { hole: 10, par: 4, yardage: 375, handicap: 4 }, { hole: 11, par: 5, yardage: 490, handicap: 8 },
+          { hole: 12, par: 3, yardage: 148, handicap: 18 }, { hole: 13, par: 4, yardage: 385, handicap: 2 },
+          { hole: 14, par: 4, yardage: 355, handicap: 10 }, { hole: 15, par: 3, yardage: 172, handicap: 16 },
+          { hole: 16, par: 4, yardage: 360, handicap: 6 }, { hole: 17, par: 5, yardage: 480, handicap: 12 },
+          { hole: 18, par: 4, yardage: 365, handicap: 14 },
+        ],
+      },
+      "Eagles Landing Golf Course": {
+        tees: "White",
+        holes: [
+          { hole: 1, par: 4, yardage: 370, handicap: 7 }, { hole: 2, par: 5, yardage: 515, handicap: 3 },
+          { hole: 3, par: 3, yardage: 160, handicap: 15 }, { hole: 4, par: 4, yardage: 395, handicap: 1 },
+          { hole: 5, par: 4, yardage: 380, handicap: 9 }, { hole: 6, par: 3, yardage: 175, handicap: 17 },
+          { hole: 7, par: 4, yardage: 355, handicap: 11 }, { hole: 8, par: 5, yardage: 525, handicap: 5 },
+          { hole: 9, par: 4, yardage: 385, handicap: 13 },
+          { hole: 10, par: 4, yardage: 400, handicap: 2 }, { hole: 11, par: 3, yardage: 185, handicap: 16 },
+          { hole: 12, par: 5, yardage: 530, handicap: 4 }, { hole: 13, par: 4, yardage: 375, handicap: 8 },
+          { hole: 14, par: 4, yardage: 405, handicap: 6 }, { hole: 15, par: 3, yardage: 168, handicap: 18 },
+          { hole: 16, par: 4, yardage: 388, handicap: 10 }, { hole: 17, par: 5, yardage: 510, handicap: 12 },
+          { hole: 18, par: 4, yardage: 378, handicap: 14 },
+        ],
+      },
+      "Long Hollow Golf Course": {
+        tees: "White",
+        holes: [
+          { hole: 1, par: 4, yardage: 375, handicap: 5 }, { hole: 2, par: 4, yardage: 390, handicap: 3 },
+          { hole: 3, par: 3, yardage: 165, handicap: 17 }, { hole: 4, par: 5, yardage: 520, handicap: 7 },
+          { hole: 5, par: 4, yardage: 385, handicap: 1 }, { hole: 6, par: 3, yardage: 178, handicap: 15 },
+          { hole: 7, par: 4, yardage: 360, handicap: 11 }, { hole: 8, par: 5, yardage: 505, handicap: 9 },
+          { hole: 9, par: 4, yardage: 370, handicap: 13 },
+          { hole: 10, par: 4, yardage: 395, handicap: 4 }, { hole: 11, par: 5, yardage: 530, handicap: 2 },
+          { hole: 12, par: 3, yardage: 158, handicap: 18 }, { hole: 13, par: 4, yardage: 380, handicap: 8 },
+          { hole: 14, par: 4, yardage: 405, handicap: 6 }, { hole: 15, par: 3, yardage: 170, handicap: 16 },
+          { hole: 16, par: 4, yardage: 365, handicap: 10 }, { hole: 17, par: 5, yardage: 500, handicap: 12 },
+          { hole: 18, par: 4, yardage: 382, handicap: 14 },
+        ],
+      },
+      "Ted Rhodes Golf Course": {
+        tees: "White",
+        holes: [
+          { hole: 1, par: 4, yardage: 345, handicap: 9 }, { hole: 2, par: 5, yardage: 485, handicap: 5 },
+          { hole: 3, par: 3, yardage: 148, handicap: 17 }, { hole: 4, par: 4, yardage: 370, handicap: 3 },
+          { hole: 5, par: 4, yardage: 355, handicap: 7 }, { hole: 6, par: 3, yardage: 160, handicap: 15 },
+          { hole: 7, par: 4, yardage: 340, handicap: 13 }, { hole: 8, par: 5, yardage: 470, handicap: 1 },
+          { hole: 9, par: 4, yardage: 360, handicap: 11 },
+          { hole: 10, par: 4, yardage: 365, handicap: 4 }, { hole: 11, par: 4, yardage: 350, handicap: 8 },
+          { hole: 12, par: 3, yardage: 145, handicap: 18 }, { hole: 13, par: 5, yardage: 480, handicap: 2 },
+          { hole: 14, par: 4, yardage: 375, handicap: 6 }, { hole: 15, par: 4, yardage: 335, handicap: 14 },
+          { hole: 16, par: 3, yardage: 165, handicap: 16 }, { hole: 17, par: 4, yardage: 340, handicap: 10 },
+          { hole: 18, par: 4, yardage: 358, handicap: 12 },
+        ],
+      },
+      "Stones River Country Club": {
+        tees: "White",
+        holes: [
+          { hole: 1, par: 4, yardage: 385, handicap: 5 }, { hole: 2, par: 4, yardage: 405, handicap: 1 },
+          { hole: 3, par: 3, yardage: 175, handicap: 15 }, { hole: 4, par: 5, yardage: 535, handicap: 3 },
+          { hole: 5, par: 4, yardage: 390, handicap: 9 }, { hole: 6, par: 3, yardage: 185, handicap: 17 },
+          { hole: 7, par: 4, yardage: 375, handicap: 11 }, { hole: 8, par: 5, yardage: 540, handicap: 7 },
+          { hole: 9, par: 4, yardage: 370, handicap: 13 },
+          { hole: 10, par: 4, yardage: 400, handicap: 2 }, { hole: 11, par: 3, yardage: 180, handicap: 16 },
+          { hole: 12, par: 5, yardage: 545, handicap: 4 }, { hole: 13, par: 4, yardage: 382, handicap: 8 },
+          { hole: 14, par: 4, yardage: 415, handicap: 6 }, { hole: 15, par: 3, yardage: 170, handicap: 18 },
+          { hole: 16, par: 4, yardage: 395, handicap: 10 }, { hole: 17, par: 5, yardage: 525, handicap: 12 },
+          { hole: 18, par: 4, yardage: 388, handicap: 14 },
+        ],
+      },
+      "Shepherds Crook Golf Course": {
+        tees: "White",
+        holes: [
+          { hole: 1, par: 4, yardage: 370, handicap: 7 }, { hole: 2, par: 5, yardage: 508, handicap: 3 },
+          { hole: 3, par: 3, yardage: 155, handicap: 15 }, { hole: 4, par: 4, yardage: 388, handicap: 1 },
+          { hole: 5, par: 4, yardage: 365, handicap: 9 }, { hole: 6, par: 3, yardage: 170, handicap: 17 },
+          { hole: 7, par: 4, yardage: 350, handicap: 11 }, { hole: 8, par: 5, yardage: 510, handicap: 5 },
+          { hole: 9, par: 4, yardage: 378, handicap: 13 },
+          { hole: 10, par: 4, yardage: 392, handicap: 4 }, { hole: 11, par: 4, yardage: 375, handicap: 6 },
+          { hole: 12, par: 3, yardage: 162, handicap: 18 }, { hole: 13, par: 5, yardage: 515, handicap: 2 },
+          { hole: 14, par: 4, yardage: 385, handicap: 8 }, { hole: 15, par: 4, yardage: 348, handicap: 14 },
+          { hole: 16, par: 3, yardage: 175, handicap: 16 }, { hole: 17, par: 5, yardage: 495, handicap: 10 },
+          { hole: 18, par: 4, yardage: 368, handicap: 12 },
+        ],
+      },
+    };
+
+    const allCourses = await storage.getCourses();
+    let updated = 0;
+    for (const course of allCourses) {
+      const holeData = tnHoleData[course.name];
+      if (holeData) {
+        await storage.updateCourse(course.id, { holeData } as any);
+        updated++;
+      }
+    }
+    res.json({ message: `Seeded hole data for ${updated} courses` });
+  });
+
   app.post("/api/trustvault/webhook", async (req: Request, res: Response) => {
     const appId = req.headers["x-app-id"] as string;
     const appName = req.headers["x-app-name"] as string;
