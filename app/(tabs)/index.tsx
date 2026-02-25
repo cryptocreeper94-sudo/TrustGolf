@@ -12,7 +12,6 @@ import * as Haptics from "expo-haptics";
 import Animated, {
   useSharedValue, useAnimatedStyle, withTiming, withSpring,
   withRepeat, withSequence, Easing, FadeIn, FadeInDown,
-  runOnJS,
 } from "react-native-reanimated";
 import { useQuery } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -85,11 +84,10 @@ const CATEGORIES = [
 ];
 
 function ImageHero() {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [nextIndex, setNextIndex] = useState(1);
-  const [showNext, setShowNext] = useState(false);
-  const topOpacity = useSharedValue(1);
+  const [layers, setLayers] = useState([0, 1]);
+  const [topVisible, setTopVisible] = useState(true);
   const scale = useSharedValue(1);
+  const imgCounter = useRef(0);
 
   useEffect(() => {
     if (Platform.OS === "web") {
@@ -110,16 +108,17 @@ function ImageHero() {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      const next = (currentIndex + 1) % HERO_IMAGES.length;
-      setNextIndex(next);
-      setShowNext(true);
-      topOpacity.value = withTiming(0, { duration: 1200 }, (finished) => {
-        if (finished) {
-          runOnJS(setCurrentIndex)(next);
-          runOnJS(setShowNext)(false);
-          topOpacity.value = 1;
-        }
-      });
+      imgCounter.current = (imgCounter.current + 1) % HERO_IMAGES.length;
+      const nextImg = imgCounter.current;
+
+      if (topVisible) {
+        setLayers([layers[0], nextImg]);
+        setTopVisible(false);
+      } else {
+        setLayers([nextImg, layers[1]]);
+        setTopVisible(true);
+      }
+
       scale.value = 1;
       scale.value = withRepeat(
         withTiming(1.08, { duration: 8000, easing: Easing.inOut(Easing.ease) }),
@@ -128,38 +127,47 @@ function ImageHero() {
       );
     }, 7000);
     return () => clearInterval(interval);
-  }, [currentIndex]);
+  }, [topVisible, layers]);
 
-  const topStyle = useAnimatedStyle(() => ({
-    opacity: topOpacity.value,
-    transform: [{ scale: scale.value }],
-  }));
-
-  const bottomStyle = useAnimatedStyle(() => ({
+  const scaleStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
 
   const isWeb = Platform.OS === "web";
   const imgStyle = { width: "100%" as any, height: "100%" as any };
-  const fill = { position: "absolute" as const, top: 0, left: 0, right: 0, bottom: 0, width: "100%" as any, height: "100%" as any };
+  const fill: any = { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, width: "100%", height: "100%" };
+
+  const renderImage = (idx: number) => {
+    if (isWeb) {
+      return <RNImage source={{ uri: HERO_IMAGES[idx] }} style={imgStyle} resizeMode="cover" />;
+    }
+    return <Image source={{ uri: HERO_IMAGES[idx] }} style={imgStyle} contentFit="cover" />;
+  };
+
+  if (isWeb) {
+    return (
+      <>
+        <View style={[fill, { opacity: topVisible ? 0 : 1, transition: "opacity 1.2s ease-in-out" } as any]}>
+          <Animated.View style={[fill, scaleStyle]}>
+            {renderImage(layers[1])}
+          </Animated.View>
+        </View>
+        <View style={[fill, { opacity: topVisible ? 1 : 0, transition: "opacity 1.2s ease-in-out" } as any]}>
+          <Animated.View style={[fill, scaleStyle]}>
+            {renderImage(layers[0])}
+          </Animated.View>
+        </View>
+      </>
+    );
+  }
 
   return (
     <>
-      {showNext && (
-        <Animated.View style={[fill, bottomStyle]}>
-          {isWeb ? (
-            <RNImage source={{ uri: HERO_IMAGES[nextIndex] }} style={imgStyle} resizeMode="cover" />
-          ) : (
-            <Image source={{ uri: HERO_IMAGES[nextIndex] }} style={imgStyle} contentFit="cover" />
-          )}
-        </Animated.View>
-      )}
-      <Animated.View style={[fill, topStyle]}>
-        {isWeb ? (
-          <RNImage source={{ uri: HERO_IMAGES[currentIndex] }} style={imgStyle} resizeMode="cover" />
-        ) : (
-          <Image source={{ uri: HERO_IMAGES[currentIndex] }} style={imgStyle} contentFit="cover" />
-        )}
+      <Animated.View style={[fill, scaleStyle, { opacity: topVisible ? 0 : 1 }]}>
+        {renderImage(layers[1])}
+      </Animated.View>
+      <Animated.View style={[fill, scaleStyle, { opacity: topVisible ? 1 : 0 }]}>
+        {renderImage(layers[0])}
       </Animated.View>
     </>
   );
