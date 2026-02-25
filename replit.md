@@ -41,7 +41,7 @@ A premium mobile-first golf platform built with React Native + Expo, featuring a
 2. **Course Catalog** - 45 courses (20 world-class + 8 Upstate SC + 17 Middle TN/Nashville) organized by state with filterable chips, SectionList grouped by state, full descriptions, designer info, year built, course type, unique gallery images, amenities with icons, contact info
 3. **Score Tracking** - Log rounds with stats (putts, FIR, GIR), view history, averages, and USGA Handicap Index. Real hole-by-hole scorecards for Middle TN/Nashville courses (17 courses with full hole data: par, yardage, handicap per hole)
 4. **AI Swing Analyzer** - Club-specific analysis (Driver, Fairway Wood, Hybrid, Long/Mid/Short Iron, Wedges, Putter); photo/video mode; AI prompt tailored per club type
-5. **Video Swing Playback** - Slow-motion playback (0.25x/0.5x/1x), frame extraction from video via expo-video-thumbnails, TrustVault studio editing
+5. **Video Swing Playback** - Slow-motion playback (0.25x/0.5x/1x), frame extraction from video via expo-video-thumbnails, TrustVault upload + editing via ecosystem HMAC auth
 6. **Swing Results** - Detailed breakdown with score meters, tips, and drills (club-specific feedback)
 7. **Deals** - Browse discounted tee times and packages
 8. **Developer Dashboard** - Password-protected (0424) admin panel with: course/deal management, golf affiliate program directory (14 programs), course partnership pitch guide with elevator pitch, talking points, and partnership tiers
@@ -97,11 +97,12 @@ contexts/
   AuthContext.tsx       - Authentication state
 
 server/
-  index.ts             - Express server setup
-  routes.ts            - API routes (auth, courses, rounds, deals, swing-analyze, stats, trustvault, seed)
+  index.ts             - Express server setup (serves /course-images/ static path)
+  routes.ts            - API routes (auth, courses, rounds, deals, swing-analyze, stats, trustvault, seed) — resolves relative image URLs to absolute
   storage.ts           - Database storage implementation (CRUD for all entities)
   db.ts                - Database connection
-  trustvault.ts        - TrustVault API service module
+  trustvault.ts        - TrustVault API service module (ecosystem HMAC + studio bearer auth)
+  public/courses/      - 60 stock golf course images served at /course-images/
 
 shared/
   schema.ts            - Drizzle ORM schema (users, courses, rounds, swingAnalyses, deals, conversations, messages)

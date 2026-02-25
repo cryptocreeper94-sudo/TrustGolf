@@ -123,8 +123,53 @@ export default function SwingVideoScreen() {
     }
   }, [capturedFrame, user]);
 
+  const [uploading, setUploading] = useState(false);
+
   const openInTrustVault = useCallback(async () => {
+    if (!uri) return;
+    setUploading(true);
+    setError("");
     try {
+      const filename = uri.split("/").pop() || "swing_video.mp4";
+      const uploadRes = await apiRequest("POST", "/api/trustvault/upload-url", {
+        name: filename,
+        contentType: "video/mp4",
+        size: 0,
+      });
+      const uploadData = await uploadRes.json();
+
+      if (uploadData.uploadUrl) {
+        const videoResponse = await fetch(uri);
+        const blob = await videoResponse.blob();
+        await fetch(uploadData.uploadUrl, {
+          method: "PUT",
+          body: blob,
+          headers: { "Content-Type": "video/mp4" },
+        });
+
+        await apiRequest("POST", "/api/trustvault/confirm-upload", {
+          title: `Swing Video - ${new Date().toLocaleDateString()}`,
+          url: uploadData.objectUrl || uploadData.uploadUrl.split("?")[0],
+          filename,
+          contentType: "video/mp4",
+          size: blob.size,
+          tags: ["swing", "golf", clubType || "unknown"],
+        });
+      }
+
+      const embedRes = await apiRequest("POST", "/api/trustvault/editor-embed", {
+        editorType: "video",
+      });
+      const embedData = await embedRes.json();
+
+      const vaultUrl = embedData.editorUrl || "https://trustvault.replit.app/video-editor";
+      if (Platform.OS === "web") {
+        window.open(vaultUrl, "_blank");
+      } else {
+        await Linking.openURL(vaultUrl);
+      }
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } catch (err: any) {
       const vaultUrl = "https://trustvault.replit.app/video-editor";
       if (Platform.OS === "web") {
         window.open(vaultUrl, "_blank");
@@ -132,10 +177,10 @@ export default function SwingVideoScreen() {
         await Linking.openURL(vaultUrl);
       }
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    } catch {
-      setError("Could not open TrustVault editor");
+    } finally {
+      setUploading(false);
     }
-  }, []);
+  }, [uri, clubType]);
 
   if (!uri) {
     return (
@@ -181,8 +226,12 @@ export default function SwingVideoScreen() {
           <PremiumText variant="caption" color={colors.textSecondary} style={{ fontWeight: "600" }}>Back</PremiumText>
         </Pressable>
         <PremiumText variant="subtitle">Swing Playback</PremiumText>
-        <Pressable onPress={openInTrustVault} testID="edit-vault-btn">
-          <Ionicons name="color-wand" size={22} color={colors.accent} />
+        <Pressable onPress={openInTrustVault} testID="edit-vault-btn" disabled={uploading}>
+          {uploading ? (
+            <ActivityIndicator size="small" color={colors.accent} />
+          ) : (
+            <Ionicons name="color-wand" size={22} color={colors.accent} />
+          )}
         </Pressable>
       </View>
 

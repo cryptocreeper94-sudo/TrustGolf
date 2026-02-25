@@ -113,6 +113,11 @@ export class DatabaseStorage implements IStorage {
     return newDeal;
   }
 
+  async updateDeal(id: number, data: Partial<InsertDeal>): Promise<Deal> {
+    const [updated] = await db.update(deals).set(data).where(eq(deals.id, id)).returning();
+    return updated;
+  }
+
   async getConversation(id: number): Promise<Conversation | undefined> {
     const [conversation] = await db.select().from(conversations).where(eq(conversations.id, id));
     return conversation || undefined;

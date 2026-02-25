@@ -184,15 +184,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
-  app.get("/api/courses", async (_req: Request, res: Response) => {
+  function resolveImageUrl(url: string | null, req: Request): string | null {
+    if (!url) return url;
+    if (url.startsWith("/")) {
+      return `${req.protocol}://${req.get("host")}${url}`;
+    }
+    return url;
+  }
+
+  function resolveCourseImages(course: any, req: Request) {
+    return {
+      ...course,
+      imageUrl: resolveImageUrl(course.imageUrl, req),
+      galleryImages: Array.isArray(course.galleryImages)
+        ? course.galleryImages.map((u: string) => resolveImageUrl(u, req))
+        : course.galleryImages,
+    };
+  }
+
+  app.get("/api/courses", async (req: Request, res: Response) => {
     const allCourses = await storage.getCourses();
-    res.json(allCourses);
+    res.json(allCourses.map((c: any) => resolveCourseImages(c, req)));
   });
 
   app.get("/api/courses/:id", async (req: Request, res: Response) => {
     const course = await storage.getCourse(parseInt(req.params.id));
     if (!course) return res.status(404).json({ error: "Course not found" });
-    res.json(course);
+    res.json(resolveCourseImages(course, req));
   });
 
   app.post("/api/courses", async (req: Request, res: Response) => {
@@ -224,9 +242,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(201).json(round);
   });
 
-  app.get("/api/deals", async (_req: Request, res: Response) => {
+  app.get("/api/deals", async (req: Request, res: Response) => {
     const allDeals = await storage.getDeals();
-    res.json(allDeals);
+    res.json(allDeals.map((d: any) => ({
+      ...d,
+      imageUrl: resolveImageUrl(d.imageUrl, req),
+    })));
   });
 
   app.post("/api/deals", async (req: Request, res: Response) => {
@@ -709,11 +730,9 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
   });
 
   app.post("/api/trustvault/upload-url", async (req: Request, res: Response) => {
-    const token = req.headers.authorization?.replace("Bearer ", "");
-    if (!token) return res.status(401).json({ error: "No token provided" });
     const { name, contentType, size } = req.body;
     try {
-      const result = await trustvault.getUploadUrl(token, name, contentType, size);
+      const result = await trustvault.ecosystemUpload(name, contentType, size);
       res.json(result);
     } catch (err: any) {
       res.status(502).json({ error: "Failed to get upload URL", details: err.message });
@@ -721,10 +740,8 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
   });
 
   app.post("/api/trustvault/confirm-upload", async (req: Request, res: Response) => {
-    const token = req.headers.authorization?.replace("Bearer ", "");
-    if (!token) return res.status(401).json({ error: "No token provided" });
     try {
-      const result = await trustvault.confirmUpload(token, req.body);
+      const result = await trustvault.ecosystemConfirmUpload(req.body);
       res.json(result);
     } catch (err: any) {
       res.status(502).json({ error: "Failed to confirm upload", details: err.message });
@@ -732,8 +749,7 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
   });
 
   app.post("/api/trustvault/editor-embed", async (req: Request, res: Response) => {
-    const token = req.headers.authorization?.replace("Bearer ", "");
-    if (!token) return res.status(401).json({ error: "No token provided" });
+    const token = req.headers.authorization?.replace("Bearer ", "") || "";
     const { editorType, mediaId, returnUrl } = req.body;
     try {
       const result = await trustvault.getEditorEmbed(token, editorType, mediaId, returnUrl);
@@ -788,8 +804,8 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
         amenities: "Pro Shop, Champions Dining Room, Trophy Room, Caddie Service, Practice Range, Par-3 Course, Eisenhower Cabin, Crow's Nest",
         phone: "(706) 667-6000",
         website: "https://www.augustanational.com",
-        imageUrl: "https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?w=800",
-        galleryImages: ["https://images.unsplash.com/photo-1535131749006-b7f58c99034b?w=600", "https://images.unsplash.com/photo-1600166898405-da9535204843?w=600", "https://images.unsplash.com/photo-1593111774240-d529f12cf4bb?w=600"],
+        imageUrl: "/course-images/golf_courses_1.jpg",
+        galleryImages: ["/course-images/golf_aerial_1.jpg","/course-images/golf_green_1.jpg","/course-images/golf_morning_1.jpg"],
       },
       {
         name: "Pebble Beach Golf Links",
@@ -809,8 +825,8 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
         amenities: "Pro Shop, The Lodge, Spa, 4 Restaurants, Practice Facility, Caddie Service, The Tap Room, Gallery Café, Stillwater Bar & Grill",
         phone: "(831) 622-8723",
         website: "https://www.pebblebeach.com",
-        imageUrl: "https://images.unsplash.com/photo-1535131749006-b7f58c99034b?w=800",
-        galleryImages: ["https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?w=600", "https://images.unsplash.com/photo-1506012787146-f92b2d7d6d96?w=600", "https://images.unsplash.com/photo-1592919505780-303950717480?w=600"],
+        imageUrl: "/course-images/golf_links_1.jpg",
+        galleryImages: ["/course-images/golf_aerial_2.jpg","/course-images/golf_courses_2.jpg","/course-images/golf_green_2.jpg"],
       },
       {
         name: "TPC Sawgrass - Stadium Course",
@@ -830,8 +846,8 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
         amenities: "Pro Shop, Clubhouse, Mediterranean-Style Dining, Practice Range, Short Game Area, Caddie Service, Locker Rooms, TPC Network Club",
         phone: "(904) 273-3235",
         website: "https://tpc.com/sawgrass",
-        imageUrl: "https://images.unsplash.com/photo-1593111774240-d529f12cf4bb?w=800",
-        galleryImages: ["https://images.unsplash.com/photo-1600166898405-da9535204843?w=600", "https://images.unsplash.com/photo-1611374243147-44a702c2d44c?w=600"],
+        imageUrl: "/course-images/golf_courses_3.jpg",
+        galleryImages: ["/course-images/golf_club_1.jpg","/course-images/golf_aerial_3.jpg"],
       },
       {
         name: "Pinehurst No. 2",
@@ -851,8 +867,8 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
         amenities: "Pro Shop, Resort Hotel, 9 Golf Courses, Spa, Dining Hall, The Deuce Bar, Practice Range, Short Game Complex, Putting Course, Croquet",
         phone: "(910) 235-8507",
         website: "https://www.pinehurst.com",
-        imageUrl: "https://images.unsplash.com/photo-1600166898405-da9535204843?w=800",
-        galleryImages: ["https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?w=600", "https://images.unsplash.com/photo-1535131749006-b7f58c99034b?w=600"],
+        imageUrl: "/course-images/golf_morning_2.jpg",
+        galleryImages: ["/course-images/golf_courses_4.jpg","/course-images/golf_green_3.jpg"],
       },
       {
         name: "Bethpage Black",
@@ -872,8 +888,8 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
         amenities: "Pro Shop, Clubhouse Restaurant, Practice Range, 5 Total Courses, Snack Bar, Locker Room",
         phone: "(516) 249-0707",
         website: "https://parks.ny.gov/golf-courses/bethpage",
-        imageUrl: "https://images.unsplash.com/photo-1611374243147-44a702c2d44c?w=800",
-        galleryImages: ["https://images.unsplash.com/photo-1593111774240-d529f12cf4bb?w=600", "https://images.unsplash.com/photo-1506012787146-f92b2d7d6d96?w=600"],
+        imageUrl: "/course-images/golf_aerial_4.jpg",
+        galleryImages: ["/course-images/golf_courses_5.jpg","/course-images/golf_club_2.jpg"],
       },
       {
         name: "Torrey Pines South Course",
@@ -893,8 +909,8 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
         amenities: "Pro Shop, The Grill at Torrey Pines, Practice Range, Putting Green, Short Game Area, Lodge at Torrey Pines, 36 Holes (North & South)",
         phone: "(858) 452-3226",
         website: "https://www.torreypinesgolfcourse.com",
-        imageUrl: "https://images.unsplash.com/photo-1506012787146-f92b2d7d6d96?w=800",
-        galleryImages: ["https://images.unsplash.com/photo-1535131749006-b7f58c99034b?w=600", "https://images.unsplash.com/photo-1592919505780-303950717480?w=600"],
+        imageUrl: "/course-images/golf_green_4.jpg",
+        galleryImages: ["/course-images/golf_courses_6.jpg","/course-images/golf_morning_3.jpg"],
       },
       {
         name: "Whistling Straits - Straits Course",
@@ -914,8 +930,8 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
         amenities: "Pro Shop, Irish Pub & Restaurant, Caddie Service (Walking Only), Practice Facility, 36 Holes, Kohler Resort Access, Horse-Drawn Cart Tours",
         phone: "(920) 565-6050",
         website: "https://www.americanclubresort.com/golf",
-        imageUrl: "https://images.unsplash.com/photo-1592919505780-303950717480?w=800",
-        galleryImages: ["https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?w=600", "https://images.unsplash.com/photo-1591491719565-9dfc9a498251?w=600"],
+        imageUrl: "/course-images/golf_links_2.jpg",
+        galleryImages: ["/course-images/golf_aerial_5.jpg","/course-images/golf_courses_7.jpg"],
       },
       {
         name: "Kiawah Island - Ocean Course",
@@ -935,8 +951,8 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
         amenities: "Pro Shop, Atlantic Room Restaurant, Caddie Program, Practice Range, Ryder Cup Bar, Resort Pool, Sanctuary Hotel, Nature Tours",
         phone: "(843) 266-4670",
         website: "https://www.kiawahresort.com/golf",
-        imageUrl: "https://images.unsplash.com/photo-1591491719565-9dfc9a498251?w=800",
-        galleryImages: ["https://images.unsplash.com/photo-1506012787146-f92b2d7d6d96?w=600", "https://images.unsplash.com/photo-1600166898405-da9535204843?w=600"],
+        imageUrl: "/course-images/golf_club_3.jpg",
+        galleryImages: ["/course-images/golf_links_3.jpg","/course-images/golf_aerial_6.jpg"],
       },
       {
         name: "Bandon Dunes",
@@ -956,8 +972,8 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
         amenities: "Pro Shop, The Gallery Restaurant, Bunker Bar, Caddie Service, Practice Center, Lodge & Resort Rooms, McKee's Pub, Trails Course, Preserve Course",
         phone: "(541) 347-4380",
         website: "https://www.bandondunesgolf.com",
-        imageUrl: "https://images.unsplash.com/photo-1600166898405-da9535204843?w=800",
-        galleryImages: ["https://images.unsplash.com/photo-1592919505780-303950717480?w=600", "https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?w=600"],
+        imageUrl: "/course-images/golf_courses_8.jpg",
+        galleryImages: ["/course-images/golf_links_4.jpg","/course-images/golf_green_5.jpg"],
       },
       {
         name: "Oakmont Country Club",
@@ -977,8 +993,8 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
         amenities: "Pro Shop, Formal Dining, Grillroom, Locker Rooms, Swimming Pool, Tennis Courts, Practice Facility, Historic Clubhouse",
         phone: "(412) 828-8000",
         website: "https://www.oakmont-countryclub.org",
-        imageUrl: "https://images.unsplash.com/photo-1611374243147-44a702c2d44c?w=800",
-        galleryImages: ["https://images.unsplash.com/photo-1593111774240-d529f12cf4bb?w=600", "https://images.unsplash.com/photo-1535131749006-b7f58c99034b?w=600"],
+        imageUrl: "/course-images/golf_morning_4.jpg",
+        galleryImages: ["/course-images/golf_club_4.jpg","/course-images/golf_courses_9.jpg"],
       },
       {
         name: "Cypress Point Club",
@@ -997,8 +1013,8 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
         description: "Many golf architects consider Cypress Point the single greatest golf course ever built. Alister MacKenzie routed 18 holes through three distinct landscapes — forested dunes, oceanside headlands, and the iconic cypress groves that give the club its name. The par-3 16th, playing 219 yards across the open Pacific to a green nestled among rocks and ice plant, is arguably the most famous hole in golf. With only 250 members and a decades-long waitlist, Cypress Point remains golf's most exclusive sanctuary. The course is short by modern standards but endlessly strategic.",
         amenities: "Pro Shop, Clubhouse Dining, Caddie Service, Practice Area, Private Beach, Guest Cottages",
         phone: "(831) 624-2223",
-        imageUrl: "https://images.unsplash.com/photo-1535131749006-b7f58c99034b?w=800",
-        galleryImages: ["https://images.unsplash.com/photo-1506012787146-f92b2d7d6d96?w=600", "https://images.unsplash.com/photo-1591491719565-9dfc9a498251?w=600"],
+        imageUrl: "/course-images/golf_links_5.jpg",
+        galleryImages: ["/course-images/golf_morning_5.jpg","/course-images/golf_green_6.jpg"],
       },
       {
         name: "Shinnecock Hills Golf Club",
@@ -1018,8 +1034,8 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
         amenities: "Pro Shop, Stanford White Clubhouse (1892), Dining Room, Locker Rooms, Practice Facility, Tennis, Swimming",
         phone: "(631) 283-3525",
         website: "https://www.shinnecockgolf.com",
-        imageUrl: "https://images.unsplash.com/photo-1592919505780-303950717480?w=800",
-        galleryImages: ["https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?w=600", "https://images.unsplash.com/photo-1600166898405-da9535204843?w=600"],
+        imageUrl: "/course-images/golf_aerial_7.jpg",
+        galleryImages: ["/course-images/golf_links_6.jpg","/course-images/golf_courses_10.jpg"],
       },
       {
         name: "Merion Golf Club - East Course",
@@ -1038,8 +1054,8 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
         description: "Don't let the modest yardage fool you — Merion East is a tiger. This compact masterpiece on Philadelphia's Main Line has hosted more USGA championships than any other course, including the 2013 U.S. Open. Hugh Wilson, a 28-year-old amateur, designed it after studying the great courses of Scotland, and the result is an endlessly strategic layout. The famed 'wicker baskets' atop the flagsticks (replacing traditional flags) are a Merion signature. The finishing stretch through an old rock quarry is among the most dramatic in championship golf.",
         amenities: "Pro Shop, Clubhouse, Formal Dining, Locker Rooms, Cricket Pitch, Practice Range, West Course (18 holes)",
         phone: "(610) 642-5600",
-        imageUrl: "https://images.unsplash.com/photo-1611374243147-44a702c2d44c?w=800",
-        galleryImages: ["https://images.unsplash.com/photo-1593111774240-d529f12cf4bb?w=600"],
+        imageUrl: "/course-images/golf_green_7.jpg",
+        galleryImages: ["/course-images/golf_morning_6.jpg","/course-images/golf_aerial_8.jpg"],
       },
       {
         name: "Streamsong Resort - Red Course",
@@ -1059,8 +1075,8 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
         amenities: "Pro Shop, Clubhouse Restaurant, AcquaPura Spa, Resort Hotel, Bass Fishing, Sporting Clays, Infinity Pool, 54 Holes Total",
         phone: "(863) 428-1000",
         website: "https://www.streamsongresort.com",
-        imageUrl: "https://images.unsplash.com/photo-1600166898405-da9535204843?w=800",
-        galleryImages: ["https://images.unsplash.com/photo-1591491719565-9dfc9a498251?w=600", "https://images.unsplash.com/photo-1506012787146-f92b2d7d6d96?w=600"],
+        imageUrl: "/course-images/golf_club_5.jpg",
+        galleryImages: ["/course-images/golf_green_8.jpg","/course-images/golf_links_7.jpg"],
       },
       {
         name: "Cabot Cliffs",
@@ -1080,8 +1096,8 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
         amenities: "Pro Shop, Panorama Restaurant, Cabot Bar, Resort Hotel, Spa, Practice Facility, Cabot Links Course, Beach, Hiking Trails",
         phone: "(855) 652-2268",
         website: "https://www.cabotcapebreton.com",
-        imageUrl: "https://images.unsplash.com/photo-1592919505780-303950717480?w=800",
-        galleryImages: ["https://images.unsplash.com/photo-1535131749006-b7f58c99034b?w=600", "https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?w=600"],
+        imageUrl: "/course-images/golf_morning_7.jpg",
+        galleryImages: ["/course-images/golf_club_6.jpg","/course-images/golf_aerial_9.jpg"],
       },
       {
         name: "Sand Valley Golf Resort",
@@ -1101,8 +1117,8 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
         amenities: "Pro Shop, Craig's Porch Restaurant, Lodge Rooms, Cottages, Practice Facility, Mammoth Dunes Course, The Lido, Sand Box (par-3), Hiking",
         phone: "(888) 651-5539",
         website: "https://www.sandvalley.com",
-        imageUrl: "https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?w=800",
-        galleryImages: ["https://images.unsplash.com/photo-1600166898405-da9535204843?w=600", "https://images.unsplash.com/photo-1591491719565-9dfc9a498251?w=600"],
+        imageUrl: "/course-images/golf_links_8.jpg",
+        galleryImages: ["/course-images/golf_morning_8.jpg","/course-images/golf_green_9.jpg"],
       },
       {
         name: "Pacific Dunes",
@@ -1122,8 +1138,8 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
         amenities: "Pro Shop, Pacific Grill, Bunker Bar, Caddie Service, Practice Range, Resort Lodge, McKee's Pub, 5 Championship Courses on Property",
         phone: "(541) 347-4380",
         website: "https://www.bandondunesgolf.com",
-        imageUrl: "https://images.unsplash.com/photo-1506012787146-f92b2d7d6d96?w=800",
-        galleryImages: ["https://images.unsplash.com/photo-1592919505780-303950717480?w=600", "https://images.unsplash.com/photo-1535131749006-b7f58c99034b?w=600"],
+        imageUrl: "/course-images/golf_aerial_10.jpg",
+        galleryImages: ["/course-images/golf_club_7.jpg","/course-images/golf_links_9.jpg"],
       },
       {
         name: "Winged Foot Golf Club - West",
@@ -1142,8 +1158,8 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
         description: "Tillinghast's masterwork in suburban New York is one of golf's ultimate tests. The West Course has hosted six U.S. Opens, producing some of the sport's most memorable moments — from Hale Irwin's 7-over winning score in the 'Massacre at Winged Foot' (1974) to Bryson DeChambeau's power-golf triumph in 2020. Deep bunkers, small angled greens, and thick Northeastern rough define the challenge. The 72nd hole has been the setting for more championship drama than perhaps any hole in golf history.",
         amenities: "Pro Shop, Clubhouse, Formal Dining, Grillroom, East Course (18 holes), Tennis, Swimming, Paddle Tennis, Practice Facility",
         phone: "(914) 698-8400",
-        imageUrl: "https://images.unsplash.com/photo-1611374243147-44a702c2d44c?w=800",
-        galleryImages: ["https://images.unsplash.com/photo-1593111774240-d529f12cf4bb?w=600"],
+        imageUrl: "/course-images/golf_green_10.jpg",
+        galleryImages: ["/course-images/golf_morning_9.jpg","/course-images/golf_club_8.jpg"],
       },
       {
         name: "Chambers Bay",
@@ -1163,8 +1179,8 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
         amenities: "Pro Shop, The Yard Restaurant, Practice Facility, Walking Paths, Puget Sound Views, Event Pavilion",
         phone: "(253) 460-4653",
         website: "https://www.chambersbaygolf.com",
-        imageUrl: "https://images.unsplash.com/photo-1592919505780-303950717480?w=800",
-        galleryImages: ["https://images.unsplash.com/photo-1506012787146-f92b2d7d6d96?w=600"],
+        imageUrl: "/course-images/golf_club_9.jpg",
+        galleryImages: ["/course-images/golf_green_1.jpg","/course-images/golf_links_10.jpg"],
       },
       {
         name: "The Old Course at St Andrews",
@@ -1184,8 +1200,8 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
         amenities: "Pro Shop, Links Clubhouse, Caddie Pavilion, Practice Center, Himalayas Putting Course, Eden Clubhouse, 7 Golf Courses, St Andrews Town",
         phone: "+44 1334 466666",
         website: "https://www.standrews.com",
-        imageUrl: "https://images.unsplash.com/photo-1535131749006-b7f58c99034b?w=800",
-        galleryImages: ["https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?w=600", "https://images.unsplash.com/photo-1592919505780-303950717480?w=600", "https://images.unsplash.com/photo-1600166898405-da9535204843?w=600"],
+        imageUrl: "/course-images/golf_morning_10.jpg",
+        galleryImages: ["/course-images/golf_club_10.jpg","/course-images/golf_aerial_1.jpg"],
       },
       {
         name: "Boscobel Golf Club",
@@ -1205,8 +1221,8 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
         amenities: "Pro Shop, Snack Bar, Practice Range, Putting Green, Cart Service, Club Rentals",
         phone: "(864) 646-3991",
         website: "https://www.boscobelgolf.com",
-        imageUrl: "https://images.unsplash.com/photo-1604967046349-2fbf727a4005?w=800&q=80",
-        galleryImages: ["https://images.unsplash.com/photo-1605144884914-64023214bdca?w=600&q=80","https://images.unsplash.com/photo-1500932334442-8761ee4810a7?w=600&q=80"],
+        imageUrl: "/course-images/golf_courses_2.jpg",
+        galleryImages: ["/course-images/golf_morning_1.jpg","/course-images/golf_club_1.jpg"],
       },
       {
         name: "Cherokee Valley Golf Club",
@@ -1226,8 +1242,8 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
         amenities: "Pro Shop, Restaurant, Practice Range, Pool, Tennis",
         phone: "(864) 834-0400",
         website: "https://www.cherokeevalley.com",
-        imageUrl: "https://images.unsplash.com/photo-1600166898405-da9535204843?w=800&q=80",
-        galleryImages: ["https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?w=600&q=80"],
+        imageUrl: "/course-images/golf_aerial_2.jpg",
+        galleryImages: ["/course-images/golf_green_2.jpg"],
       },
       {
         name: "Cobb's Glen Country Club",
@@ -1247,8 +1263,8 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
         amenities: "Pro Shop, Restaurant, Pool, Practice Range, Banquet Facilities",
         phone: "(864) 226-7688",
         website: "https://www.cobbsglen.com",
-        imageUrl: "https://images.unsplash.com/photo-1593111774240-d529f12cf4bb?w=800&q=80",
-        galleryImages: ["https://images.unsplash.com/photo-1591491719565-9dfc9a498251?w=600&q=80"],
+        imageUrl: "/course-images/golf_club_2.jpg",
+        galleryImages: ["/course-images/golf_links_1.jpg"],
       },
       {
         name: "Furman University Golf Course",
@@ -1268,8 +1284,8 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
         amenities: "Pro Shop, Restaurant, Practice Range, Putting Green",
         phone: "(864) 294-2060",
         website: "https://www.furmangolf.com",
-        imageUrl: "https://images.unsplash.com/photo-1535131749006-b7f58c99034b?w=800&q=80",
-        galleryImages: ["https://images.unsplash.com/photo-1506012787146-f92b2d7d6d96?w=600&q=80"],
+        imageUrl: "/course-images/golf_links_3.jpg",
+        galleryImages: ["/course-images/golf_aerial_3.jpg"],
       },
       {
         name: "Smithfields Country Club",
@@ -1289,8 +1305,8 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
         amenities: "Pro Shop, Snack Bar, Practice Range, Pool, Tennis",
         phone: "(864) 859-9231",
         website: "https://www.smithfieldscountryclub.com",
-        imageUrl: "https://images.unsplash.com/photo-1611374243147-44a702c2d44c?w=800&q=80",
-        galleryImages: ["https://images.unsplash.com/photo-1592919505780-303950717480?w=600&q=80"],
+        imageUrl: "/course-images/golf_morning_3.jpg",
+        galleryImages: ["/course-images/golf_courses_4.jpg"],
       },
       {
         name: "Southern Oaks Golf Club",
@@ -1309,8 +1325,8 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
         description: "An affordable, well-conditioned public course in Easley. The layout features rolling terrain, mature hardwoods, and several risk-reward par 5s. Popular with local leagues and a great value play.",
         amenities: "Pro Shop, Snack Bar, Driving Range, Cart Service",
         phone: "(864) 859-6698",
-        imageUrl: "https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?w=800&q=80",
-        galleryImages: ["https://images.unsplash.com/photo-1600166898405-da9535204843?w=600&q=80"],
+        imageUrl: "/course-images/golf_green_3.jpg",
+        galleryImages: ["/course-images/golf_club_3.jpg"],
       },
       {
         name: "The Preserve at Verdae",
@@ -1330,8 +1346,8 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
         amenities: "Pro Shop, Restaurant, Practice Range, Putting Green, Banquet Facility",
         phone: "(864) 676-1500",
         website: "https://www.verdae.com",
-        imageUrl: "https://images.unsplash.com/photo-1506012787146-f92b2d7d6d96?w=800&q=80",
-        galleryImages: ["https://images.unsplash.com/photo-1535131749006-b7f58c99034b?w=600&q=80"],
+        imageUrl: "/course-images/golf_courses_5.jpg",
+        galleryImages: ["/course-images/golf_links_4.jpg"],
       },
       {
         name: "The Walker Course at Clemson University",
@@ -1351,8 +1367,8 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
         amenities: "Pro Shop, Restaurant, Practice Facility, Clemson Tiger Paw Bunker",
         phone: "(864) 656-0236",
         website: "https://www.clemsontigergolf.com",
-        imageUrl: "https://images.unsplash.com/photo-1592919505780-303950717480?w=800&q=80",
-        galleryImages: ["https://images.unsplash.com/photo-1593111774240-d529f12cf4bb?w=600&q=80"],
+        imageUrl: "/course-images/golf_aerial_5.jpg",
+        galleryImages: ["/course-images/golf_green_4.jpg"],
       },
       {
         name: "Eagles Landing Golf Course",
@@ -1371,8 +1387,8 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
         description: "A friendly Sumner County public course in Gallatin with rolling terrain, mature trees, and affordable green fees. Popular with local leagues and weekend players.",
         amenities: "Pro Shop, Snack Bar, Driving Range, Cart Service",
         phone: "(615) 230-4653",
-        imageUrl: "https://images.unsplash.com/photo-1604967046349-2fbf727a4005?w=800&q=80",
-        galleryImages: ["https://images.unsplash.com/photo-1605144884914-64023214bdca?w=600&q=80"],
+        imageUrl: "/course-images/golf_morning_4.jpg",
+        galleryImages: ["/course-images/golf_courses_6.jpg"],
       },
       {
         name: "Gaylord Springs Golf Links",
@@ -1392,8 +1408,8 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
         amenities: "Pro Shop, Restaurant, Practice Range, Resort Access, Banquet Facilities",
         phone: "(615) 458-1730",
         website: "https://www.gaylordsprings.com",
-        imageUrl: "https://images.unsplash.com/photo-1535131749006-b7f58c99034b?w=800&q=80",
-        galleryImages: ["https://images.unsplash.com/photo-1506012787146-f92b2d7d6d96?w=600&q=80"],
+        imageUrl: "/course-images/golf_links_5.jpg",
+        galleryImages: ["/course-images/golf_aerial_6.jpg"],
       },
       {
         name: "Greystone Golf Club",
@@ -1413,8 +1429,8 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
         amenities: "Pro Shop, Restaurant, Practice Range, Putting Green",
         phone: "(615) 446-0044",
         website: "https://www.greystonegolf.com",
-        imageUrl: "https://images.unsplash.com/photo-1600166898405-da9535204843?w=800&q=80",
-        galleryImages: ["https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?w=600&q=80"],
+        imageUrl: "/course-images/golf_courses_7.jpg",
+        galleryImages: ["/course-images/golf_green_5.jpg"],
       },
       {
         name: "Harpeth Hills Golf Course",
@@ -1433,8 +1449,8 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
         description: "Nashville's busiest municipal course, set in Percy Warner Park with dramatic hilltop views of the city skyline. A favorite of Nashville golfers for decades.",
         amenities: "Pro Shop, Snack Bar, Driving Range, Cart Service, Club Rentals",
         phone: "(615) 862-8493",
-        imageUrl: "https://images.unsplash.com/photo-1593111774240-d529f12cf4bb?w=800&q=80",
-        galleryImages: ["https://images.unsplash.com/photo-1591491719565-9dfc9a498251?w=600&q=80"],
+        imageUrl: "/course-images/golf_club_5.jpg",
+        galleryImages: ["/course-images/golf_morning_5.jpg"],
       },
       {
         name: "Hermitage Golf Course - General's Retreat",
@@ -1454,8 +1470,8 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
         amenities: "Pro Shop, Restaurant, Practice Range, Short Game Area, Banquet Facilities",
         phone: "(615) 847-4001",
         website: "https://www.hermitagegolf.com",
-        imageUrl: "https://images.unsplash.com/photo-1611374243147-44a702c2d44c?w=800&q=80",
-        galleryImages: ["https://images.unsplash.com/photo-1592919505780-303950717480?w=600&q=80"],
+        imageUrl: "/course-images/golf_green_6.jpg",
+        galleryImages: ["/course-images/golf_club_6.jpg"],
       },
       {
         name: "Hermitage Golf Course - President's Reserve",
@@ -1475,8 +1491,8 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
         amenities: "Pro Shop, Restaurant, Practice Range, Short Game Area",
         phone: "(615) 847-4001",
         website: "https://www.hermitagegolf.com",
-        imageUrl: "https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?w=800&q=80",
-        galleryImages: ["https://images.unsplash.com/photo-1600166898405-da9535204843?w=600&q=80"],
+        imageUrl: "/course-images/golf_aerial_7.jpg",
+        galleryImages: ["/course-images/golf_links_6.jpg"],
       },
       {
         name: "Indian Hills Golf Club",
@@ -1495,8 +1511,8 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
         description: "A Murfreesboro staple since 1960, Indian Hills offers classic Tennessee golf through mature hardwoods with affordable rates. Great for all skill levels.",
         amenities: "Pro Shop, Snack Bar, Driving Range, Cart Service",
         phone: "(615) 893-5514",
-        imageUrl: "https://images.unsplash.com/photo-1506012787146-f92b2d7d6d96?w=800&q=80",
-        galleryImages: ["https://images.unsplash.com/photo-1535131749006-b7f58c99034b?w=600&q=80"],
+        imageUrl: "/course-images/golf_links_7.jpg",
+        galleryImages: ["/course-images/golf_courses_8.jpg"],
       },
       {
         name: "Long Hollow Golf Course",
@@ -1515,8 +1531,8 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
         description: "A Gallatin favorite winding through limestone ridges and cedar groves. The tight, tree-lined fairways demand accuracy and provide a challenging but enjoyable round.",
         amenities: "Pro Shop, Snack Bar, Practice Range, Cart Service",
         phone: "(615) 451-1820",
-        imageUrl: "https://images.unsplash.com/photo-1604967046349-2fbf727a4005?w=800&q=80",
-        galleryImages: ["https://images.unsplash.com/photo-1605144884914-64023214bdca?w=600&q=80"],
+        imageUrl: "/course-images/golf_morning_6.jpg",
+        galleryImages: ["/course-images/golf_aerial_8.jpg"],
       },
       {
         name: "McCabe Golf Course",
@@ -1535,8 +1551,8 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
         description: "Nashville's most accessible municipal course with 27 holes. McCabe is an inclusive community course where generations of Nashville golfers learned the game. Affordable and welcoming to all skill levels.",
         amenities: "Pro Shop, Snack Bar, Driving Range, Cart Service, Lessons",
         phone: "(615) 862-8491",
-        imageUrl: "https://images.unsplash.com/photo-1600166898405-da9535204843?w=800&q=80",
-        galleryImages: ["https://images.unsplash.com/photo-1593111774240-d529f12cf4bb?w=600&q=80"],
+        imageUrl: "/course-images/golf_courses_9.jpg",
+        galleryImages: ["/course-images/golf_green_7.jpg"],
       },
       {
         name: "Nashville Golf & Athletic Club",
@@ -1556,8 +1572,8 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
         amenities: "Pro Shop, Restaurant, Practice Range, Pool, Tennis, Fitness Center",
         phone: "(615) 361-8419",
         website: "https://www.nashvillegolf.com",
-        imageUrl: "https://images.unsplash.com/photo-1535131749006-b7f58c99034b?w=800&q=80",
-        galleryImages: ["https://images.unsplash.com/photo-1591491719565-9dfc9a498251?w=600&q=80"],
+        imageUrl: "/course-images/golf_club_7.jpg",
+        galleryImages: ["/course-images/golf_morning_7.jpg"],
       },
       {
         name: "Old Fort Golf Club",
@@ -1577,8 +1593,8 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
         amenities: "Pro Shop, Restaurant, Practice Range, Putting Green, Short Game Area",
         phone: "(615) 896-4653",
         website: "https://www.oldfortgolf.com",
-        imageUrl: "https://images.unsplash.com/photo-1592919505780-303950717480?w=800&q=80",
-        galleryImages: ["https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?w=600&q=80"],
+        imageUrl: "/course-images/golf_green_8.jpg",
+        galleryImages: ["/course-images/golf_links_8.jpg"],
       },
       {
         name: "Pine Creek Golf Course",
@@ -1597,8 +1613,8 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
         description: "A Mount Juliet gem winding through rolling hills and mature pines. Pine Creek offers a peaceful, scenic round with well-maintained conditions at an affordable price.",
         amenities: "Pro Shop, Snack Bar, Driving Range, Cart Service",
         phone: "(615) 758-1199",
-        imageUrl: "https://images.unsplash.com/photo-1611374243147-44a702c2d44c?w=800&q=80",
-        galleryImages: ["https://images.unsplash.com/photo-1600166898405-da9535204843?w=600&q=80"],
+        imageUrl: "/course-images/golf_links_9.jpg",
+        galleryImages: ["/course-images/golf_club_8.jpg"],
       },
       {
         name: "Shepherds Crook Golf Course",
@@ -1617,8 +1633,8 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
         description: "A Wilson County favorite with a pastoral setting among rolling farmland east of Nashville. Shepherds Crook delivers a relaxing round with well-maintained greens.",
         amenities: "Pro Shop, Snack Bar, Cart Service, Driving Range",
         phone: "(615) 444-1176",
-        imageUrl: "https://images.unsplash.com/photo-1506012787146-f92b2d7d6d96?w=800&q=80",
-        galleryImages: ["https://images.unsplash.com/photo-1535131749006-b7f58c99034b?w=600&q=80"],
+        imageUrl: "/course-images/golf_aerial_9.jpg",
+        galleryImages: ["/course-images/golf_green_9.jpg"],
       },
       {
         name: "Stones River Country Club",
@@ -1638,8 +1654,8 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
         amenities: "Pro Shop, Restaurant, Pool, Tennis, Practice Range, Banquet Facilities",
         phone: "(615) 893-3890",
         website: "https://www.stonesrivercc.com",
-        imageUrl: "https://images.unsplash.com/photo-1593111774240-d529f12cf4bb?w=800&q=80",
-        galleryImages: ["https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?w=600&q=80"],
+        imageUrl: "/course-images/golf_club_9.jpg",
+        galleryImages: ["/course-images/golf_morning_8.jpg"],
       },
       {
         name: "Ted Rhodes Golf Course",
@@ -1658,8 +1674,8 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
         description: "Named after Nashville-born golfing pioneer Ted Rhodes, who helped break golf's color barrier. This historic municipal course is one of Nashville's most important cultural landmarks.",
         amenities: "Pro Shop, Snack Bar, Driving Range, Cart Service",
         phone: "(615) 862-8463",
-        imageUrl: "https://images.unsplash.com/photo-1604967046349-2fbf727a4005?w=800&q=80",
-        galleryImages: ["https://images.unsplash.com/photo-1605144884914-64023214bdca?w=600&q=80"],
+        imageUrl: "/course-images/golf_morning_9.jpg",
+        galleryImages: ["/course-images/golf_courses_10.jpg"],
       },
       {
         name: "Twelve Stones Crossing Golf Club",
@@ -1679,8 +1695,8 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
         amenities: "Pro Shop, Restaurant, Practice Range, Putting Green, Short Game Area",
         phone: "(615) 855-0099",
         website: "https://www.12stonescrossing.com",
-        imageUrl: "https://images.unsplash.com/photo-1535131749006-b7f58c99034b?w=800&q=80",
-        galleryImages: ["https://images.unsplash.com/photo-1592919505780-303950717480?w=600&q=80"],
+        imageUrl: "/course-images/golf_green_10.jpg",
+        galleryImages: ["/course-images/golf_club_10.jpg"],
       },
       {
         name: "Windtree Golf Course",
@@ -1699,8 +1715,8 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
         description: "A Wilson County staple, Windtree is a mature, tree-lined layout in Mount Juliet with well-maintained conditions and affordable rates. A go-to course for local golfers.",
         amenities: "Pro Shop, Snack Bar, Driving Range, Cart Service, Club Rentals",
         phone: "(615) 754-0059",
-        imageUrl: "https://images.unsplash.com/photo-1600166898405-da9535204843?w=800&q=80",
-        galleryImages: ["https://images.unsplash.com/photo-1593111774240-d529f12cf4bb?w=600&q=80"],
+        imageUrl: "/course-images/golf_links_10.jpg",
+        galleryImages: ["/course-images/golf_aerial_10.jpg"],
       },
     ];
 
@@ -1713,20 +1729,39 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
     }
 
     const sampleDeals = [
-      { courseName: "Torrey Pines South", title: "Twilight Special", description: "Play the famous Torrey Pines after 2pm at a discounted rate. Cart included.", originalPrice: 202, dealPrice: 129, discountPercent: 36, isHot: true, imageUrl: "https://images.unsplash.com/photo-1506012787146-f92b2d7d6d96?w=800" },
-      { courseName: "Bethpage Black", title: "Weekday Deal", description: "Monday-Thursday rounds with cart at NY's toughest public course.", originalPrice: 150, dealPrice: 99, discountPercent: 34, isHot: true, imageUrl: "https://images.unsplash.com/photo-1611374243147-44a702c2d44c?w=800" },
-      { courseName: "TPC Sawgrass", title: "Stay & Play Package", description: "One night stay plus one round on the Stadium Course. A golfer's dream.", originalPrice: 450, dealPrice: 349, discountPercent: 22, isHot: false, imageUrl: "https://images.unsplash.com/photo-1593111774240-d529f12cf4bb?w=800" },
-      { courseName: "Pinehurst No. 2", title: "Resort Package", description: "Two nights accommodation plus unlimited golf on all eight Pinehurst courses.", originalPrice: 395, dealPrice: 299, discountPercent: 24, isHot: false, imageUrl: "https://images.unsplash.com/photo-1600166898405-da9535204843?w=800" },
-      { courseName: "Kiawah Island Ocean Course", title: "Early Bird Special", description: "First tee time of the day with complimentary breakfast at the clubhouse.", originalPrice: 423, dealPrice: 329, discountPercent: 22, isHot: true, imageUrl: "https://images.unsplash.com/photo-1591491719565-9dfc9a498251?w=800" },
+      { courseName: "Torrey Pines South", title: "Twilight Special", description: "Play the famous Torrey Pines after 2pm at a discounted rate. Cart included.", originalPrice: 202, dealPrice: 129, discountPercent: 36, isHot: true, imageUrl: "/course-images/golf_green_4.jpg" },
+      { courseName: "Bethpage Black", title: "Weekday Deal", description: "Monday-Thursday rounds with cart at NY's toughest public course.", originalPrice: 150, dealPrice: 99, discountPercent: 34, isHot: true, imageUrl: "/course-images/golf_aerial_4.jpg" },
+      { courseName: "TPC Sawgrass", title: "Stay & Play Package", description: "One night stay plus one round on the Stadium Course. A golfer's dream.", originalPrice: 450, dealPrice: 349, discountPercent: 22, isHot: false, imageUrl: "/course-images/golf_courses_3.jpg" },
+      { courseName: "Pinehurst No. 2", title: "Resort Package", description: "Two nights accommodation plus unlimited golf on all eight Pinehurst courses.", originalPrice: 395, dealPrice: 299, discountPercent: 24, isHot: false, imageUrl: "/course-images/golf_morning_2.jpg" },
+      { courseName: "Kiawah Island Ocean Course", title: "Early Bird Special", description: "First tee time of the day with complimentary breakfast at the clubhouse.", originalPrice: 423, dealPrice: 329, discountPercent: 22, isHot: true, imageUrl: "/course-images/golf_club_3.jpg" },
     ];
 
-    if (existingCourses.length === 0) {
+    const allCoursesNow = await storage.getCourses();
+    const existingDeals = await storage.getDeals();
+
+    if (existingDeals.length === 0) {
       for (const deal of sampleDeals) {
-        await storage.createDeal(deal as any);
+        const matchedCourse = allCoursesNow.find((c: any) => c.name.includes(deal.courseName) || deal.courseName.includes(c.name));
+        await storage.createDeal({ ...deal, courseId: matchedCourse?.id || null } as any);
+      }
+    } else {
+      for (const deal of existingDeals) {
+        const seedDeal = sampleDeals.find((sd: any) => sd.courseName === deal.courseName);
+        if (seedDeal && deal.imageUrl !== seedDeal.imageUrl) {
+          const matchedCourse = allCoursesNow.find((c: any) => c.name.includes(deal.courseName) || deal.courseName.includes(c.name));
+          await storage.updateDeal(deal.id, { imageUrl: seedDeal.imageUrl, courseId: matchedCourse?.id || deal.courseId });
+        }
       }
     }
 
-    const totalCourses = existingCourses.length + addedCourses;
+    for (const sc of sampleCourses) {
+      const existing = allCoursesNow.find((c: any) => c.name === sc.name);
+      if (existing && existing.imageUrl !== sc.imageUrl) {
+        await storage.updateCourse(existing.id, { imageUrl: sc.imageUrl, galleryImages: sc.galleryImages });
+      }
+    }
+
+    const totalCourses = allCoursesNow.length;
     res.json({ message: addedCourses > 0 ? `Added ${addedCourses} new courses` : "All courses present", courses: totalCourses, deals: sampleDeals.length });
   });
 

@@ -199,6 +199,7 @@ function configureExpoAndLanding(app: express.Application) {
   });
 
   app.use("/assets", express.static(path.resolve(process.cwd(), "assets")));
+  app.use("/course-images", express.static(path.resolve(process.cwd(), "server/public/courses"), { maxAge: "30d" }));
   app.use(express.static(path.resolve(process.cwd(), "public")));
   app.use(express.static(path.resolve(process.cwd(), "static-build")));
 

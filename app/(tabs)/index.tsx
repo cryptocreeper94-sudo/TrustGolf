@@ -347,7 +347,14 @@ export default function ExploreScreen() {
                 data={hotDeals}
                 itemWidth={SCREEN_WIDTH * 0.72}
                 renderItem={(deal: any) => (
-                  <GlassCard noPadding style={{ height: 200 }}>
+                  <GlassCard noPadding style={{ height: 200 }} onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    if (deal.courseId) {
+                      router.push({ pathname: "/course/[id]", params: { id: String(deal.courseId) } });
+                    } else {
+                      router.push("/(tabs)/deals");
+                    }
+                  }}>
                     <Image source={{ uri: deal.imageUrl }} style={styles.dealImage} contentFit="cover" />
                     <LinearGradient
                       colors={["transparent", "rgba(0,0,0,0.85)"]}
@@ -536,7 +543,14 @@ export default function ExploreScreen() {
                 data={deals.slice(0, 5)}
                 itemWidth={SCREEN_WIDTH * 0.65}
                 renderItem={(deal: any) => (
-                  <GlassCard noPadding style={{ height: 160 }}>
+                  <GlassCard noPadding style={{ height: 160 }} onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    if (deal.courseId) {
+                      router.push({ pathname: "/course/[id]", params: { id: String(deal.courseId) } });
+                    } else {
+                      router.push("/(tabs)/deals");
+                    }
+                  }}>
                     <Image source={{ uri: deal.imageUrl }} style={styles.dealImage} contentFit="cover" />
                     <LinearGradient
                       colors={["transparent", "rgba(0,0,0,0.75)"]}

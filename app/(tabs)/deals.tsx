@@ -3,7 +3,9 @@ import {
   View, StyleSheet, FlatList, Platform,
 } from "react-native";
 import { Image } from "expo-image";
+import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 import { useQuery } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -23,7 +25,12 @@ export default function DealsScreen() {
   });
 
   const renderDeal = ({ item }: { item: any }) => (
-    <GlassCard noPadding style={styles.dealCard}>
+    <GlassCard noPadding style={styles.dealCard} onPress={() => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      if (item.courseId) {
+        router.push({ pathname: "/course/[id]", params: { id: String(item.courseId) } });
+      }
+    }}>
       <Image source={{ uri: item.imageUrl }} style={styles.dealImage} contentFit="cover" />
       <View style={styles.dealInfo}>
         <View style={styles.dealHeader}>
