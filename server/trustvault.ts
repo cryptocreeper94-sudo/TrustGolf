@@ -1,7 +1,28 @@
-const TRUSTVAULT_BASE_URL = "https://trustvault.replit.app/api/studio";
+import crypto from "crypto";
+
+const TRUSTVAULT_BASE_URL = process.env.DW_MEDIA_BASE_URL || "https://trustvault.replit.app";
+const STUDIO_URL = `${TRUSTVAULT_BASE_URL}/api/studio`;
+const ECOSYSTEM_URL = `${TRUSTVAULT_BASE_URL}/api/ecosystem`;
+
+function generateHmacAuth(): { authorization: string; timestamp: string } {
+  const apiKey = process.env.DW_MEDIA_API_KEY;
+  const apiSecret = process.env.DW_MEDIA_API_SECRET;
+  if (!apiKey || !apiSecret) {
+    throw new Error("DW_MEDIA_API_KEY and DW_MEDIA_API_SECRET are required for server-to-server auth");
+  }
+  const timestamp = Date.now().toString();
+  const signature = crypto
+    .createHmac("sha256", apiSecret)
+    .update(`${timestamp}:${apiKey}`)
+    .digest("hex");
+  return {
+    authorization: `DW ${apiKey}:${timestamp}:${signature}`,
+    timestamp,
+  };
+}
 
 async function vaultFetch(path: string, token: string, options: RequestInit = {}) {
-  const url = `${TRUSTVAULT_BASE_URL}${path}`;
+  const url = `${STUDIO_URL}${path}`;
   const res = await fetch(url, {
     ...options,
     headers: {
@@ -19,8 +40,29 @@ async function vaultFetch(path: string, token: string, options: RequestInit = {}
   return res.json();
 }
 
+async function ecosystemFetch(path: string, options: RequestInit = {}) {
+  const { authorization } = generateHmacAuth();
+  const url = `${ECOSYSTEM_URL}${path}`;
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      "Authorization": authorization,
+      "X-App-Name": "trustgolf",
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => res.statusText);
+    throw new Error(`TrustVault Ecosystem API error ${res.status}: ${text}`);
+  }
+
+  return res.json();
+}
+
 export async function getTrustVaultCapabilities() {
-  const res = await fetch(`${TRUSTVAULT_BASE_URL}/capabilities`);
+  const res = await fetch(`${STUDIO_URL}/capabilities`);
   if (!res.ok) throw new Error("Failed to fetch TrustVault capabilities");
   return res.json();
 }
@@ -111,4 +153,44 @@ export async function exportProject(
     method: "POST",
     body: JSON.stringify({ webhookUrl }),
   });
+}
+
+export async function ecosystemUpload(
+  name: string,
+  contentType: string,
+  size: number
+) {
+  return ecosystemFetch("/media/upload", {
+    method: "POST",
+    body: JSON.stringify({ name, contentType, size }),
+  });
+}
+
+export async function ecosystemConfirmUpload(details: {
+  title: string;
+  url: string;
+  filename: string;
+  contentType: string;
+  size: number;
+  tags?: string[];
+}) {
+  return ecosystemFetch("/media/confirm", {
+    method: "POST",
+    body: JSON.stringify(details),
+  });
+}
+
+export async function ecosystemListMedia(
+  options?: { category?: string; page?: number; limit?: number }
+) {
+  const params = new URLSearchParams();
+  if (options?.category) params.set("category", options.category);
+  if (options?.page) params.set("page", String(options.page));
+  if (options?.limit) params.set("limit", String(options.limit));
+  const qs = params.toString();
+  return ecosystemFetch(`/media/list${qs ? `?${qs}` : ""}`);
+}
+
+export async function ecosystemStatus() {
+  return ecosystemFetch("/status");
 }

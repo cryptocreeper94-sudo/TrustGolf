@@ -239,6 +239,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/trustvault/ecosystem-status", async (_req: Request, res: Response) => {
+    try {
+      const status = await trustvault.ecosystemStatus();
+      res.json(status);
+    } catch (err: any) {
+      res.status(502).json({ error: "TrustVault ecosystem connection failed", details: err.message });
+    }
+  });
+
+  app.get("/api/trustvault/ecosystem-media", async (req: Request, res: Response) => {
+    try {
+      const media = await trustvault.ecosystemListMedia({
+        category: req.query.category as string,
+        page: req.query.page ? parseInt(req.query.page as string) : undefined,
+        limit: req.query.limit ? parseInt(req.query.limit as string) : undefined,
+      });
+      res.json(media);
+    } catch (err: any) {
+      res.status(502).json({ error: "Failed to list ecosystem media", details: err.message });
+    }
+  });
+
   app.post("/api/seed", async (_req: Request, res: Response) => {
     const existingCourses = await storage.getCourses();
     if (existingCourses.length > 0) {
