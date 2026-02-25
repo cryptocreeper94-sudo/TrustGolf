@@ -276,8 +276,11 @@ export default function ScorecardScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <View style={[styles.header, { paddingTop: insets.top + webTopInset + 8, backgroundColor: headerBg }]}>
-        <Pressable onPress={() => router.back()} style={styles.headerBtn}>
-          <Ionicons name="chevron-back" size={22} color="#fff" />
+        <Pressable onPress={() => router.back()} style={styles.headerBackBtn}>
+          <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: "rgba(255,255,255,0.2)", alignItems: "center", justifyContent: "center" }}>
+            <Ionicons name="arrow-back" size={16} color="#fff" />
+          </View>
+          <PremiumText variant="caption" color="rgba(255,255,255,0.85)" style={{ fontWeight: "600", fontSize: 12 }}>Back</PremiumText>
         </Pressable>
         <View style={{ flex: 1, alignItems: "center" }}>
           <PremiumText variant="subtitle" color="#fff" style={{ fontSize: 15 }} numberOfLines={1}>
@@ -533,6 +536,13 @@ const styles = StyleSheet.create({
     height: 44,
     alignItems: "center",
     justifyContent: "center",
+  },
+  headerBackBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingVertical: 4,
+    paddingRight: 6,
   },
   cardSection: {
     borderRadius: 12,

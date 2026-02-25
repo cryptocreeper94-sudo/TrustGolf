@@ -127,11 +127,14 @@ export default function AboutScreen() {
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: insets.top + webTopInset + 10 }]}>
-        <Pressable onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
+        <Pressable onPress={() => router.back()} style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 4, paddingRight: 8 }}>
+          <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: colors.surfaceElevated, alignItems: "center", justifyContent: "center" }}>
+            <Ionicons name="arrow-back" size={18} color={colors.text} />
+          </View>
+          <PremiumText variant="caption" color={colors.textSecondary} style={{ fontWeight: "600" }}>Back</PremiumText>
         </Pressable>
         <PremiumText variant="subtitle">About Trust Golf</PremiumText>
-        <View style={{ width: 24 }} />
+        <View style={{ width: 60 }} />
       </View>
 
       <ScrollView

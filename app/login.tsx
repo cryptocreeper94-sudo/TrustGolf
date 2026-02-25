@@ -153,7 +153,10 @@ export default function LoginScreen() {
         <OrbEffect color={isDark ? "#1B5E2040" : "#2E7D3225"} size={250} />
 
         <Pressable onPress={() => router.back()} style={[styles.closeBtn, { top: insets.top + webTopInset + 10 }]}>
-          <Ionicons name="close" size={24} color={colors.text} />
+          <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.surfaceElevated, alignItems: "center", justifyContent: "center" }}>
+            <Ionicons name="close" size={20} color={colors.text} />
+          </View>
+          <PremiumText variant="caption" color={colors.textSecondary} style={{ fontWeight: "600", marginTop: 2 }}>Close</PremiumText>
         </Pressable>
 
         <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
@@ -370,10 +373,11 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 20,
     zIndex: 10,
-    width: 44,
-    height: 44,
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 4,
+    paddingRight: 8,
   },
   scrollContent: {
     flexGrow: 1,

@@ -174,8 +174,11 @@ export default function SwingVideoScreen() {
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: insets.top + webTopInset + 10 }]}>
-        <Pressable onPress={() => router.back()} testID="close-video">
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
+        <Pressable onPress={() => router.back()} testID="close-video" style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 4, paddingRight: 8 }}>
+          <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: colors.surfaceElevated, alignItems: "center", justifyContent: "center" }}>
+            <Ionicons name="arrow-back" size={18} color={colors.text} />
+          </View>
+          <PremiumText variant="caption" color={colors.textSecondary} style={{ fontWeight: "600" }}>Back</PremiumText>
         </Pressable>
         <PremiumText variant="subtitle">Swing Playback</PremiumText>
         <Pressable onPress={openInTrustVault} testID="edit-vault-btn">

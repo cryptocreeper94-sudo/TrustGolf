@@ -172,8 +172,11 @@ export default function DeveloperDashboard() {
             <PremiumText variant="label" color={colors.accent}>DEVELOPER</PremiumText>
             <PremiumText variant="hero">Dashboard</PremiumText>
           </View>
-          <Pressable onPress={() => router.replace("/(tabs)")}>
-            <Ionicons name="close" size={24} color={colors.text} />
+          <Pressable onPress={() => router.replace("/(tabs)")} style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 4, paddingLeft: 8 }}>
+            <PremiumText variant="caption" color={colors.textSecondary} style={{ fontWeight: "600" }}>Close</PremiumText>
+            <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: colors.surfaceElevated, alignItems: "center", justifyContent: "center" }}>
+              <Ionicons name="close" size={18} color={colors.text} />
+            </View>
           </Pressable>
         </View>
 

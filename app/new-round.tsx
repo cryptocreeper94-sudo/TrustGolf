@@ -64,8 +64,11 @@ export default function NewRoundScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <View style={[styles.header, { paddingTop: insets.top + webTopInset + 10 }]}>
-        <Pressable onPress={() => router.back()}>
-          <Ionicons name="close" size={24} color={colors.text} />
+        <Pressable onPress={() => router.back()} style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 4, paddingRight: 8 }}>
+          <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: colors.surfaceElevated, alignItems: "center", justifyContent: "center" }}>
+            <Ionicons name="close" size={18} color={colors.text} />
+          </View>
+          <PremiumText variant="caption" color={colors.textSecondary} style={{ fontWeight: "600" }}>Close</PremiumText>
         </Pressable>
         <PremiumText variant="subtitle">New Round</PremiumText>
         <Pressable

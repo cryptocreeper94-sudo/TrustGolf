@@ -135,8 +135,9 @@ export default function CourseDetailScreen() {
           />
 
           <View style={[styles.topBar, { paddingTop: insets.top + webTopInset + 8 }]}>
-            <Pressable onPress={() => router.back()} style={styles.topBtn}>
-              <Ionicons name="chevron-down" size={22} color="#fff" />
+            <Pressable onPress={() => router.back()} style={styles.backBtn}>
+              <Ionicons name="arrow-back" size={20} color="#fff" />
+              <PremiumText variant="caption" color="#fff" style={{ fontWeight: "700", fontSize: 13 }}>Back</PremiumText>
             </Pressable>
             <View style={{ flexDirection: "row", gap: 8 }}>
               <Pressable onPress={handleShare} style={styles.topBtn}>
@@ -392,6 +393,15 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 16,
+  },
+  backBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    height: 40,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    backgroundColor: "rgba(0,0,0,0.5)",
   },
   topBtn: {
     width: 44,
