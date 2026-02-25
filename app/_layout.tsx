@@ -1,10 +1,11 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { AppSplash } from "@/components/AppSplash";
 import { queryClient, apiRequest } from "@/lib/query-client";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -33,6 +34,7 @@ function RootLayoutNav() {
 }
 
 export default function RootLayout() {
+  const [showSplash, setShowSplash] = useState(true);
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
     Inter_600SemiBold,
@@ -56,6 +58,7 @@ export default function RootLayout() {
             <ThemeProvider>
               <AuthProvider>
                 <RootLayoutNav />
+                {showSplash && <AppSplash onFinish={() => setShowSplash(false)} />}
               </AuthProvider>
             </ThemeProvider>
           </KeyboardProvider>

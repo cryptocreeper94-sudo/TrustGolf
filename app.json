@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "golfpro",
+    "scheme": "trustgolf",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
@@ -15,10 +15,10 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.golfpro"
+      "bundleIdentifier": "com.trustgolf"
     },
     "android": {
-      "package": "com.golfpro",
+      "package": "com.trustgolf",
       "adaptiveIcon": {
         "backgroundColor": "#1B5E20",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -27,7 +27,12 @@
       }
     },
     "web": {
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/favicon.png",
+      "name": "Trust Golf",
+      "shortName": "Trust Golf",
+      "description": "Premium golf companion by DarkWave Studios LLC",
+      "themeColor": "#1B5E20",
+      "backgroundColor": "#1B5E20"
     },
     "plugins": [
       [

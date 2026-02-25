@@ -1,0 +1,24 @@
+{
+  "name": "Trust Golf",
+  "short_name": "Trust Golf",
+  "description": "Premium golf companion — course catalog, score tracking, AI swing analysis, and exclusive deals. By DarkWave Studios LLC.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1B5E20",
+  "theme_color": "#1B5E20",
+  "icons": [
+    {
+      "src": "/assets/images/icon.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/images/favicon.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
