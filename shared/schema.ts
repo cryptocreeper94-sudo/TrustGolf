@@ -9,9 +9,19 @@ export const users = pgTable("users", {
     .primaryKey()
     .default(sql`gen_random_uuid()`),
   username: text("username").notNull().unique(),
+  email: text("email").unique(),
   password: text("password").notNull(),
   displayName: text("display_name"),
   handicap: real("handicap"),
+  emailVerified: boolean("email_verified").default(false),
+  verificationToken: text("verification_token"),
+  age: integer("age"),
+  height: text("height"),
+  swingSpeed: integer("swing_speed"),
+  avgDriveDistance: integer("avg_drive_distance"),
+  flexibilityLevel: text("flexibility_level"),
+  golfGoals: text("golf_goals"),
+  clubDistances: jsonb("club_distances"),
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
@@ -127,7 +137,9 @@ export const messagesRelations = relations(messages, ({ one }) => ({
 
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
+  email: true,
   password: true,
+  displayName: true,
 });
 
 export const insertCourseSchema = createInsertSchema(courses).omit({ id: true, createdAt: true });
