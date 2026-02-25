@@ -1,0 +1,14 @@
+User-agent: *
+Allow: /
+Allow: /blog
+Allow: /blog-post
+Allow: /about
+Allow: /partner
+
+Disallow: /developer
+Disallow: /api/
+
+Sitemap: https://trustgolf.app/sitemap.xml
+
+# Trust Golf — by DarkWave Studios LLC
+# https://darkwavestudios.io

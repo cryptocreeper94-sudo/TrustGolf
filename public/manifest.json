@@ -1,12 +1,18 @@
 {
-  "name": "Trust Golf",
+  "name": "Trust Golf — Premium Golf Companion",
   "short_name": "Trust Golf",
-  "description": "Premium golf companion — course catalog, score tracking, AI swing analysis, and exclusive deals. By DarkWave Studios LLC.",
+  "description": "Discover 45+ golf courses, track scores with USGA handicap, analyze your swing with AI, and unlock exclusive tee time deals. By DarkWave Studios LLC.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#1B5E20",
   "theme_color": "#1B5E20",
+  "lang": "en-US",
+  "dir": "ltr",
+  "categories": ["sports", "lifestyle", "health"],
+  "iarc_rating_id": "",
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "/assets/images/icon.png",
@@ -19,6 +25,22 @@
       "sizes": "1024x1024",
       "type": "image/png",
       "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Courses",
+      "short_name": "Courses",
+      "description": "Browse 45+ golf courses",
+      "url": "/courses",
+      "icons": [{ "src": "/assets/images/icon.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Blog",
+      "short_name": "Blog",
+      "description": "Golf tips, news, and course spotlights",
+      "url": "/blog",
+      "icons": [{ "src": "/assets/images/icon.png", "sizes": "96x96" }]
     }
   ]
 }

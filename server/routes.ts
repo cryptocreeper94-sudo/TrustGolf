@@ -39,6 +39,145 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const express = require("express");
   app.use("/hero-videos", express.static(path.resolve(process.cwd(), "server/public/videos"), { maxAge: "30d" }));
 
+  const SITE_URL = "https://trustgolf.app";
+
+  app.get("/robots.txt", (_req: Request, res: Response) => {
+    res.type("text/plain").send(`User-agent: *
+Allow: /
+Allow: /blog
+Allow: /blog-post
+Allow: /about
+Allow: /partner
+
+Disallow: /developer
+Disallow: /api/
+
+Sitemap: ${SITE_URL}/sitemap.xml
+
+# Trust Golf — by DarkWave Studios LLC
+# https://darkwavestudios.io
+`);
+  });
+
+  app.get("/sitemap.xml", async (_req: Request, res: Response) => {
+    const posts = await storage.getBlogPosts("published");
+    const allCourses = await storage.getCourses();
+    const now = new Date().toISOString().split("T")[0];
+
+    let xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+  <url>
+    <loc>${SITE_URL}</loc>
+    <lastmod>${now}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>${SITE_URL}/blog</loc>
+    <lastmod>${now}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>${SITE_URL}/about</loc>
+    <lastmod>${now}</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>${SITE_URL}/partner</loc>
+    <lastmod>${now}</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>`;
+
+    for (const post of posts) {
+      const lastmod = post.publishedAt ? new Date(post.publishedAt).toISOString().split("T")[0] : now;
+      xml += `
+  <url>
+    <loc>${SITE_URL}/blog-post?slug=${encodeURIComponent(post.slug)}</loc>
+    <lastmod>${lastmod}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>`;
+    }
+
+    for (const course of allCourses) {
+      xml += `
+  <url>
+    <loc>${SITE_URL}/course/${course.id}</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>`;
+    }
+
+    xml += `\n</urlset>`;
+    res.type("application/xml").send(xml);
+  });
+
+  app.get("/blog-post-meta/:slug", async (req: Request, res: Response) => {
+    const post = await storage.getBlogPostBySlug(req.params.slug);
+    if (!post) return res.status(404).json({ error: "Not found" });
+
+    const ogImage = post.coverImage || `${SITE_URL}/assets/images/icon.png`;
+    const postUrl = `${SITE_URL}/blog-post?slug=${encodeURIComponent(post.slug)}`;
+    const publishDate = post.publishedAt ? new Date(post.publishedAt).toISOString() : new Date(post.createdAt).toISOString();
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>${post.title} — Trust Golf Blog</title>
+  <meta name="description" content="${(post.excerpt || "").replace(/"/g, "&quot;")}" />
+  <meta name="keywords" content="${(post.tags || "").replace(/"/g, "&quot;")}, golf, trust golf" />
+  <meta name="author" content="${post.authorName || "Trust Golf"}" />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="${postUrl}" />
+  <meta property="og:type" content="article" />
+  <meta property="og:site_name" content="Trust Golf" />
+  <meta property="og:title" content="${post.title.replace(/"/g, "&quot;")}" />
+  <meta property="og:description" content="${(post.excerpt || "").replace(/"/g, "&quot;")}" />
+  <meta property="og:url" content="${postUrl}" />
+  <meta property="og:image" content="${ogImage}" />
+  <meta property="og:locale" content="en_US" />
+  <meta property="article:published_time" content="${publishDate}" />
+  <meta property="article:author" content="${post.authorName || "Trust Golf"}" />
+  <meta property="article:section" content="${post.category || "golf"}" />
+  ${(post.tags || "").split(",").filter((t: string) => t.trim()).map((t: string) => `<meta property="article:tag" content="${t.trim()}" />`).join("\n  ")}
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="${post.title.replace(/"/g, "&quot;")}" />
+  <meta name="twitter:description" content="${(post.excerpt || "").replace(/"/g, "&quot;")}" />
+  <meta name="twitter:image" content="${ogImage}" />
+  <script type="application/ld+json">
+  ${JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": post.title,
+    "description": post.excerpt || "",
+    "image": ogImage,
+    "url": postUrl,
+    "datePublished": publishDate,
+    "dateModified": post.updatedAt ? new Date(post.updatedAt).toISOString() : publishDate,
+    "author": { "@type": "Person", "name": post.authorName || "Trust Golf" },
+    "publisher": {
+      "@type": "Organization",
+      "name": "DarkWave Studios LLC",
+      "url": "https://darkwavestudios.io",
+      "logo": { "@type": "ImageObject", "url": `${SITE_URL}/assets/images/icon.png` }
+    },
+    "mainEntityOfPage": { "@type": "WebPage", "@id": postUrl },
+    "articleSection": post.category || "golf",
+    "keywords": post.tags || ""
+  })}
+  </script>
+  <meta http-equiv="refresh" content="0;url=${postUrl}" />
+</head>
+<body><p>Redirecting to <a href="${postUrl}">${post.title}</a>...</p></body>
+</html>`;
+    res.type("text/html").send(html);
+  });
+
   app.post("/api/auth/register", async (req: Request, res: Response) => {
     const { username, email, password, displayName } = req.body;
     if (!username || !email || !password) {

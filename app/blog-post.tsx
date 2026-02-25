@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import {
   View, ScrollView, StyleSheet, Pressable, Platform,
 } from "react-native";
@@ -86,6 +86,43 @@ export default function BlogPostScreen() {
     queryFn: getQueryFn({ on401: "throw" }),
     enabled: !!slug,
   });
+
+  useEffect(() => {
+    if (Platform.OS !== "web" || !post || typeof document === "undefined") return;
+    document.title = `${post.title} — Trust Golf Blog`;
+    const setMeta = (name: string, content: string, property?: boolean) => {
+      const attr = property ? "property" : "name";
+      let el = document.querySelector(`meta[${attr}="${name}"]`) as HTMLMetaElement;
+      if (!el) { el = document.createElement("meta"); el.setAttribute(attr, name); document.head.appendChild(el); }
+      el.content = content;
+    };
+    setMeta("description", post.excerpt || "");
+    setMeta("keywords", `${post.tags || ""}, golf, trust golf, golf blog`);
+    setMeta("author", post.authorName || "Trust Golf");
+    setMeta("og:type", post ? "article" : "website", true);
+    setMeta("og:title", `${post.title} — Trust Golf Blog`, true);
+    setMeta("og:description", post.excerpt || "", true);
+    setMeta("og:url", `https://trustgolf.app/blog-post?slug=${post.slug}`, true);
+    setMeta("og:image", post.coverImage || "https://trustgolf.app/assets/images/icon.png", true);
+    setMeta("article:published_time", post.publishedAt || post.createdAt, true);
+    setMeta("article:author", post.authorName || "Trust Golf", true);
+    setMeta("article:section", post.category || "golf", true);
+    setMeta("twitter:title", `${post.title} — Trust Golf Blog`);
+    setMeta("twitter:description", post.excerpt || "");
+    setMeta("twitter:image", post.coverImage || "https://trustgolf.app/assets/images/icon.png");
+    let ld = document.querySelector('script[data-blog-ld]') as HTMLScriptElement;
+    if (!ld) { ld = document.createElement("script"); ld.type = "application/ld+json"; ld.setAttribute("data-blog-ld", "true"); document.head.appendChild(ld); }
+    ld.textContent = JSON.stringify({
+      "@context": "https://schema.org", "@type": "BlogPosting",
+      headline: post.title, description: post.excerpt || "",
+      image: post.coverImage || "https://trustgolf.app/assets/images/icon.png",
+      url: `https://trustgolf.app/blog-post?slug=${post.slug}`,
+      datePublished: post.publishedAt || post.createdAt,
+      author: { "@type": "Person", name: post.authorName || "Trust Golf" },
+      publisher: { "@type": "Organization", name: "DarkWave Studios LLC", url: "https://darkwavestudios.io" },
+      articleSection: post.category || "golf", keywords: post.tags || ""
+    });
+  }, [post]);
 
   if (isLoading) {
     return (
