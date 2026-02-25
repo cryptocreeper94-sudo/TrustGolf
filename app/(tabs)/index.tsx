@@ -8,7 +8,6 @@ import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
-import { useVideoPlayer, VideoView } from "expo-video";
 import Animated, {
   useSharedValue, useAnimatedStyle, withTiming, withSpring,
   withRepeat, withSequence, Easing, FadeIn, FadeInDown,
@@ -27,13 +26,6 @@ import { getQueryFn } from "@/lib/query-client";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const HERO_HEIGHT = Math.min(SCREEN_HEIGHT * 0.52, 420);
-
-const HERO_VIDEOS = [
-  "https://assets.mixkit.co/videos/4636/4636-720.mp4",
-  "https://assets.mixkit.co/videos/1777/1777-720.mp4",
-  "https://assets.mixkit.co/videos/51547/51547-720.mp4",
-  "https://assets.mixkit.co/videos/4064/4064-720.mp4",
-];
 
 const HERO_IMAGES = [
   "https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?w=1200&q=80",
@@ -89,71 +81,6 @@ const CATEGORIES = [
     gated: false,
   },
 ];
-
-function VideoHero({ onVideoError }: { onVideoError: () => void }) {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const fadeOpacity = useSharedValue(1);
-  const hasErrored = useRef(false);
-
-  const player = useVideoPlayer(HERO_VIDEOS[0], (p) => {
-    p.loop = false;
-    p.muted = true;
-    p.play();
-  });
-
-  useEffect(() => {
-    const sub = player.addListener("statusChange", (evt: any) => {
-      if (evt.status === "error" && !hasErrored.current) {
-        hasErrored.current = true;
-        onVideoError();
-      }
-    });
-    return () => {
-      sub.remove();
-      try { player.pause(); } catch {}
-    };
-  }, [player]);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (hasErrored.current) return;
-      fadeOpacity.value = withTiming(0, { duration: 600 }, (finished) => {
-        if (finished) {
-          runOnJS(setCurrentIndex)((prev: number) => (prev + 1) % HERO_VIDEOS.length);
-        }
-      });
-    }, 8000);
-    return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    try {
-      player.replace({ uri: HERO_VIDEOS[currentIndex] });
-      player.play();
-    } catch {
-      if (!hasErrored.current) {
-        hasErrored.current = true;
-        onVideoError();
-      }
-    }
-    fadeOpacity.value = withTiming(1, { duration: 600 });
-  }, [currentIndex]);
-
-  const animStyle = useAnimatedStyle(() => ({
-    opacity: fadeOpacity.value,
-  }));
-
-  return (
-    <Animated.View style={[StyleSheet.absoluteFill, animStyle]}>
-      <VideoView
-        player={player}
-        style={StyleSheet.absoluteFill}
-        contentFit="cover"
-        nativeControls={false}
-      />
-    </Animated.View>
-  );
-}
 
 function ImageHero() {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -212,7 +139,6 @@ export default function ExploreScreen() {
   const insets = useSafeAreaInsets();
   const webTopInset = Platform.OS === "web" ? 67 : 0;
 
-  const [useImageFallback, setUseImageFallback] = useState(false);
   const [heroIndex, setHeroIndex] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
 
