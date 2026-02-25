@@ -23,24 +23,24 @@ import { PremiumText } from "@/components/PremiumText";
 import { CardSkeleton } from "@/components/SkeletonLoader";
 import { BentoRow, BentoCell } from "@/components/BentoGrid";
 import { OrbEffect } from "@/components/OrbEffect";
-import { getQueryFn } from "@/lib/query-client";
+import { getQueryFn, getApiUrl } from "@/lib/query-client";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const HERO_HEIGHT = Math.min(SCREEN_HEIGHT * 0.52, 420);
 
-const HERO_IMAGES = [
-  "https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?w=1200&q=80",
-  "https://images.unsplash.com/photo-1535131749006-b7f58c99034b?w=1200&q=80",
-  "https://images.unsplash.com/photo-1592919505780-303950717480?w=1200&q=80",
-  "https://images.unsplash.com/photo-1593111774240-d529f12cf4bb?w=1200&q=80",
+const HERO_VIDEOS = [
+  "/hero-videos/golf_hero_aerial_fairway.mp4",
+  "/hero-videos/golf_hero_putting_green.mp4",
+  "/hero-videos/golf_hero_sunrise.mp4",
 ];
 
 const HERO_CAPTIONS = [
   { title: "Championship Fairways", sub: "Experience world-class courses" },
-  { title: "Golden Hour Greens", sub: "Tee off at sunset" },
-  { title: "Aerial Views", sub: "Discover stunning landscapes" },
-  { title: "The Perfect Round", sub: "Track every shot, every hole" },
+  { title: "Precision Putting", sub: "Every stroke counts" },
+  { title: "Sunrise Sessions", sub: "Discover stunning landscapes" },
 ];
+
+const HERO_POSTER = "https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?w=1200&q=80";
 
 const CATEGORIES = [
   {
@@ -83,94 +83,78 @@ const CATEGORIES = [
   },
 ];
 
-function ImageHero() {
-  const [layers, setLayers] = useState([0, 1]);
-  const [topVisible, setTopVisible] = useState(true);
-  const scale = useSharedValue(1);
-  const imgCounter = useRef(0);
+function getVideoUrl(path: string): string {
+  try {
+    const base = getApiUrl();
+    return `${base}${path.startsWith("/") ? path.slice(1) : path}`;
+  } catch {
+    return `https://localhost:5000${path}`;
+  }
+}
 
-  useEffect(() => {
-    if (Platform.OS === "web") {
-      HERO_IMAGES.forEach((url) => {
-        const img = new (window as any).Image();
-        img.src = url;
-      });
-    }
-  }, []);
-
-  useEffect(() => {
-    scale.value = withRepeat(
-      withTiming(1.08, { duration: 8000, easing: Easing.inOut(Easing.ease) }),
-      -1,
-      true
-    );
-  }, []);
+function VideoHeroWeb() {
+  const [videoIndex, setVideoIndex] = useState(0);
+  const [fadeIn, setFadeIn] = useState(true);
+  const isWeb = Platform.OS === "web";
 
   useEffect(() => {
     const interval = setInterval(() => {
-      imgCounter.current = (imgCounter.current + 1) % HERO_IMAGES.length;
-      const nextImg = imgCounter.current;
-
-      if (topVisible) {
-        setLayers([layers[0], nextImg]);
-        setTopVisible(false);
-      } else {
-        setLayers([nextImg, layers[1]]);
-        setTopVisible(true);
-      }
-
-      scale.value = 1;
-      scale.value = withRepeat(
-        withTiming(1.08, { duration: 8000, easing: Easing.inOut(Easing.ease) }),
-        -1,
-        true
-      );
-    }, 7000);
+      setFadeIn(false);
+      setTimeout(() => {
+        setVideoIndex((prev) => (prev + 1) % HERO_VIDEOS.length);
+        setFadeIn(true);
+      }, 800);
+    }, 8000);
     return () => clearInterval(interval);
-  }, [topVisible, layers]);
+  }, []);
 
-  const scaleStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  const isWeb = Platform.OS === "web";
-  const imgStyle = { width: "100%" as any, height: "100%" as any };
+  const videoUrl = getVideoUrl(HERO_VIDEOS[videoIndex]);
   const fill: any = { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, width: "100%", height: "100%" };
 
-  const renderImage = (idx: number) => {
-    if (isWeb) {
-      return <RNImage source={{ uri: HERO_IMAGES[idx] }} style={imgStyle} resizeMode="cover" />;
-    }
-    return <Image source={{ uri: HERO_IMAGES[idx] }} style={imgStyle} contentFit="cover" />;
-  };
-
-  if (isWeb) {
+  if (!isWeb) {
     return (
-      <>
-        <View style={[fill, { opacity: topVisible ? 0 : 1, transition: "opacity 1.2s ease-in-out" } as any]}>
-          <Animated.View style={[fill, scaleStyle]}>
-            {renderImage(layers[1])}
-          </Animated.View>
-        </View>
-        <View style={[fill, { opacity: topVisible ? 1 : 0, transition: "opacity 1.2s ease-in-out" } as any]}>
-          <Animated.View style={[fill, scaleStyle]}>
-            {renderImage(layers[0])}
-          </Animated.View>
-        </View>
-      </>
+      <View style={fill}>
+        <Image
+          source={{ uri: HERO_POSTER }}
+          style={{ width: "100%", height: "100%" } as any}
+          contentFit="cover"
+        />
+      </View>
     );
   }
 
   return (
-    <>
-      <Animated.View style={[fill, scaleStyle, { opacity: topVisible ? 0 : 1 }]}>
-        {renderImage(layers[1])}
-      </Animated.View>
-      <Animated.View style={[fill, scaleStyle, { opacity: topVisible ? 1 : 0 }]}>
-        {renderImage(layers[0])}
-      </Animated.View>
-    </>
+    <View style={fill}>
+      <RNImage
+        source={{ uri: HERO_POSTER }}
+        style={[fill as any, { width: "100%", height: "100%" }]}
+        resizeMode="cover"
+      />
+      <View style={[fill, { opacity: fadeIn ? 1 : 0, transition: "opacity 0.8s ease-in-out" } as any]}>
+        <video
+          key={videoIndex}
+          autoPlay
+          loop
+          muted
+          playsInline
+          style={{
+            position: "absolute",
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            top: 0,
+            left: 0,
+          } as any}
+        >
+          <source src={videoUrl} type="video/mp4" />
+        </video>
+      </View>
+    </View>
   );
+}
+
+function VideoHero() {
+  return <VideoHeroWeb />;
 }
 
 function getGreeting(): string {
@@ -211,7 +195,7 @@ export default function ExploreScreen() {
   useEffect(() => {
     const interval = setInterval(() => {
       setHeroIndex((prev) => (prev + 1) % HERO_CAPTIONS.length);
-    }, 7000);
+    }, 8000);
     return () => clearInterval(interval);
   }, []);
 
@@ -247,7 +231,7 @@ export default function ExploreScreen() {
         refreshControl={<RefreshControl refreshing={false} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
         <View style={[styles.heroContainer, { height: HERO_HEIGHT, backgroundColor: "#1B5E20" }]}>
-          <ImageHero />
+          <VideoHero />
 
           <LinearGradient
             colors={["rgba(0,0,0,0.1)", "rgba(0,0,0,0.0)", "rgba(0,0,0,0.65)", isDark ? "#0A0F0A" : colors.background]}

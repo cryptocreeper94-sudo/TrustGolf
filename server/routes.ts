@@ -35,6 +35,10 @@ function validatePassword(pw: string): string | null {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  const path = require("path");
+  const express = require("express");
+  app.use("/hero-videos", express.static(path.resolve(process.cwd(), "server/public/videos"), { maxAge: "30d" }));
+
   app.post("/api/auth/register", async (req: Request, res: Response) => {
     const { username, email, password, displayName } = req.body;
     if (!username || !email || !password) {

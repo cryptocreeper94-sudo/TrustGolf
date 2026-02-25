@@ -37,7 +37,7 @@ A premium mobile-first golf platform built with React Native + Expo, featuring a
 - **Footer**: Company links, developer access
 
 ## Key Features
-1. **Cinematic Explorer Page** - Image slideshow hero with Ken Burns effect, category carousels, hot deals, top courses, quick actions
+1. **Cinematic Explorer Page** - Video hero with 3 AI-generated golf videos (aerial fairway, putting green, sunrise course) cycling with cross-fade, HTML `<video>` on web with poster fallback, category carousels, hot deals, top courses, quick actions
 2. **Course Catalog** - 45 courses (20 world-class + 8 Upstate SC + 17 Middle TN/Nashville) organized by state with filterable chips, SectionList grouped by state, full descriptions, designer info, year built, course type, unique gallery images, amenities with icons, contact info
 3. **Score Tracking** - Log rounds with stats (putts, FIR, GIR), view history, averages, and USGA Handicap Index. Real hole-by-hole scorecards for Middle TN/Nashville courses (17 courses with full hole data: par, yardage, handicap per hole)
 4. **AI Swing Analyzer** - Club-specific analysis (Driver, Fairway Wood, Hybrid, Long/Mid/Short Iron, Wedges, Putter); photo/video mode; AI prompt tailored per club type
@@ -49,6 +49,7 @@ A premium mobile-first golf platform built with React Native + Expo, featuring a
 10. **TrustVault Integration** - Media storage, video/image/audio editors via embedded iframe, webhook callbacks for render status
 11. **About & Roadmap** - Mission statement, executive summary, business plan, 5-phase product roadmap (accessible from hamburger menu)
 12. **USGA Handicap System** - Auto-calculated Handicap Index using score differentials, updates after each round, displayed on Scores and Profile screens
+13. **Vendor/Partner Signup** - Public partner application form at /partner, business info + type + partnership tier selection, Resend confirmation email, developer dashboard management with approve/reject, hamburger menu "Partner With Us" link
 
 ## TrustVault Integration
 - **API Base**: https://trustvault.replit.app/api/studio
