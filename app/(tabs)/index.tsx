@@ -253,7 +253,21 @@ export default function ExploreScreen() {
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+
+      <View style={[styles.headerBar, { paddingTop: insets.top + webTopInset + 4, backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+        <View style={styles.heroLogo}>
+          <Ionicons name="golf" size={20} color={colors.primary} />
+          <PremiumText variant="subtitle" style={{ fontSize: 17 }}>Trust Golf</PremiumText>
+        </View>
+        <Pressable
+          onPress={() => { setMenuOpen(true); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+          style={[styles.headerMenuBtn, { backgroundColor: colors.surfaceElevated }]}
+        >
+          <Ionicons name="menu" size={22} color={colors.text} />
+        </Pressable>
+      </View>
+
       <ScrollView
         contentContainerStyle={{ paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
@@ -267,23 +281,10 @@ export default function ExploreScreen() {
           )}
 
           <LinearGradient
-            colors={["rgba(0,0,0,0.15)", "rgba(0,0,0,0.0)", "rgba(0,0,0,0.65)", isDark ? "#0A0F0A" : colors.background]}
-            locations={[0, 0.3, 0.75, 1]}
+            colors={["rgba(0,0,0,0.1)", "rgba(0,0,0,0.0)", "rgba(0,0,0,0.65)", isDark ? "#0A0F0A" : colors.background]}
+            locations={[0, 0.2, 0.75, 1]}
             style={StyleSheet.absoluteFill}
           />
-
-          <View style={[styles.heroTopBar, { paddingTop: insets.top + webTopInset + 6 }]}>
-            <View style={styles.heroLogo}>
-              <Ionicons name="golf" size={20} color="#fff" />
-              <PremiumText variant="subtitle" color="#fff" shadow style={{ fontSize: 17 }}>Trust Golf</PremiumText>
-            </View>
-            <Pressable
-              onPress={() => { setMenuOpen(true); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
-              style={styles.heroIconBtn}
-            >
-              <Ionicons name="menu" size={22} color="#fff" />
-            </Pressable>
-          </View>
 
           <View style={styles.heroCaptionArea}>
             <Animated.View key={heroIndex} entering={FadeInDown.duration(500)}>
@@ -666,28 +667,23 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     position: "relative",
   },
-  heroTopBar: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
+  headerBar: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 16,
-    zIndex: 10,
-    height: 44,
+    paddingBottom: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   heroLogo: {
     flexDirection: "row",
     alignItems: "center",
     gap: 7,
   },
-  heroIconBtn: {
+  headerMenuBtn: {
     width: 36,
     height: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(255,255,255,0.15)",
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
   },
