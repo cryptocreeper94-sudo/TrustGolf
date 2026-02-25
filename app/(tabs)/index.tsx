@@ -200,11 +200,7 @@ export default function ExploreScreen() {
         refreshControl={<RefreshControl refreshing={false} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
         <View style={[styles.heroContainer, { height: HERO_HEIGHT }]}>
-          {useImageFallback ? (
-            <ImageHero />
-          ) : (
-            <VideoHero onVideoError={() => setUseImageFallback(true)} />
-          )}
+          <ImageHero />
 
           <LinearGradient
             colors={["rgba(0,0,0,0.1)", "rgba(0,0,0,0.0)", "rgba(0,0,0,0.65)", isDark ? "#0A0F0A" : colors.background]}
