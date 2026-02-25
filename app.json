@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "GolfPro",
-    "slug": "golfpro",
+    "name": "Trust Golf",
+    "slug": "trustgolf",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View, ScrollView, StyleSheet, Pressable, Dimensions, Platform,
-  RefreshControl, StatusBar,
+  RefreshControl, StatusBar, Linking, Modal,
 } from "react-native";
 import { Image } from "expo-image";
 import { router } from "expo-router";
@@ -214,6 +214,7 @@ export default function ExploreScreen() {
 
   const [useImageFallback, setUseImageFallback] = useState(false);
   const [heroIndex, setHeroIndex] = useState(0);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const { data: coursesData, isLoading: coursesLoading, refetch: refetchCourses } = useQuery<any[]>({
     queryKey: ["/api/courses"],
@@ -271,29 +272,17 @@ export default function ExploreScreen() {
             style={StyleSheet.absoluteFill}
           />
 
-          <View style={[styles.heroTopBar, { paddingTop: insets.top + webTopInset + 8 }]}>
+          <View style={[styles.heroTopBar, { paddingTop: insets.top + webTopInset + 6 }]}>
             <View style={styles.heroLogo}>
-              <Ionicons name="golf" size={22} color="#fff" />
-              <PremiumText variant="subtitle" color="#fff" shadow>GolfPro</PremiumText>
+              <Ionicons name="golf" size={20} color="#fff" />
+              <PremiumText variant="subtitle" color="#fff" shadow style={{ fontSize: 17 }}>Trust Golf</PremiumText>
             </View>
-            <View style={styles.heroTopActions}>
-              <Pressable onPress={toggleTheme} style={styles.heroIconBtn}>
-                <Ionicons name={isDark ? "sunny" : "moon"} size={18} color="#fff" />
-              </Pressable>
-              {!isLoggedIn ? (
-                <Pressable
-                  onPress={() => router.push("/login")}
-                  style={[styles.heroSignInBtn, { backgroundColor: "rgba(255,255,255,0.2)" }]}
-                >
-                  <Ionicons name="person-outline" size={16} color="#fff" />
-                  <PremiumText variant="caption" color="#fff">Sign In</PremiumText>
-                </Pressable>
-              ) : (
-                <Pressable onPress={() => router.push("/(tabs)/profile")} style={styles.heroIconBtn}>
-                  <Ionicons name="person-circle" size={22} color="#fff" />
-                </Pressable>
-              )}
-            </View>
+            <Pressable
+              onPress={() => { setMenuOpen(true); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+              style={styles.heroIconBtn}
+            >
+              <Ionicons name="menu" size={22} color="#fff" />
+            </Pressable>
           </View>
 
           <View style={styles.heroCaptionArea}>
@@ -566,7 +555,106 @@ export default function ExploreScreen() {
             </View>
           )}
         </View>
+
+        <View style={[styles.footer, { borderTopColor: colors.border }]}>
+          <View style={styles.footerLogo}>
+            <Ionicons name="golf" size={18} color={colors.primary} />
+            <PremiumText variant="body" color={colors.text} style={{ fontSize: 14 }}>Trust Golf</PremiumText>
+          </View>
+
+          <View style={styles.footerDivider}>
+            <View style={[styles.footerLine, { backgroundColor: colors.border }]} />
+          </View>
+
+          <Pressable onPress={() => Linking.openURL("https://darkwavestudios.io")}>
+            <PremiumText variant="caption" color={colors.textSecondary} style={styles.footerLink}>
+              Dark Wave Studios LLC {"\u00A9"} 2026
+            </PremiumText>
+          </Pressable>
+
+          <Pressable onPress={() => Linking.openURL("https://dwtl.io")}>
+            <PremiumText variant="caption" color={colors.textSecondary} style={styles.footerLink}>
+              Powered by <PremiumText variant="caption" color={colors.primary}>Trust Layer</PremiumText>
+            </PremiumText>
+          </Pressable>
+
+          <Pressable onPress={() => Linking.openURL("https://trustshield.tech")}>
+            <PremiumText variant="caption" color={colors.textSecondary} style={styles.footerLink}>
+              Protected by <PremiumText variant="caption" color={colors.primary}>TrustShield</PremiumText>
+            </PremiumText>
+          </Pressable>
+
+          <View style={[styles.footerDivider, { marginTop: 12 }]}>
+            <View style={[styles.footerLine, { backgroundColor: colors.border }]} />
+          </View>
+
+          <Pressable
+            onPress={() => router.push("/login")}
+            style={styles.footerDevLink}
+          >
+            <Ionicons name="code-slash" size={13} color={colors.textMuted} />
+            <PremiumText variant="caption" color={colors.textMuted}>Developer</PremiumText>
+          </Pressable>
+        </View>
       </ScrollView>
+
+      <Modal
+        visible={menuOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMenuOpen(false)}
+      >
+        <Pressable style={styles.menuOverlay} onPress={() => setMenuOpen(false)}>
+          <Animated.View
+            entering={FadeInDown.duration(200)}
+            style={[styles.menuPanel, { backgroundColor: colors.card, borderColor: colors.glassBorder, marginTop: insets.top + webTopInset + 50 }]}
+          >
+            <Pressable onPress={() => setMenuOpen(false)} style={styles.menuClose}>
+              <Ionicons name="close" size={22} color={colors.text} />
+            </Pressable>
+
+            {!isLoggedIn && (
+              <Pressable
+                onPress={() => { setMenuOpen(false); router.push("/login"); }}
+                style={[styles.menuItem, { backgroundColor: colors.primary + "12" }]}
+              >
+                <Ionicons name="person-outline" size={20} color={colors.primary} />
+                <PremiumText variant="body" color={colors.primary}>Sign In</PremiumText>
+              </Pressable>
+            )}
+
+            {[
+              { icon: "compass-outline" as const, label: "Explore", route: "/(tabs)" },
+              { icon: "golf-outline" as const, label: "Courses", route: "/(tabs)/courses" },
+              { icon: "pricetag-outline" as const, label: "Deals", route: "/(tabs)/deals" },
+              { icon: "flag-outline" as const, label: "Scores", route: "/(tabs)/scores" },
+              { icon: "person-outline" as const, label: "Profile", route: "/(tabs)/profile" },
+            ].map((item) => (
+              <Pressable
+                key={item.route}
+                onPress={() => { setMenuOpen(false); router.push(item.route as any); }}
+                style={styles.menuItem}
+              >
+                <Ionicons name={item.icon} size={20} color={colors.text} />
+                <PremiumText variant="body">{item.label}</PremiumText>
+              </Pressable>
+            ))}
+
+            <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
+
+            <Pressable onPress={toggleTheme} style={styles.menuItem}>
+              <Ionicons name={isDark ? "sunny-outline" : "moon-outline"} size={20} color={colors.text} />
+              <PremiumText variant="body">{isDark ? "Light Mode" : "Dark Mode"}</PremiumText>
+            </Pressable>
+
+            {isLoggedIn && (
+              <PremiumText variant="caption" color={colors.textMuted} style={{ paddingHorizontal: 16, paddingTop: 8 }}>
+                Signed in as {user?.username}
+              </PremiumText>
+            )}
+          </Animated.View>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -588,16 +676,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 16,
     zIndex: 10,
+    height: 44,
   },
   heroLogo: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-  },
-  heroTopActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
+    gap: 7,
   },
   heroIconBtn: {
     width: 36,
@@ -606,14 +690,6 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.15)",
     alignItems: "center",
     justifyContent: "center",
-  },
-  heroSignInBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    paddingHorizontal: 12,
-    height: 34,
-    borderRadius: 17,
   },
   heroCaptionArea: {
     position: "absolute",
@@ -731,5 +807,71 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
+  },
+  footer: {
+    alignItems: "center",
+    paddingHorizontal: 24,
+    paddingTop: 32,
+    paddingBottom: 24,
+    marginTop: 16,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  footerLogo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 4,
+  },
+  footerDivider: {
+    width: "100%",
+    alignItems: "center",
+    marginVertical: 10,
+  },
+  footerLine: {
+    width: 40,
+    height: 1,
+  },
+  footerLink: {
+    textAlign: "center",
+    paddingVertical: 4,
+    fontSize: 11,
+  },
+  footerDevLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingTop: 6,
+    paddingVertical: 4,
+  },
+  menuOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+  },
+  menuPanel: {
+    marginHorizontal: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingVertical: 12,
+    overflow: "hidden",
+  },
+  menuClose: {
+    alignSelf: "flex-end",
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
+  menuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    marginHorizontal: 8,
+    marginVertical: 1,
+  },
+  menuDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginHorizontal: 20,
+    marginVertical: 8,
   },
 });

@@ -137,9 +137,9 @@ export default function ProfileScreen() {
               ))}
             </View>
           </AccordionItem>
-          <AccordionItem title="About GolfPro" icon="information-circle-outline">
+          <AccordionItem title="About Trust Golf" icon="information-circle-outline">
             <PremiumText variant="body" color={colors.textSecondary}>
-              GolfPro is your premium golf companion for score tracking, course discovery, AI-powered swing analysis, and exclusive deals.
+              Trust Golf is your premium golf companion for score tracking, course discovery, AI-powered swing analysis, and exclusive deals.
             </PremiumText>
           </AccordionItem>
         </GlassCard>

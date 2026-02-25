@@ -1,7 +1,7 @@
-# GolfPro - Premium Golf Companion App
+# Trust Golf - Premium Golf Companion App
 
 ## Overview
-A premium mobile-first golf platform built with React Native + Expo, featuring a cinematic Explorer landing page, AI-powered swing analysis, score tracking, course discovery, and exclusive deals. Inspired by GolfNow. No login required to browse — auth only gates subscription features.
+A premium mobile-first golf platform built with React Native + Expo, featuring a cinematic Explorer landing page, AI-powered swing analysis, score tracking, course discovery, and exclusive deals. Inspired by GolfNow. No login required to browse — auth only gates subscription features. By Dark Wave Studios LLC.
 
 ## Architecture
 - **Frontend**: React Native + Expo (SDK 54) with file-based routing via Expo Router
@@ -25,7 +25,15 @@ A premium mobile-first golf platform built with React Native + Expo, featuring a
   - AI Swing Analyzer (requires sign-in)
   - Creating new rounds (requires sign-in)
 - Login modal supports redirect params for seamless post-login navigation
-- Developer access: password 0424 → developer dashboard
+- Developer access: master pin 0424 → developer dashboard
+
+## Branding
+- **App Name**: Trust Golf
+- **Company**: Dark Wave Studios LLC © 2026 → darkwavestudios.io
+- **Trust Layer**: Powered by Trust Layer → dwtl.io
+- **TrustShield**: Protected by TrustShield → trustshield.tech
+- **Header**: "Trust Golf" left, hamburger menu right (compact)
+- **Footer**: Company links, developer access
 
 ## Key Features
 1. **Cinematic Explorer Page** - Video hero with auto-cycling golf course flyovers (with image fallback), category carousels, hot deals, top courses, quick actions

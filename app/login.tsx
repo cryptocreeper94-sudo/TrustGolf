@@ -113,7 +113,7 @@ export default function LoginScreen() {
               <Ionicons name="golf" size={48} color={colors.primary} />
             </View>
             <PremiumText variant="hero" shadow style={{ textAlign: "center", marginTop: 16 }}>
-              GolfPro
+              Trust Golf
             </PremiumText>
             {params.reason ? (
               <PremiumText variant="body" color={colors.textSecondary} style={{ textAlign: "center", marginTop: 4 }}>
@@ -212,6 +212,9 @@ export default function LoginScreen() {
         <View style={[styles.footer, { paddingBottom: insets.bottom + (Platform.OS === "web" ? 34 : 16) }]}>
           <PremiumText variant="caption" color={colors.textMuted}>
             Score Tracking  |  Course Discovery  |  AI Swing Analysis
+          </PremiumText>
+          <PremiumText variant="caption" color={colors.textMuted} style={{ marginTop: 4 }}>
+            Dark Wave Studios LLC {"\u00A9"} 2026
           </PremiumText>
         </View>
       </LinearGradient>
