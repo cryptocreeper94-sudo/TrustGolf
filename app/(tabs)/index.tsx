@@ -24,8 +24,9 @@ import { CardSkeleton } from "@/components/SkeletonLoader";
 import { BentoRow, BentoCell } from "@/components/BentoGrid";
 import { OrbEffect } from "@/components/OrbEffect";
 import { getQueryFn, getApiUrl } from "@/lib/query-client";
+import { useResponsiveLayout } from "@/hooks/useResponsiveLayout";
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const HERO_HEIGHT = Math.min(SCREEN_HEIGHT * 0.52, 420);
 
 const HERO_VIDEOS = [
@@ -171,6 +172,7 @@ export default function ExploreScreen() {
   const { colors, isDark, toggleTheme } = useTheme();
   const { user, isLoggedIn } = useAuth();
   const insets = useSafeAreaInsets();
+  const layout = useResponsiveLayout();
   const webTopInset = Platform.OS === "web" ? 67 : 0;
 
   const [heroIndex, setHeroIndex] = useState(0);
@@ -276,14 +278,14 @@ export default function ExploreScreen() {
           </View>
         </View>
 
-        <View style={styles.body}>
+        <View style={[styles.body, { paddingHorizontal: layout.bodyPadding, maxWidth: layout.contentMaxWidth, alignSelf: "center", width: "100%" }]}>
           <View style={{ marginTop: 20 }}>
             <View style={styles.sectionHeader}>
               <PremiumText variant="subtitle">Explore</PremiumText>
             </View>
             <Carousel
               data={CATEGORIES}
-              itemWidth={SCREEN_WIDTH * 0.72}
+              itemWidth={layout.heroItemWidth}
               renderItem={(cat) => (
                 <Pressable onPress={() => handleCategoryPress(cat)} style={{ height: 190 }}>
                   <View style={[styles.categoryCard, { borderColor: colors.glassBorder }]}>
@@ -332,7 +334,7 @@ export default function ExploreScreen() {
               </View>
               <Carousel
                 data={hotDeals}
-                itemWidth={SCREEN_WIDTH * 0.72}
+                itemWidth={layout.dealItemWidth}
                 renderItem={(deal: any) => (
                   <GlassCard noPadding style={{ height: 200 }} onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -386,7 +388,7 @@ export default function ExploreScreen() {
             ) : (
               <Carousel
                 data={courses.slice(0, 6)}
-                itemWidth={SCREEN_WIDTH * 0.55}
+                itemWidth={layout.courseItemWidth}
                 renderItem={(course: any) => (
                   <GlassCard
                     noPadding
@@ -435,7 +437,6 @@ export default function ExploreScreen() {
               }}
               style={{
                 marginTop: 14,
-                marginHorizontal: 16,
                 paddingVertical: 14,
                 borderRadius: 14,
                 backgroundColor: colors.primary,
@@ -528,7 +529,7 @@ export default function ExploreScreen() {
               </View>
               <Carousel
                 data={deals.slice(0, 5)}
-                itemWidth={SCREEN_WIDTH * 0.65}
+                itemWidth={layout.dealItemWidth}
                 renderItem={(deal: any) => (
                   <GlassCard noPadding style={{ height: 160 }} onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -771,9 +772,7 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: 2,
   },
-  body: {
-    paddingHorizontal: 16,
-  },
+  body: {},
   sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",

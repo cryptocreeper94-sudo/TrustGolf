@@ -14,11 +14,13 @@ import { BentoRow, BentoCell } from "@/components/BentoGrid";
 import { AccordionItem } from "@/components/AccordionItem";
 import { PremiumText } from "@/components/PremiumText";
 import { getQueryFn } from "@/lib/query-client";
+import { useResponsiveLayout } from "@/hooks/useResponsiveLayout";
 
 export default function ProfileScreen() {
   const { colors, isDark, toggleTheme, themeMode, setThemeMode } = useTheme();
   const { user, logout, isDeveloper, isLoggedIn, updateProfile, refreshUser } = useAuth();
   const insets = useSafeAreaInsets();
+  const layout = useResponsiveLayout();
   const webTopInset = Platform.OS === "web" ? 67 : 0;
 
   const [editingProfile, setEditingProfile] = useState(false);

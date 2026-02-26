@@ -14,11 +14,13 @@ import { BentoRow, BentoCell } from "@/components/BentoGrid";
 import { PremiumText } from "@/components/PremiumText";
 import { CardSkeleton } from "@/components/SkeletonLoader";
 import { getQueryFn } from "@/lib/query-client";
+import { useResponsiveLayout } from "@/hooks/useResponsiveLayout";
 
 export default function ScoresScreen() {
   const { colors } = useTheme();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
+  const layout = useResponsiveLayout();
   const webTopInset = Platform.OS === "web" ? 67 : 0;
 
   const isLoggedIn = !!user;

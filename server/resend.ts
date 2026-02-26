@@ -41,6 +41,10 @@ export async function getUncachableResendClient() {
   };
 }
 
+function escapeHtml(str: string): string {
+  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
 export async function sendVendorConfirmationEmail(toEmail: string, businessName: string, contactName: string, tier: string) {
   const { client, fromEmail } = await getUncachableResendClient();
 
@@ -50,6 +54,10 @@ export async function sendVendorConfirmationEmail(toEmail: string, businessName:
     premium: "Premium Partner",
   };
 
+  const safeContact = escapeHtml(contactName);
+  const safeBusiness = escapeHtml(businessName);
+  const safeTier = escapeHtml(tierLabels[tier] || tier);
+
   await client.emails.send({
     from: fromEmail || 'Trust Golf <noreply@resend.dev>',
     to: toEmail,
@@ -58,14 +66,14 @@ export async function sendVendorConfirmationEmail(toEmail: string, businessName:
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 500px; margin: 0 auto; padding: 40px 20px;">
         <div style="text-align: center; margin-bottom: 30px;">
           <div style="width: 60px; height: 60px; background: #1B5E20; border-radius: 16px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 12px;">
-            <span style="font-size: 28px;">⛳</span>
+            <span style="font-size: 28px; color: #fff; font-weight: bold;">TG</span>
           </div>
           <h1 style="color: #1B5E20; font-size: 24px; margin: 0;">Trust Golf</h1>
           <p style="color: #666; font-size: 12px; letter-spacing: 2px; margin: 4px 0 0;">PARTNER PROGRAM</p>
         </div>
-        <h2 style="color: #333; font-size: 20px; text-align: center;">Welcome, ${contactName}!</h2>
+        <h2 style="color: #333; font-size: 20px; text-align: center;">Welcome, ${safeContact}!</h2>
         <p style="color: #555; font-size: 15px; line-height: 1.6; text-align: center;">
-          We've received your partner application for <strong>${businessName}</strong> at the <strong>${tierLabels[tier] || tier}</strong> level.
+          We've received your partner application for <strong>${safeBusiness}</strong> at the <strong>${safeTier}</strong> level.
         </p>
         <div style="background: #f8f9f8; border-radius: 12px; padding: 20px; margin: 24px 0; border-left: 4px solid #1B5E20;">
           <p style="color: #333; font-size: 14px; line-height: 1.6; margin: 0;">

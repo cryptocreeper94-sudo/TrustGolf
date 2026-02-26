@@ -3,6 +3,7 @@ import {
   View, StyleSheet, Pressable, TextInput, Platform, SectionList,
   ScrollView,
 } from "react-native";
+import { useResponsiveLayout } from "@/hooks/useResponsiveLayout";
 import { Image } from "expo-image";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -36,6 +37,7 @@ function getStateName(abbr: string): string {
 export default function CoursesScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const layout = useResponsiveLayout();
   const [search, setSearch] = useState("");
   const [selectedState, setSelectedState] = useState<string | null>(null);
   const webTopInset = Platform.OS === "web" ? 67 : 0;
@@ -132,7 +134,7 @@ export default function CoursesScreen() {
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { paddingTop: insets.top + webTopInset + 10 }]}>
+      <View style={[styles.header, { paddingTop: insets.top + webTopInset + 10, maxWidth: layout.contentMaxWidth, alignSelf: "center", width: "100%" }]}>
         <PremiumText variant="hero">Courses</PremiumText>
         <View style={[styles.searchContainer, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
           <Ionicons name="search" size={18} color={colors.textMuted} />
@@ -213,7 +215,7 @@ export default function CoursesScreen() {
           renderItem={renderCourse}
           renderSectionHeader={renderSectionHeader}
           keyExtractor={(item) => String(item.id)}
-          contentContainerStyle={styles.list}
+          contentContainerStyle={[styles.list, { maxWidth: layout.contentMaxWidth, alignSelf: "center", width: "100%" }]}
           showsVerticalScrollIndicator={false}
           stickySectionHeadersEnabled
           ListEmptyComponent={

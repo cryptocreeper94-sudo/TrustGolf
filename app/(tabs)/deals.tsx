@@ -13,10 +13,12 @@ import { GlassCard } from "@/components/GlassCard";
 import { PremiumText } from "@/components/PremiumText";
 import { CardSkeleton } from "@/components/SkeletonLoader";
 import { getQueryFn } from "@/lib/query-client";
+import { useResponsiveLayout } from "@/hooks/useResponsiveLayout";
 
 export default function DealsScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const layout = useResponsiveLayout();
   const webTopInset = Platform.OS === "web" ? 67 : 0;
 
   const { data: deals, isLoading } = useQuery<any[]>({

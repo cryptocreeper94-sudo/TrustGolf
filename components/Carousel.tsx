@@ -1,9 +1,7 @@
 import React, { useRef, useState, useCallback } from "react";
-import { View, FlatList, StyleSheet, Dimensions, ViewStyle, NativeSyntheticEvent, NativeScrollEvent, Pressable } from "react-native";
+import { View, FlatList, StyleSheet, useWindowDimensions, ViewStyle, NativeSyntheticEvent, NativeScrollEvent, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/contexts/ThemeContext";
-
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 interface CarouselProps<T> {
   data: T[];
@@ -18,7 +16,8 @@ export function Carousel<T>({ data, renderItem, itemWidth, gap = 12, style, show
   const { colors } = useTheme();
   const [activeIndex, setActiveIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
-  const calculatedWidth = itemWidth || SCREEN_WIDTH - 48;
+  const { width: windowWidth } = useWindowDimensions();
+  const calculatedWidth = itemWidth || windowWidth - 48;
 
   const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offset = event.nativeEvent.contentOffset.x;
