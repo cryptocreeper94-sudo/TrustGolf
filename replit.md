@@ -4,7 +4,8 @@
 Trust Golf is a premium mobile-first golf platform built with React Native + Expo. It offers a cinematic landing page, AI-powered swing analysis, score tracking, course discovery, media integration via TrustVault, and exclusive deals. The platform aims to provide a comprehensive golf companion experience, allowing users to browse content without login and gating advanced features behind authentication. It is developed by DarkWave Studios LLC.
 
 ## User Preferences
-No explicit user preferences were provided in the original document.
+- **Course Catalog Philosophy**: The course catalog is designed to ultimately become a physical, printable coffee table book. Every course entry must be written at editorial/publishing quality — rich narrative descriptions covering course history, designer legacy, signature holes, landscape and flora, seasonal character, and the kind of vivid storytelling that invites conversation. Think: a glossy book someone displays in their sunroom in Florida that guests pick up and say "we need to play this one." This standard applies to ALL future course additions. No placeholder or sparse entries — every course deserves the full premium treatment.
+- **Premium UI Standard**: All catalog-style screens (courses, deals, blog) should be designed with a print-ready aesthetic sensibility — beautiful typography, generous spacing, cinematic imagery, and layouts that would translate to a physical publication.
 
 ## System Architecture
 Trust Golf is built on a modern full-stack architecture:
@@ -18,7 +19,7 @@ Trust Golf is built on a modern full-stack architecture:
 -   **Authentication**: The app allows free content browsing, with a login modal appearing only for gated features like AI Swing Analyzer and round tracking. A developer dashboard is accessible via a master PIN, and a whitelist system provides VIP access.
 -   **Key Features**:
     *   **Cinematic Explorer Page**: A dynamic landing page with an image slideshow hero, category carousels, hot deals, and quick actions.
-    *   **Course Catalog**: Comprehensive database of 45 golf courses, filterable by state, with detailed descriptions, amenities, and unique imagery.
+    *   **Course Catalog**: Comprehensive database of 55 golf courses across SC, TN, GA, NC, MS, FL, NY, PA, CA, OR, WI, WA, and Scotland — filterable by state, with rich editorial descriptions, amenities, designer credits, and unique imagery. Designed as a future coffee table book.
     *   **Score Tracking**: Users can log rounds with detailed stats (putts, FIR, GIR), view history, and automatically calculate USGA Handicap Index. Includes real hole-by-hole scorecards for specific courses.
     *   **AI Swing Analyzer**: Club-specific AI analysis of golf swings from photos or videos, providing detailed feedback, score meters, tips, and drills.
     *   **Video Swing Playback**: Slow-motion playback, frame extraction, and TrustVault integration for video editing.
