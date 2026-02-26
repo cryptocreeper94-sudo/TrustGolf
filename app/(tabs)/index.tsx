@@ -576,10 +576,13 @@ export default function ExploreScreen() {
             </PremiumText>
           </Pressable>
 
-          <Pressable onPress={() => Linking.openURL("https://dwtl.io")}>
-            <PremiumText variant="caption" color={colors.textSecondary} style={styles.footerLink}>
-              Powered by <PremiumText variant="caption" color={colors.primary}>Trust Layer</PremiumText>
-            </PremiumText>
+          <Pressable onPress={() => router.push("/ecosystem")}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 4, justifyContent: "center" }}>
+              <Ionicons name="shield-checkmark-outline" size={12} color={colors.primary} />
+              <PremiumText variant="caption" color={colors.textSecondary} style={styles.footerLink}>
+                <PremiumText variant="caption" color={colors.primary}>Trust Layer</PremiumText> Ecosystem
+              </PremiumText>
+            </View>
           </Pressable>
 
           <Pressable onPress={() => Linking.openURL("https://trustshield.tech")}>

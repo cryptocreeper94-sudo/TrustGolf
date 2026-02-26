@@ -28,6 +28,7 @@ Trust Golf is built on a modern full-stack architecture:
     *   **AI-Driven Blog**: An SEO-focused blog system where AI (GPT-4o) generates posts, managed via the developer dashboard.
     *   **PWA Support**: Offline caching and installability through a service worker and manifest.
     *   **TrustVault Integration**: Enables media storage, editing, and video processing with webhook callbacks for rendering status.
+    *   **Trust Layer Ecosystem Page**: A dedicated `/ecosystem` page displaying the DarkWave Studios ecosystem directory widget (from dwsc.io), SSO/Blockchain/API feature cards, linked from the footer.
 
 ## External Dependencies
 -   **OpenAI**: Used for AI capabilities, specifically the vision model for swing analysis.
