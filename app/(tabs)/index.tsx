@@ -137,6 +137,10 @@ function VideoHeroWeb() {
           loop
           muted
           playsInline
+          preload="auto"
+          onError={(e: any) => {
+            console.warn("Video failed to load:", videoUrl, e);
+          }}
           style={{
             position: "absolute",
             width: "100%",
@@ -145,9 +149,8 @@ function VideoHeroWeb() {
             top: 0,
             left: 0,
           } as any}
-        >
-          <source src={videoUrl} type="video/mp4" />
-        </video>
+          src={videoUrl}
+        />
       </View>
     </View>
   );
