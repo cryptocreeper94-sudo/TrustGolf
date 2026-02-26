@@ -496,6 +496,68 @@ function updateManifests(manifests, timestamp, baseUrl, assetsByHash) {
   console.log("Manifests updated");
 }
 
+async function buildWebExport(domain) {
+  console.log("Building web export...");
+
+  if (fs.existsSync("dist-web")) {
+    fs.rmSync("dist-web", { recursive: true });
+  }
+
+  return new Promise((resolve, reject) => {
+    const webBuild = spawn("npx", ["expo", "export", "--platform", "web", "--output-dir", "dist-web", "--clear"], {
+      stdio: ["ignore", "pipe", "pipe"],
+      env: { ...process.env, EXPO_PUBLIC_DOMAIN: domain },
+    });
+
+    let stderr = "";
+    webBuild.stdout.on("data", (data) => {
+      const output = data.toString().trim();
+      if (output) console.log(`[WebBuild] ${output}`);
+    });
+    webBuild.stderr.on("data", (data) => {
+      stderr += data.toString();
+      const output = data.toString().trim();
+      if (output) console.error(`[WebBuild] ${output}`);
+    });
+
+    webBuild.on("close", (code) => {
+      if (code !== 0) {
+        reject(new Error(`Web export failed with code ${code}: ${stderr}`));
+      } else {
+        console.log("Web export complete");
+
+        const indexPath = path.join("dist-web", "index.html");
+        if (fs.existsSync(indexPath)) {
+          let html = fs.readFileSync(indexPath, "utf-8");
+          const siteUrl = `https://${domain}`;
+          const seoMeta = `
+    <meta name="description" content="Discover 45+ golf courses, track scores with USGA handicap, analyze your swing with AI, and unlock exclusive tee time deals. Your premium golf companion by DarkWave Studios LLC." />
+    <meta name="keywords" content="golf app, golf courses, score tracker, handicap calculator, AI swing analyzer, tee times, golf deals, USGA handicap, golf GPS, DarkWave Studios, Trust Golf" />
+    <meta name="author" content="DarkWave Studios LLC" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="${siteUrl}" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Trust Golf" />
+    <meta property="og:title" content="Trust Golf — Premium Golf Companion" />
+    <meta property="og:description" content="Discover 45+ golf courses, track scores with USGA handicap, analyze your swing with AI, and unlock exclusive tee time deals." />
+    <meta property="og:url" content="${siteUrl}" />
+    <meta property="og:image" content="${siteUrl}/assets/images/icon.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Trust Golf — Premium Golf Companion" />
+    <meta name="twitter:description" content="Discover 45+ golf courses, track scores with USGA handicap, analyze your swing with AI, and unlock exclusive tee time deals." />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/assets/images/icon.png" />`;
+          html = html.replace("</head>", seoMeta + "\n  </head>");
+          fs.writeFileSync(indexPath, html);
+          console.log("SEO meta tags injected into web index.html");
+        }
+
+        resolve();
+      }
+    });
+  });
+}
+
 async function main() {
   console.log("Building static Expo Go deployment...");
 
@@ -546,11 +608,14 @@ async function main() {
   console.log("Updating manifests and creating landing page...");
   updateManifests(manifests, timestamp, baseUrl, assetsByHash);
 
-  console.log("Build complete! Deploy to:", baseUrl);
-
   if (metroProcess) {
     metroProcess.kill();
+    metroProcess = null;
   }
+
+  await buildWebExport(domain);
+
+  console.log("Build complete! Deploy to:", baseUrl);
   process.exit(0);
 }
 

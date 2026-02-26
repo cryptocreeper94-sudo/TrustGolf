@@ -160,6 +160,11 @@ function serveLandingPage({
   res.status(200).send(html);
 }
 
+function isCrawler(userAgent: string): boolean {
+  const crawlers = /googlebot|bingbot|slurp|duckduckbot|baiduspider|yandexbot|facebookexternalhit|twitterbot|linkedinbot|whatsapp|telegrambot|applebot|discordbot/i;
+  return crawlers.test(userAgent);
+}
+
 function configureExpoAndLanding(app: express.Application) {
   const templatePath = path.resolve(
     process.cwd(),
@@ -170,29 +175,32 @@ function configureExpoAndLanding(app: express.Application) {
   const landingPageTemplate = fs.readFileSync(templatePath, "utf-8");
   const appName = getAppName();
 
+  const isProduction = process.env.NODE_ENV === "production";
+  const distWebPath = path.resolve(process.cwd(), "dist-web");
+  const webIndexPath = path.resolve(distWebPath, "index.html");
+  const hasWebBuild = fs.existsSync(webIndexPath);
+
   log("Serving static Expo files with dynamic manifest routing");
+  if (hasWebBuild) {
+    log("Web build detected at dist-web/ — serving web app for browser visitors");
+  }
 
   app.use((req: Request, res: Response, next: NextFunction) => {
     if (req.path.startsWith("/api")) {
       return next();
     }
 
-    if (req.path !== "/" && req.path !== "/manifest") {
-      return next();
-    }
-
     const platform = req.header("expo-platform");
-    if (platform && (platform === "ios" || platform === "android")) {
+    if (platform && (platform === "ios" || platform === "android") && (req.path === "/" || req.path === "/manifest")) {
       return serveExpoManifest(platform, res);
     }
 
     if (req.path === "/") {
-      return serveLandingPage({
-        req,
-        res,
-        landingPageTemplate,
-        appName,
-      });
+      const ua = req.header("user-agent") || "";
+      if (isProduction && hasWebBuild && !isCrawler(ua)) {
+        return res.sendFile(webIndexPath);
+      }
+      return serveLandingPage({ req, res, landingPageTemplate, appName });
     }
 
     next();
@@ -202,6 +210,24 @@ function configureExpoAndLanding(app: express.Application) {
   app.use("/course-images", express.static(path.resolve(process.cwd(), "server/public/courses"), { maxAge: "30d" }));
   app.use(express.static(path.resolve(process.cwd(), "public")));
   app.use(express.static(path.resolve(process.cwd(), "static-build")));
+
+  if (hasWebBuild) {
+    app.use(express.static(distWebPath));
+
+    app.use((req: Request, res: Response, next: NextFunction) => {
+      if (req.path.startsWith("/api") || req.path.startsWith("/hero-videos") || req.path.startsWith("/course-images")) {
+        return next();
+      }
+      const platform = req.header("expo-platform");
+      if (platform) {
+        return next();
+      }
+      if (req.accepts("html") && isProduction && !isCrawler(req.header("user-agent") || "")) {
+        return res.sendFile(webIndexPath);
+      }
+      next();
+    });
+  }
 
   log("Expo routing: Checking expo-platform header on / and /manifest");
 }

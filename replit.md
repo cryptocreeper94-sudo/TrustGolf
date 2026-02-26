@@ -8,7 +8,7 @@ No explicit user preferences were provided in the original document.
 
 ## System Architecture
 Trust Golf is built on a modern full-stack architecture:
--   **Frontend**: React Native + Expo (SDK 54) utilizing file-based routing via Expo Router for a mobile-first experience.
+-   **Frontend**: React Native + Expo (SDK 54) utilizing file-based routing via Expo Router for a mobile-first experience. In production, a static web export (`dist-web/`) is built via `npx expo export --platform web` and served to browser visitors, while Expo Go native manifests are served to mobile devices.
 -   **Backend**: An Express.js server handles API requests and business logic.
 -   **Database**: PostgreSQL is used for data persistence, managed with Drizzle ORM.
 -   **AI Integration**: OpenAI's vision model, accessed via Replit AI Integrations, powers the AI swing analysis feature.
