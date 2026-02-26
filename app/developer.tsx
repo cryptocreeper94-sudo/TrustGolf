@@ -93,6 +93,15 @@ export default function DeveloperDashboard() {
     queryFn: getQueryFn({ on401: "throw" }),
   });
 
+  const { data: whitelistedUsers, refetch: refetchWhitelist } = useQuery<any[]>({
+    queryKey: ["/api/whitelist"],
+    queryFn: getQueryFn({ on401: "throw" }),
+  });
+
+  const [wlNewName, setWlNewName] = useState("");
+  const [wlNewPin, setWlNewPin] = useState("");
+  const [showWlNewPin, setShowWlNewPin] = useState(false);
+
   const { data: blogPostsData, refetch: refetchBlog } = useQuery<any[]>({
     queryKey: ["/api/blog?status=all"],
     queryFn: getQueryFn({ on401: "throw" }),
@@ -159,6 +168,40 @@ export default function DeveloperDashboard() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/vendor-applications"] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+  });
+
+  const addWhitelistUser = useMutation({
+    mutationFn: async () => {
+      if (!wlNewName.trim() || !wlNewPin.trim()) throw new Error("Name and pin required");
+      await apiRequest("POST", "/api/whitelist", { name: wlNewName.trim(), pin: wlNewPin.trim() });
+    },
+    onSuccess: () => {
+      setWlNewName("");
+      setWlNewPin("");
+      refetchWhitelist();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+  });
+
+  const toggleWhitelistStatus = useMutation({
+    mutationFn: async ({ id, currentStatus }: { id: number; currentStatus: string }) => {
+      const newStatus = currentStatus === "active" ? "suspended" : "active";
+      await apiRequest("PATCH", `/api/whitelist/${id}`, { status: newStatus });
+    },
+    onSuccess: () => {
+      refetchWhitelist();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+  });
+
+  const deleteWhitelistUser = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/whitelist/${id}`);
+    },
+    onSuccess: () => {
+      refetchWhitelist();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
   });
@@ -359,6 +402,16 @@ export default function DeveloperDashboard() {
                 <Ionicons name="newspaper" size={22} color="#FF9800" />
                 <PremiumText variant="title">{(blogPostsData || []).length}</PremiumText>
                 <PremiumText variant="caption" color={colors.textMuted}>Blog Posts</PremiumText>
+              </View>
+            </GlassCard>
+          </BentoCell>
+          <BentoCell>
+            <GlassCard style={{ height: 90 }}>
+              <OrbEffect color="#00BCD420" size={80} />
+              <View style={styles.statItem}>
+                <Ionicons name="shield-checkmark" size={22} color="#00BCD4" />
+                <PremiumText variant="title">{(whitelistedUsers || []).length}</PremiumText>
+                <PremiumText variant="caption" color={colors.textMuted}>Whitelist</PremiumText>
               </View>
             </GlassCard>
           </BentoCell>
@@ -808,6 +861,118 @@ export default function DeveloperDashboard() {
                 })}
               </View>
             )}
+          </AccordionItem>
+        </GlassCard>
+
+        <GlassCard style={{ marginTop: 14 }}>
+          <AccordionItem title={`Whitelist Members (${(whitelistedUsers || []).length})`} icon="shield-checkmark-outline" defaultOpen>
+            <View style={{ gap: 10 }}>
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                <View style={{ flex: 1 }}>
+                  <PremiumText variant="caption" color={colors.textMuted} style={{ fontSize: 11, marginBottom: 4 }}>Name</PremiumText>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: colors.surfaceElevated, color: colors.text, borderColor: colors.border }]}
+                    value={wlNewName}
+                    onChangeText={setWlNewName}
+                    placeholder="Name"
+                    placeholderTextColor={colors.textMuted}
+                    autoCapitalize="none"
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <PremiumText variant="caption" color={colors.textMuted} style={{ fontSize: 11, marginBottom: 4 }}>Pin</PremiumText>
+                  <View style={{ flexDirection: "row", alignItems: "center" }}>
+                    <TextInput
+                      style={[styles.input, { backgroundColor: colors.surfaceElevated, color: colors.text, borderColor: colors.border, flex: 1 }]}
+                      value={wlNewPin}
+                      onChangeText={setWlNewPin}
+                      placeholder="Pin"
+                      placeholderTextColor={colors.textMuted}
+                      secureTextEntry={!showWlNewPin}
+                      keyboardType="number-pad"
+                      maxLength={8}
+                    />
+                    <Pressable onPress={() => setShowWlNewPin(!showWlNewPin)} style={{ marginLeft: -36, paddingRight: 12 }}>
+                      <Ionicons name={showWlNewPin ? "eye-off-outline" : "eye-outline"} size={16} color={colors.textMuted} />
+                    </Pressable>
+                  </View>
+                </View>
+              </View>
+              <Pressable
+                onPress={() => addWhitelistUser.mutate()}
+                style={[styles.actionBtn, { backgroundColor: "#00BCD415", borderColor: "#00BCD4", alignSelf: "flex-start", paddingHorizontal: 16, paddingVertical: 8 }]}
+              >
+                <Ionicons name="person-add" size={14} color="#00BCD4" />
+                <PremiumText variant="caption" color="#00BCD4" style={{ fontWeight: "700" }}>Add Member</PremiumText>
+              </Pressable>
+
+              {(whitelistedUsers || []).length === 0 ? (
+                <View style={{ paddingVertical: 12, alignItems: "center" }}>
+                  <Ionicons name="shield-outline" size={28} color={colors.textMuted} />
+                  <PremiumText variant="caption" color={colors.textMuted} style={{ marginTop: 6 }}>
+                    No whitelisted members yet
+                  </PremiumText>
+                </View>
+              ) : (
+                (whitelistedUsers || []).map((wl: any) => {
+                  const statusColors: Record<string, string> = { active: "#4CAF50", claimed: "#00BCD4", suspended: "#B71C1C" };
+                  return (
+                    <View key={wl.id} style={[styles.vendorCard, { borderColor: colors.border, backgroundColor: colors.surfaceElevated }]}>
+                      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                        <View style={{ flex: 1 }}>
+                          <PremiumText variant="body" style={{ fontWeight: "700", fontSize: 14 }}>{wl.name}</PremiumText>
+                          <PremiumText variant="caption" color={colors.textMuted} style={{ fontSize: 11 }}>
+                            Pin: {"•".repeat(wl.pin.length)} {wl.linkedUserId ? " \u2022 Account linked" : " \u2022 No account yet"}
+                          </PremiumText>
+                        </View>
+                        <View style={[styles.statusBadge, { backgroundColor: (statusColors[wl.status] || "#999") + "20" }]}>
+                          <PremiumText variant="caption" color={statusColors[wl.status] || "#999"} style={{ fontSize: 10, fontWeight: "700" }}>
+                            {wl.status.toUpperCase()}
+                          </PremiumText>
+                        </View>
+                      </View>
+                      <PremiumText variant="caption" color={colors.textMuted} style={{ marginTop: 4, fontSize: 10 }}>
+                        Added {new Date(wl.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      </PremiumText>
+                      <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
+                        <Pressable
+                          onPress={() => toggleWhitelistStatus.mutate({ id: wl.id, currentStatus: wl.status })}
+                          style={[styles.actionBtn, {
+                            backgroundColor: wl.status === "active" ? "#FF980010" : "#4CAF5010",
+                            borderColor: wl.status === "active" ? "#FF9800" : "#4CAF50",
+                          }]}
+                        >
+                          <Ionicons
+                            name={wl.status === "active" ? "pause" : "play"}
+                            size={14}
+                            color={wl.status === "active" ? "#FF9800" : "#4CAF50"}
+                          />
+                          <PremiumText
+                            variant="caption"
+                            color={wl.status === "active" ? "#FF9800" : "#4CAF50"}
+                            style={{ fontWeight: "700" }}
+                          >
+                            {wl.status === "active" ? "Suspend" : "Activate"}
+                          </PremiumText>
+                        </Pressable>
+                        <Pressable
+                          onPress={() => {
+                            Alert.alert("Remove Member", `Remove ${wl.name} from whitelist?`, [
+                              { text: "Cancel", style: "cancel" },
+                              { text: "Remove", style: "destructive", onPress: () => deleteWhitelistUser.mutate(wl.id) },
+                            ]);
+                          }}
+                          style={[styles.actionBtn, { backgroundColor: "#B71C1C10", borderColor: "#B71C1C" }]}
+                        >
+                          <Ionicons name="trash-outline" size={14} color="#B71C1C" />
+                          <PremiumText variant="caption" color="#B71C1C" style={{ fontWeight: "700" }}>Remove</PremiumText>
+                        </Pressable>
+                      </View>
+                    </View>
+                  );
+                })
+              )}
+            </View>
           </AccordionItem>
         </GlassCard>
 

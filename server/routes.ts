@@ -412,7 +412,10 @@ Sitemap: ${SITE_URL}/sitemap.xml
 
   app.get("/api/whitelist", async (_req: Request, res: Response) => {
     const list = await storage.getWhitelistedUsers();
-    res.json(list);
+    res.json(list.map((wl: any) => ({
+      ...wl,
+      pin: "•".repeat((wl.pin || "").length),
+    })));
   });
 
   app.post("/api/whitelist", async (req: Request, res: Response) => {

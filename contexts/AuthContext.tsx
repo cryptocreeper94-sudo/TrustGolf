@@ -18,13 +18,23 @@ interface UserData {
   clubDistances?: any;
 }
 
+interface WhitelistResult {
+  whitelistId: number;
+  name: string;
+  needsAccount: boolean;
+  user: UserData | null;
+}
+
 interface AuthContextValue {
   user: UserData | null;
   isLoggedIn: boolean;
   isDeveloper: boolean;
+  whitelistId: number | null;
   login: (username: string, password: string) => Promise<void>;
   register: (username: string, email: string, password: string, displayName: string) => Promise<void>;
   loginDeveloper: (password: string) => Promise<boolean>;
+  loginWhitelist: (name: string, pin: string) => Promise<WhitelistResult>;
+  createWhitelistAccount: (whitelistId: number, username: string, email: string, password: string, displayName: string) => Promise<void>;
   logout: () => void;
   updateProfile: (data: Partial<UserData>) => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -35,6 +45,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserData | null>(null);
   const [isDeveloper, setIsDeveloper] = useState(false);
+  const [whitelistId, setWhitelistId] = useState<number | null>(null);
 
   React.useEffect(() => {
     AsyncStorage.getItem("golfpro_user").then((saved) => {
@@ -42,6 +53,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     AsyncStorage.getItem("golfpro_dev").then((saved) => {
       if (saved === "true") setIsDeveloper(true);
+    });
+    AsyncStorage.getItem("golfpro_wl").then((saved) => {
+      if (saved) setWhitelistId(parseInt(saved));
     });
   }, []);
 
@@ -70,11 +84,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return false;
   }, []);
 
+  const loginWhitelist = useCallback(async (name: string, pin: string) => {
+    const res = await apiRequest("POST", "/api/whitelist/login", { name, pin });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Invalid name or pin");
+    setWhitelistId(data.whitelistId);
+    await AsyncStorage.setItem("golfpro_wl", String(data.whitelistId));
+    if (!data.needsAccount && data.user) {
+      setUser(data.user);
+      await AsyncStorage.setItem("golfpro_user", JSON.stringify(data.user));
+    }
+    return data as WhitelistResult;
+  }, []);
+
+  const createWhitelistAccount = useCallback(async (wlId: number, username: string, email: string, password: string, displayName: string) => {
+    const res = await apiRequest("POST", "/api/whitelist/create-account", { whitelistId: wlId, username, email, password, displayName });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Account creation failed");
+    setUser(data);
+    await AsyncStorage.setItem("golfpro_user", JSON.stringify(data));
+  }, []);
+
   const logout = useCallback(() => {
     setUser(null);
     setIsDeveloper(false);
+    setWhitelistId(null);
     AsyncStorage.removeItem("golfpro_user");
     AsyncStorage.removeItem("golfpro_dev");
+    AsyncStorage.removeItem("golfpro_wl");
   }, []);
 
   const updateProfile = useCallback(async (data: Partial<UserData>) => {
@@ -102,13 +139,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     isLoggedIn: !!user,
     isDeveloper,
+    whitelistId,
     login,
     register,
     loginDeveloper,
+    loginWhitelist,
+    createWhitelistAccount,
     logout,
     updateProfile,
     refreshUser,
-  }), [user, isDeveloper, login, register, loginDeveloper, logout, updateProfile, refreshUser]);
+  }), [user, isDeveloper, whitelistId, login, register, loginDeveloper, loginWhitelist, createWhitelistAccount, logout, updateProfile, refreshUser]);
 
   return (
     <AuthContext.Provider value={value}>

@@ -1,180 +1,45 @@
 # Trust Golf - Premium Golf Companion App
 
 ## Overview
-A premium mobile-first golf platform built with React Native + Expo, featuring a cinematic Explorer landing page, AI-powered swing analysis (photo + video), score tracking, course discovery, TrustVault media integration, and exclusive deals. Inspired by GolfNow. No login required to browse — auth only gates subscription features. By DarkWave Studios LLC.
+Trust Golf is a premium mobile-first golf platform built with React Native + Expo. It offers a cinematic landing page, AI-powered swing analysis, score tracking, course discovery, media integration via TrustVault, and exclusive deals. The platform aims to provide a comprehensive golf companion experience, allowing users to browse content without login and gating advanced features behind authentication. It is developed by DarkWave Studios LLC.
 
-## Architecture
-- **Frontend**: React Native + Expo (SDK 54) with file-based routing via Expo Router
-- **Backend**: Express.js server on port 5000
-- **Database**: PostgreSQL with Drizzle ORM
-- **AI**: OpenAI via Replit AI Integrations (vision model for swing analysis)
-- **Object Storage**: Replit Object Storage for assets
-- **Media Platform**: TrustVault integration for media storage, editing, and video tools
-- **Hero**: Image slideshow with Ken Burns effect (no video dependency)
+## User Preferences
+No explicit user preferences were provided in the original document.
 
-## Design System
-- **Theme**: Golf-green primary (#1B5E20 light, #4CAF50 dark) with gold accent (#C5A55A)
-- **UI**: 3-column Bento grid layout, glass morphism cards, orb effects, skeleton loaders
-- **Font**: Inter (Google Fonts)
-- **Components**: GlassCard, BentoGrid, Carousel, OrbEffect, AccordionItem, PremiumText, SkeletonLoader
-- **Light/Dark toggle** with system option
+## System Architecture
+Trust Golf is built on a modern full-stack architecture:
+-   **Frontend**: React Native + Expo (SDK 54) utilizing file-based routing via Expo Router for a mobile-first experience.
+-   **Backend**: An Express.js server handles API requests and business logic.
+-   **Database**: PostgreSQL is used for data persistence, managed with Drizzle ORM.
+-   **AI Integration**: OpenAI's vision model, accessed via Replit AI Integrations, powers the AI swing analysis feature.
+-   **Object Storage**: Replit Object Storage is used for storing application assets.
+-   **Media Platform**: TrustVault is integrated for advanced media storage, editing, and video processing, secured via HMAC authentication.
+-   **UI/UX Design**: The app features a golf-green primary color scheme with a gold accent, a 3-column Bento grid layout, glass morphism cards, orb effects, and skeleton loaders. It uses the Inter font and supports light/dark mode toggling.
+-   **Authentication**: The app allows free content browsing, with a login modal appearing only for gated features like AI Swing Analyzer and round tracking. A developer dashboard is accessible via a master PIN, and a whitelist system provides VIP access.
+-   **Key Features**:
+    *   **Cinematic Explorer Page**: A dynamic landing page with an image slideshow hero, category carousels, hot deals, and quick actions.
+    *   **Course Catalog**: Comprehensive database of 45 golf courses, filterable by state, with detailed descriptions, amenities, and unique imagery.
+    *   **Score Tracking**: Users can log rounds with detailed stats (putts, FIR, GIR), view history, and automatically calculate USGA Handicap Index. Includes real hole-by-hole scorecards for specific courses.
+    *   **AI Swing Analyzer**: Club-specific AI analysis of golf swings from photos or videos, providing detailed feedback, score meters, tips, and drills.
+    *   **Video Swing Playback**: Slow-motion playback, frame extraction, and TrustVault integration for video editing.
+    *   **GPS Distance Finder**: Satellite map view of courses, allowing users to tap and calculate distances from their GPS position, with a simulation mode for testing.
+    *   **Developer Dashboard**: An admin panel for managing courses, deals, affiliate programs, and whitelist members.
+    *   **Self-Hosted Analytics**: A first-party tracking system for sessions, page views, and events, with a dashboard in the developer panel to monitor KPIs.
+    *   **AI-Driven Blog**: An SEO-focused blog system where AI (GPT-4o) generates posts, managed via the developer dashboard.
+    *   **PWA Support**: Offline caching and installability through a service worker and manifest.
+    *   **TrustVault Integration**: Enables media storage, editing, and video processing with webhook callbacks for rendering status.
 
-## Auth Flow
-- App opens directly to Explorer page (no login gate)
-- Users can browse all content freely (courses, deals, etc.)
-- Login modal triggers only when accessing gated features:
-  - AI Swing Analyzer (requires sign-in)
-  - Creating new rounds (requires sign-in)
-- Login modal supports redirect params for seamless post-login navigation
-- Developer access: master pin 0424 → developer dashboard
-
-## Branding
-- **App Name**: Trust Golf
-- **Company**: DarkWave Studios LLC © 2026 → darkwavestudios.io
-- **Trust Layer**: Powered by Trust Layer → dwtl.io
-- **TrustShield**: Protected by TrustShield → trustshield.tech
-- **Header**: "Trust Golf" left, hamburger menu right (compact)
-- **Footer**: Company links, developer access
-
-## Key Features
-1. **Cinematic Explorer Page** - Video hero with 3 AI-generated golf videos (aerial fairway, putting green, sunrise course) cycling with cross-fade, HTML `<video>` on web with poster fallback, category carousels, hot deals, top courses, quick actions
-2. **Course Catalog** - 45 courses (20 world-class + 8 Upstate SC + 17 Middle TN/Nashville) organized by state with filterable chips, SectionList grouped by state, full descriptions, designer info, year built, course type, unique gallery images, amenities with icons, contact info
-3. **Score Tracking** - Log rounds with stats (putts, FIR, GIR), view history, averages, and USGA Handicap Index. Real hole-by-hole scorecards for Middle TN/Nashville courses (17 courses with full hole data: par, yardage, handicap per hole)
-4. **AI Swing Analyzer** - Club-specific analysis (Driver, Fairway Wood, Hybrid, Long/Mid/Short Iron, Wedges, Putter); photo/video mode; AI prompt tailored per club type
-5. **Video Swing Playback** - Slow-motion playback (0.25x/0.5x/1x), frame extraction from video via expo-video-thumbnails, TrustVault upload + editing via ecosystem HMAC auth
-6. **Swing Results** - Detailed breakdown with score meters, tips, and drills (club-specific feedback)
-7. **Deals** - Browse discounted tee times and packages
-8. **Developer Dashboard** - Password-protected (0424) admin panel with: course/deal management, golf affiliate program directory (14 programs), course partnership pitch guide with elevator pitch, talking points, and partnership tiers
-9. **Profile** - User settings, theme toggle, stats overview
-10. **TrustVault Integration** - Media storage, video/image/audio editors via embedded iframe, webhook callbacks for render status
-11. **About & Roadmap** - Mission statement, executive summary, business plan, 5-phase product roadmap (accessible from hamburger menu)
-12. **USGA Handicap System** - Auto-calculated Handicap Index using score differentials, updates after each round, displayed on Scores and Profile screens
-13. **Vendor/Partner Signup** - Public partner application form at /partner, business info + type + partnership tier selection, Resend confirmation email, developer dashboard management with approve/reject, hamburger menu "Partner With Us" link
-14. **Self-Hosted Analytics** - First-party tracking system (no Google Analytics): sessions, page views, events, UTM params, device/browser/referrer detection, bounce rate, avg session duration. Client hook in hooks/useAnalytics.ts auto-tracks route changes. Developer dashboard shows 6 KPI cards (Active Now, Page Views, Visitors, Sessions, Avg Duration, Bounce Rate), daily traffic bars, top pages, devices, browsers, referrers, tracked events. Date range filter (7/30/90 days).
-15. **AI-Driven Blog** - SEO-focused blog system: AI blog generator (GPT-4o) creates SEO-optimized posts by topic/category, Markdown content with full formatting, developer dashboard blog management (generate/edit/publish/unpublish/delete), public blog listing at /blog with category filters, post detail at /blog-post?slug=X, hamburger menu "Blog" link. Categories: Tips, Course Spotlights, Equipment, News, Fitness, Strategy.
-16. **PWA** - Service worker (public/sw.js) for offline caching and installability, manifest.json with icons, registered in app/+html.tsx, install banner component, beforeinstallprompt handling.
-17. **GPS Distance Finder** - Satellite map view of any course in the catalog, tap-to-drop target pins with distance calculation (Haversine formula), simulation mode for testing from desk (drag blue dot to set virtual GPS position), yards/meters toggle, course picker with all 45 courses mapped to real coordinates, platform-specific: react-native-maps on native, Leaflet+Esri satellite tiles on web. Accessible from course detail + hamburger menu.
-
-## Analytics System
-- **Tables**: analytics_sessions, analytics_page_views, analytics_events
-- **Client Hook**: hooks/useAnalytics.ts — auto-creates session, tracks page views on route change, sendBeacon on tab close
-- **Storage**: visitor_id in localStorage (persistent), session_id in sessionStorage (per tab)
-- **Dashboard**: Developer panel accordion "Analytics Dashboard" with KPI cards + data panels
-- **API Endpoints**: POST /api/analytics/session, /pageview, /event, /session/:id/end; GET /api/analytics/summary, /realtime, /traffic, /pages, /referrers, /devices, /browsers, /events
-
-## TrustVault Integration
-- **API Base**: https://trustvault.replit.app/api/studio
-- **Auth**: Trust Layer SSO (shared JWT_SECRET, HS256)
-- **Service Module**: server/trustvault.ts (upload, confirm, list, embed editor, projects)
-- **Backend Routes**: /api/trustvault/* (webhook, status, media, upload-url, confirm-upload, editor-embed, capabilities, ecosystem-status, ecosystem-media)
-- **HMAC Auth**: Server-to-server via DW_MEDIA_API_KEY + DW_MEDIA_API_SECRET (tenant: trustgolf)
-- **Webhook**: POST /api/trustvault/webhook receives render.started, render.complete, render.failed events
-- **SSO**: Register app at orbitstaffing.io, shared JWT_SECRET env var needed for live connection
-
-## File Structure
-```
-app/
-  _layout.tsx          - Root layout with providers (theme, auth, fonts)
-  index.tsx            - Redirect to (tabs)
-  login.tsx            - Login modal (triggered for gated features)
-  (tabs)/
-    _layout.tsx        - Tab navigation (5 tabs)
-    index.tsx          - Cinematic Explorer page (image slideshow hero + category carousels)
-    courses.tsx        - Course discovery
-    scores.tsx         - Score tracking
-    deals.tsx          - Deals listing
-    profile.tsx        - User profile & settings
-  course/[id].tsx      - Course detail modal
-  new-round.tsx        - Log new round modal
-  swing-analyzer.tsx   - AI swing analysis (photo + video modes)
-  swing-video.tsx      - Video swing playback with slow-mo + frame capture
-  swing-result.tsx     - Analysis results display
-  scorecard.tsx        - Real hole-by-hole golf scorecard (courses with holeData)
-  about.tsx            - Mission statement, business plan, roadmap
-  developer.tsx        - Developer dashboard
-  gps-navigator.tsx    - GPS Distance Finder (satellite map, tap-to-measure, simulation mode)
-
-components/
-  GlassCard.tsx        - Glass morphism card with blur and 3D press
-  CourseMap.tsx         - Native map component (react-native-maps, satellite view, markers, polylines)
-  CourseMap.web.tsx     - Web map component (Leaflet + Esri satellite tiles, same API as native)
-  BentoGrid.tsx        - Flexible grid layout system
-  Carousel.tsx         - Horizontal carousel with dots
-  OrbEffect.tsx        - Animated orb background effect
-  AccordionItem.tsx    - Expandable accordion
-  PremiumText.tsx      - Styled text with variants and shadows
-  SkeletonLoader.tsx   - Loading skeleton animation
-  InstallBanner.tsx    - PWA install prompt (web only)
-  AppSplash.tsx        - Animated app splash screen
-
-hooks/
-  useAnalytics.ts      - Client-side analytics tracking (sessions, page views, events)
-
-contexts/
-  ThemeContext.tsx      - Theme management (light/dark/system)
-  AuthContext.tsx       - Authentication state
-
-server/
-  index.ts             - Express server setup (serves /course-images/ static path)
-  routes.ts            - API routes (auth, courses, rounds, deals, swing-analyze, stats, trustvault, seed) — resolves relative image URLs to absolute
-  storage.ts           - Database storage implementation (CRUD for all entities)
-  db.ts                - Database connection
-  trustvault.ts        - TrustVault API service module (ecosystem HMAC + studio bearer auth)
-  public/courses/      - 60 stock golf course images served at /course-images/
-
-shared/
-  schema.ts            - Drizzle ORM schema (users, courses, rounds, swingAnalyses, deals, conversations, messages)
-
-constants/
-  colors.ts            - Theme color palette (light + dark)
-```
-
-## API Endpoints
-- POST /api/auth/login - Login/register
-- GET/POST /api/courses - Course CRUD
-- GET /api/courses/:id - Course detail
-- PUT /api/courses/:id - Update course
-- DELETE /api/courses/:id - Delete course
-- GET /api/rounds/:userId - User rounds
-- POST /api/rounds - Create round
-- GET /api/deals - Get deals
-- POST /api/deals - Create deal
-- POST /api/swing-analyze - AI swing analysis
-- GET /api/stats/:userId - User statistics
-- POST /api/trustvault/webhook - TrustVault render callbacks
-- GET /api/trustvault/capabilities - TrustVault service discovery
-- GET /api/trustvault/status - Check TrustVault connection
-- GET /api/trustvault/media - List vault media
-- POST /api/trustvault/upload-url - Get presigned upload URL
-- POST /api/trustvault/confirm-upload - Confirm media upload
-- POST /api/trustvault/editor-embed - Get editor embed token
-- GET /api/trustvault/ecosystem-status - Server-to-server HMAC status check
-- GET /api/trustvault/ecosystem-media - Server-to-server media listing
-- POST /api/seed - Seed sample data
-
-## Course Catalog Regions
-- **World-Class**: Augusta National, Pebble Beach, TPC Sawgrass, Pinehurst No. 2, Bethpage Black, Torrey Pines, Whistling Straits, Kiawah Island Ocean Course, Bandon Dunes, Pacific Dunes, Oakmont, Cypress Point, Shinnecock Hills, Merion, Streamsong Red, Cabot Cliffs, Sand Valley, Winged Foot, Chambers Bay, St Andrews
-- **Upstate SC**: Walker Course (Clemson), Furman, Cherokee Valley, Preserve at Verdae, Cobb's Glen, Boscobel, Southern Oaks, Smithfields
-- **Middle TN / Nashville**: Gaylord Springs, Hermitage (President's Reserve + General's Retreat), Nashville Golf & Athletic, Harpeth Hills, McCabe, Greystone, Old Fort, Indian Hills, Twelve Stones Crossing, Windtree (Mt Juliet), Pine Creek (Mt Juliet), Eagles Landing (Lebanon), Long Hollow (Gallatin), Ted Rhodes, Stones River (Murfreesboro), Shepherds Crook (Hendersonville)
-
-## Future Features Roadmap
-
-### Phase 3 — GPS Course Navigator & Distance Finder
-- **GPS Distance-to-Tap** — Satellite map view of course, user taps a point (green, hazard, bunker), calculates real-time distance from GPS position using Haversine formula. Uses expo-location + react-native-maps. No pre-mapped data needed.
-- **Hole Drawing / Visual Layout** — Draw hole outlines on satellite imagery: tee boxes, fairways, greens, bunkers, water hazards. Store as GeoJSON coordinate arrays per hole in holeData.
-- **Pin Placement** — Mark pin positions on greens for accurate front/middle/back distances.
-- **Shot Tracking** — Log shot locations on the map during a round, auto-calculate carry/total distances. Ties into scorecard system.
-- **Crowdsourced Mapping** — Let users contribute hole coordinate data for unmapped courses. Review/approve in developer dashboard.
-- **Offline Maps** — Cache satellite tiles for on-course use without cell service.
-
-### Phase 4 — Marketing & Growth Platform
-- **Marketing Hub** — Social media auto-posting to Facebook/Instagram, scheduled posts (3hr intervals CST), AI-generated images, content bundles, 100+ categorized marketing posts
-- **Meta Ads Campaigns** — Facebook ad campaign management from within Trust Golf
-- **SEO Management** — Per-route SEO meta tags CRUD system
-
-### Phase 5 — Admin & Ecosystem Expansion
-- **Command Center** — Admin landing page with 8-category card grid, photorealistic image-backed cards, horizontal carousels (GarageBot-style)
-- **Golf Game Simulation** — Interactive golf game mode
-- **Tee Time Booking Integration** — GolfNow/TeeOff API integration for direct booking through Trust Golf
-- **Pro Membership** — Premium tier with advanced analytics, priority course access, exclusive deals
-- **Push Notifications** — Deal alerts, round reminders, swing tips via expo-notifications
+## External Dependencies
+-   **OpenAI**: Used for AI capabilities, specifically the vision model for swing analysis.
+-   **PostgreSQL**: The primary database for all application data.
+-   **Drizzle ORM**: Used for interacting with the PostgreSQL database.
+-   **Express.js**: Backend framework for the API server.
+-   **React Native & Expo**: Frontend development framework.
+-   **Replit AI Integrations**: Facilitates access to OpenAI models.
+-   **Replit Object Storage**: Cloud storage for application assets.
+-   **TrustVault (via trustvault.replit.app)**: Media storage, video/image editing, and processing platform integrated via API (HMAC and bearer token authentication) and webhooks.
+-   **Google Fonts (Inter)**: Typography.
+-   **react-native-maps**: Native map component for GPS features.
+-   **Leaflet + Esri satellite tiles**: Web map components for GPS features.
+-   **expo-video-thumbnails**: Used for extracting frames from videos.
+-   **Resend**: For confirmation email functionality (e.g., partner signup).

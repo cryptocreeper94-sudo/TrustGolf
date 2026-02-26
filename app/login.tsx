@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import {
   View, Text, Pressable, StyleSheet, TextInput, KeyboardAvoidingView,
-  Platform, StatusBar, ScrollView,
+  Platform, StatusBar, ScrollView, ActivityIndicator,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
@@ -17,11 +17,11 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { OrbEffect } from "@/components/OrbEffect";
 import { PremiumText } from "@/components/PremiumText";
 
-type AuthTab = "login" | "register";
+type AuthTab = "login" | "register" | "whitelist";
 
 export default function LoginScreen() {
   const { colors, isDark } = useTheme();
-  const { login, register, loginDeveloper, isLoggedIn } = useAuth();
+  const { login, register, loginDeveloper, loginWhitelist, createWhitelistAccount, isLoggedIn } = useAuth();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ redirect?: string; reason?: string }>();
 
@@ -33,9 +33,21 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [showDevLogin, setShowDevLogin] = useState(false);
   const [devPassword, setDevPassword] = useState("");
+  const [showDevPassword, setShowDevPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
+
+  const [wlName, setWlName] = useState("");
+  const [wlPin, setWlPin] = useState("");
+  const [showWlPin, setShowWlPin] = useState(false);
+  const [wlStep, setWlStep] = useState<"pin" | "create">("pin");
+  const [wlId, setWlId] = useState<number | null>(null);
+  const [wlDisplayName, setWlDisplayName] = useState("");
+  const [wlUsername, setWlUsername] = useState("");
+  const [wlEmail, setWlEmail] = useState("");
+  const [wlPassword, setWlPassword] = useState("");
+  const [showWlPassword, setShowWlPassword] = useState(false);
 
   const logoScale = useSharedValue(0.5);
   const logoOpacity = useSharedValue(0);
@@ -63,6 +75,12 @@ export default function LoginScreen() {
     length: password.length >= 8,
     uppercase: /[A-Z]/.test(password),
     special: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password),
+  };
+
+  const wlPasswordChecks = {
+    length: wlPassword.length >= 8,
+    uppercase: /[A-Z]/.test(wlPassword),
+    special: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(wlPassword),
   };
 
   const handleLogin = async () => {
@@ -129,14 +147,377 @@ export default function LoginScreen() {
     }
   };
 
+  const handleWhitelistLogin = async () => {
+    if (!wlName.trim()) { setError("Enter your name"); return; }
+    if (!wlPin.trim()) { setError("Enter your pin"); return; }
+    setLoading(true);
+    setError("");
+    try {
+      const result = await loginWhitelist(wlName.trim(), wlPin.trim());
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (result.needsAccount) {
+        setWlId(result.whitelistId);
+        setWlDisplayName(result.name);
+        setWlStep("create");
+      } else {
+        router.replace("/(tabs)");
+      }
+    } catch (e: any) {
+      setError(e.message || "Invalid name or pin");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleWhitelistCreateAccount = async () => {
+    if (!wlUsername.trim()) { setError("Choose a username"); return; }
+    if (!wlEmail.trim()) { setError("Enter your email"); return; }
+    if (!wlPassword) { setError("Create a password"); return; }
+    if (!wlPasswordChecks.length || !wlPasswordChecks.uppercase || !wlPasswordChecks.special) {
+      setError("Password doesn't meet all requirements");
+      return;
+    }
+    if (!wlId) return;
+    setLoading(true);
+    setError("");
+    try {
+      await createWhitelistAccount(wlId, wlUsername.trim(), wlEmail.trim(), wlPassword, wlDisplayName || wlName);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setSuccessMsg("Account created! You're all set.");
+      setTimeout(() => router.replace("/(tabs)"), 1200);
+    } catch (e: any) {
+      setError(e.message || "Account creation failed");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const switchTab = (newTab: AuthTab) => {
     setTab(newTab);
     setError("");
     setSuccessMsg("");
+    setWlStep("pin");
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
   const webTopInset = Platform.OS === "web" ? 67 : 0;
+
+  const renderMainForm = () => (
+    <>
+      <View style={[styles.tabRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <Pressable
+          onPress={() => switchTab("login")}
+          style={[styles.tabBtn, tab === "login" && { backgroundColor: colors.primary }]}
+        >
+          <PremiumText variant="body" color={tab === "login" ? "#fff" : colors.textSecondary} style={{ fontSize: 13, fontWeight: "600" }}>
+            Sign In
+          </PremiumText>
+        </Pressable>
+        <Pressable
+          onPress={() => switchTab("register")}
+          style={[styles.tabBtn, tab === "register" && { backgroundColor: colors.primary }]}
+        >
+          <PremiumText variant="body" color={tab === "register" ? "#fff" : colors.textSecondary} style={{ fontSize: 13, fontWeight: "600" }}>
+            Register
+          </PremiumText>
+        </Pressable>
+        <Pressable
+          onPress={() => switchTab("whitelist")}
+          style={[styles.tabBtn, tab === "whitelist" && { backgroundColor: colors.accent }]}
+        >
+          <PremiumText variant="body" color={tab === "whitelist" ? "#1A1A1A" : colors.textSecondary} style={{ fontSize: 13, fontWeight: "600" }}>
+            VIP Access
+          </PremiumText>
+        </Pressable>
+      </View>
+
+      {tab === "whitelist" ? renderWhitelistForm() : renderLoginRegisterForm()}
+    </>
+  );
+
+  const renderWhitelistForm = () => {
+    if (wlStep === "create") {
+      return (
+        <>
+          <View style={[styles.successBanner, { backgroundColor: colors.accent + "15" }]}>
+            <Ionicons name="checkmark-circle" size={18} color={colors.accent} />
+            <Text style={[styles.successText, { color: colors.accent }]}>
+              Welcome, {wlDisplayName}! Create your account to continue.
+            </Text>
+          </View>
+
+          <View style={[styles.inputContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Ionicons name="person-outline" size={18} color={colors.textMuted} />
+            <TextInput
+              style={[styles.input, { color: colors.text }]}
+              placeholder="Choose a Username"
+              placeholderTextColor={colors.textMuted}
+              value={wlUsername}
+              onChangeText={setWlUsername}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </View>
+
+          <View style={[styles.inputContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Ionicons name="mail-outline" size={18} color={colors.textMuted} />
+            <TextInput
+              style={[styles.input, { color: colors.text }]}
+              placeholder="Email Address"
+              placeholderTextColor={colors.textMuted}
+              value={wlEmail}
+              onChangeText={setWlEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              autoCorrect={false}
+            />
+          </View>
+
+          <View style={[styles.inputContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Ionicons name="lock-closed-outline" size={18} color={colors.textMuted} />
+            <TextInput
+              style={[styles.input, { color: colors.text }]}
+              placeholder="Create Password"
+              placeholderTextColor={colors.textMuted}
+              value={wlPassword}
+              onChangeText={setWlPassword}
+              secureTextEntry={!showWlPassword}
+              autoCapitalize="none"
+            />
+            <Pressable onPress={() => setShowWlPassword(!showWlPassword)} hitSlop={8}>
+              <Ionicons name={showWlPassword ? "eye-off-outline" : "eye-outline"} size={18} color={colors.textMuted} />
+            </Pressable>
+          </View>
+
+          {wlPassword.length > 0 && (
+            <View style={styles.pwChecks}>
+              <PasswordCheck met={wlPasswordChecks.length} label="8+ characters" colors={colors} />
+              <PasswordCheck met={wlPasswordChecks.uppercase} label="1 uppercase letter" colors={colors} />
+              <PasswordCheck met={wlPasswordChecks.special} label="1 special character" colors={colors} />
+            </View>
+          )}
+
+          {!!successMsg && (
+            <View style={[styles.successBanner, { backgroundColor: colors.success + "15" }]}>
+              <Ionicons name="checkmark-circle" size={18} color={colors.success} />
+              <Text style={[styles.successText, { color: colors.success }]}>{successMsg}</Text>
+            </View>
+          )}
+
+          {!!error && (
+            <Text style={[styles.error, { color: colors.error }]}>{error}</Text>
+          )}
+
+          <Pressable
+            onPress={handleWhitelistCreateAccount}
+            disabled={loading}
+            style={({ pressed }) => [
+              styles.loginButton,
+              { backgroundColor: colors.accent, opacity: pressed ? 0.9 : 1 },
+            ]}
+          >
+            {loading ? (
+              <ActivityIndicator color="#1A1A1A" size="small" />
+            ) : (
+              <>
+                <Text style={[styles.loginButtonText, { color: "#1A1A1A" }]}>Create Account</Text>
+                <Ionicons name="arrow-forward" size={18} color="#1A1A1A" />
+              </>
+            )}
+          </Pressable>
+
+          <Pressable
+            onPress={() => { setWlStep("pin"); setError(""); }}
+            style={styles.devLink}
+          >
+            <Ionicons name="arrow-back" size={14} color={colors.textMuted} />
+            <Text style={[styles.devLinkText, { color: colors.textMuted }]}>Back</Text>
+          </Pressable>
+        </>
+      );
+    }
+
+    return (
+      <>
+        <View style={{ alignItems: "center", marginBottom: 4 }}>
+          <Ionicons name="shield-checkmark-outline" size={28} color={colors.accent} />
+          <PremiumText variant="caption" color={colors.textSecondary} style={{ marginTop: 6, textAlign: "center", lineHeight: 18 }}>
+            Enter your name and pin to access Trust Golf
+          </PremiumText>
+        </View>
+
+        <View style={[styles.inputContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Ionicons name="person-outline" size={18} color={colors.textMuted} />
+          <TextInput
+            style={[styles.input, { color: colors.text }]}
+            placeholder="Your Name"
+            placeholderTextColor={colors.textMuted}
+            value={wlName}
+            onChangeText={setWlName}
+            autoCapitalize="none"
+            autoCorrect={false}
+            testID="wl-name"
+          />
+        </View>
+
+        <View style={[styles.inputContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Ionicons name="key-outline" size={18} color={colors.textMuted} />
+          <TextInput
+            style={[styles.input, { color: colors.text }]}
+            placeholder="Access Pin"
+            placeholderTextColor={colors.textMuted}
+            value={wlPin}
+            onChangeText={setWlPin}
+            secureTextEntry={!showWlPin}
+            keyboardType="number-pad"
+            maxLength={8}
+            testID="wl-pin"
+          />
+          <Pressable onPress={() => setShowWlPin(!showWlPin)} hitSlop={8}>
+            <Ionicons name={showWlPin ? "eye-off-outline" : "eye-outline"} size={18} color={colors.textMuted} />
+          </Pressable>
+        </View>
+
+        {!!error && (
+          <Text style={[styles.error, { color: colors.error }]}>{error}</Text>
+        )}
+
+        <Pressable
+          onPress={handleWhitelistLogin}
+          disabled={loading}
+          style={({ pressed }) => [
+            styles.loginButton,
+            { backgroundColor: colors.accent, opacity: pressed ? 0.9 : 1 },
+          ]}
+          testID="wl-submit"
+        >
+          {loading ? (
+            <ActivityIndicator color="#1A1A1A" size="small" />
+          ) : (
+            <>
+              <Text style={[styles.loginButtonText, { color: "#1A1A1A" }]}>Enter</Text>
+              <Ionicons name="shield-checkmark" size={18} color="#1A1A1A" />
+            </>
+          )}
+        </Pressable>
+
+        <Pressable
+          onPress={() => { setShowDevLogin(true); setError(""); }}
+          style={styles.devLink}
+        >
+          <Ionicons name="code-slash" size={14} color={colors.textMuted} />
+          <Text style={[styles.devLinkText, { color: colors.textMuted }]}>Developer Access</Text>
+        </Pressable>
+      </>
+    );
+  };
+
+  const renderLoginRegisterForm = () => (
+    <>
+      {tab === "register" && (
+        <View style={[styles.inputContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Ionicons name="person-outline" size={18} color={colors.textMuted} />
+          <TextInput
+            style={[styles.input, { color: colors.text }]}
+            placeholder="Display Name"
+            placeholderTextColor={colors.textMuted}
+            value={displayName}
+            onChangeText={setDisplayName}
+            autoCapitalize="words"
+          />
+        </View>
+      )}
+
+      <View style={[styles.inputContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <Ionicons name={tab === "login" ? "person-outline" : "at-outline"} size={18} color={colors.textMuted} />
+        <TextInput
+          style={[styles.input, { color: colors.text }]}
+          placeholder={tab === "login" ? "Username or Email" : "Username"}
+          placeholderTextColor={colors.textMuted}
+          value={username}
+          onChangeText={setUsername}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+      </View>
+
+      {tab === "register" && (
+        <View style={[styles.inputContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Ionicons name="mail-outline" size={18} color={colors.textMuted} />
+          <TextInput
+            style={[styles.input, { color: colors.text }]}
+            placeholder="Email Address"
+            placeholderTextColor={colors.textMuted}
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            autoCorrect={false}
+          />
+        </View>
+      )}
+
+      <View style={[styles.inputContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <Ionicons name="lock-closed-outline" size={18} color={colors.textMuted} />
+        <TextInput
+          style={[styles.input, { color: colors.text }]}
+          placeholder="Password"
+          placeholderTextColor={colors.textMuted}
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry={!showPassword}
+          autoCapitalize="none"
+        />
+        <Pressable onPress={() => setShowPassword(!showPassword)} hitSlop={8}>
+          <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={18} color={colors.textMuted} />
+        </Pressable>
+      </View>
+
+      {tab === "register" && password.length > 0 && (
+        <View style={styles.pwChecks}>
+          <PasswordCheck met={passwordChecks.length} label="8+ characters" colors={colors} />
+          <PasswordCheck met={passwordChecks.uppercase} label="1 uppercase letter" colors={colors} />
+          <PasswordCheck met={passwordChecks.special} label="1 special character" colors={colors} />
+        </View>
+      )}
+
+      {!!successMsg && (
+        <View style={[styles.successBanner, { backgroundColor: colors.success + "15" }]}>
+          <Ionicons name="checkmark-circle" size={18} color={colors.success} />
+          <Text style={[styles.successText, { color: colors.success }]}>{successMsg}</Text>
+        </View>
+      )}
+
+      {!!error && (
+        <Text style={[styles.error, { color: colors.error }]}>{error}</Text>
+      )}
+
+      <Pressable
+        onPress={tab === "login" ? handleLogin : handleRegister}
+        disabled={loading}
+        style={({ pressed }) => [
+          styles.loginButton,
+          { backgroundColor: colors.primary, opacity: pressed ? 0.9 : 1 },
+        ]}
+        testID="auth-submit-btn"
+      >
+        <Text style={styles.loginButtonText}>
+          {loading ? (tab === "login" ? "Signing in..." : "Creating account...") : (tab === "login" ? "Sign In" : "Create Account")}
+        </Text>
+        <Ionicons name="arrow-forward" size={18} color="#fff" />
+      </Pressable>
+
+      <Pressable
+        onPress={() => { setShowDevLogin(true); setError(""); }}
+        style={styles.devLink}
+      >
+        <Ionicons name="code-slash" size={14} color={colors.textMuted} />
+        <Text style={[styles.devLinkText, { color: colors.textMuted }]}>Developer Access</Text>
+      </Pressable>
+    </>
+  );
 
   return (
     <KeyboardAvoidingView
@@ -179,135 +560,13 @@ export default function LoginScreen() {
               </PremiumText>
             ) : (
               <PremiumText variant="body" color={colors.textSecondary} style={{ textAlign: "center", marginTop: 4, fontSize: 13 }}>
-                {tab === "login" ? "Welcome back" : "Create your account"}
+                {tab === "login" ? "Welcome back" : tab === "register" ? "Create your account" : "Exclusive access"}
               </PremiumText>
             )}
           </Animated.View>
 
           <Animated.View style={[styles.formContainer, formStyle]}>
-            {!showDevLogin ? (
-              <>
-                <View style={[styles.tabRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                  <Pressable
-                    onPress={() => switchTab("login")}
-                    style={[styles.tabBtn, tab === "login" && { backgroundColor: colors.primary }]}
-                  >
-                    <PremiumText variant="body" color={tab === "login" ? "#fff" : colors.textSecondary} style={{ fontSize: 14, fontWeight: "600" }}>
-                      Sign In
-                    </PremiumText>
-                  </Pressable>
-                  <Pressable
-                    onPress={() => switchTab("register")}
-                    style={[styles.tabBtn, tab === "register" && { backgroundColor: colors.primary }]}
-                  >
-                    <PremiumText variant="body" color={tab === "register" ? "#fff" : colors.textSecondary} style={{ fontSize: 14, fontWeight: "600" }}>
-                      Register
-                    </PremiumText>
-                  </Pressable>
-                </View>
-
-                {tab === "register" && (
-                  <View style={[styles.inputContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                    <Ionicons name="person-outline" size={18} color={colors.textMuted} />
-                    <TextInput
-                      style={[styles.input, { color: colors.text }]}
-                      placeholder="Display Name"
-                      placeholderTextColor={colors.textMuted}
-                      value={displayName}
-                      onChangeText={setDisplayName}
-                      autoCapitalize="words"
-                    />
-                  </View>
-                )}
-
-                <View style={[styles.inputContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                  <Ionicons name={tab === "login" ? "person-outline" : "at-outline"} size={18} color={colors.textMuted} />
-                  <TextInput
-                    style={[styles.input, { color: colors.text }]}
-                    placeholder={tab === "login" ? "Username or Email" : "Username"}
-                    placeholderTextColor={colors.textMuted}
-                    value={username}
-                    onChangeText={setUsername}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                  />
-                </View>
-
-                {tab === "register" && (
-                  <View style={[styles.inputContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                    <Ionicons name="mail-outline" size={18} color={colors.textMuted} />
-                    <TextInput
-                      style={[styles.input, { color: colors.text }]}
-                      placeholder="Email Address"
-                      placeholderTextColor={colors.textMuted}
-                      value={email}
-                      onChangeText={setEmail}
-                      autoCapitalize="none"
-                      keyboardType="email-address"
-                      autoCorrect={false}
-                    />
-                  </View>
-                )}
-
-                <View style={[styles.inputContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                  <Ionicons name="lock-closed-outline" size={18} color={colors.textMuted} />
-                  <TextInput
-                    style={[styles.input, { color: colors.text }]}
-                    placeholder="Password"
-                    placeholderTextColor={colors.textMuted}
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry={!showPassword}
-                    autoCapitalize="none"
-                  />
-                  <Pressable onPress={() => setShowPassword(!showPassword)} hitSlop={8}>
-                    <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={18} color={colors.textMuted} />
-                  </Pressable>
-                </View>
-
-                {tab === "register" && password.length > 0 && (
-                  <View style={styles.pwChecks}>
-                    <PasswordCheck met={passwordChecks.length} label="8+ characters" colors={colors} />
-                    <PasswordCheck met={passwordChecks.uppercase} label="1 uppercase letter" colors={colors} />
-                    <PasswordCheck met={passwordChecks.special} label="1 special character" colors={colors} />
-                  </View>
-                )}
-
-                {!!successMsg && (
-                  <View style={[styles.successBanner, { backgroundColor: colors.success + "15" }]}>
-                    <Ionicons name="checkmark-circle" size={18} color={colors.success} />
-                    <Text style={[styles.successText, { color: colors.success }]}>{successMsg}</Text>
-                  </View>
-                )}
-
-                {!!error && (
-                  <Text style={[styles.error, { color: colors.error }]}>{error}</Text>
-                )}
-
-                <Pressable
-                  onPress={tab === "login" ? handleLogin : handleRegister}
-                  disabled={loading}
-                  style={({ pressed }) => [
-                    styles.loginButton,
-                    { backgroundColor: colors.primary, opacity: pressed ? 0.9 : 1 },
-                  ]}
-                  testID="auth-submit-btn"
-                >
-                  <Text style={styles.loginButtonText}>
-                    {loading ? (tab === "login" ? "Signing in..." : "Creating account...") : (tab === "login" ? "Sign In" : "Create Account")}
-                  </Text>
-                  <Ionicons name="arrow-forward" size={18} color="#fff" />
-                </Pressable>
-
-                <Pressable
-                  onPress={() => { setShowDevLogin(true); setError(""); }}
-                  style={styles.devLink}
-                >
-                  <Ionicons name="code-slash" size={14} color={colors.textMuted} />
-                  <Text style={[styles.devLinkText, { color: colors.textMuted }]}>Developer Access</Text>
-                </Pressable>
-              </>
-            ) : (
+            {!showDevLogin ? renderMainForm() : (
               <>
                 <View style={[styles.inputContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                   <Ionicons name="key-outline" size={18} color={colors.textMuted} />
@@ -317,8 +576,11 @@ export default function LoginScreen() {
                     placeholderTextColor={colors.textMuted}
                     value={devPassword}
                     onChangeText={setDevPassword}
-                    secureTextEntry
+                    secureTextEntry={!showDevPassword}
                   />
+                  <Pressable onPress={() => setShowDevPassword(!showDevPassword)} hitSlop={8}>
+                    <Ionicons name={showDevPassword ? "eye-off-outline" : "eye-outline"} size={18} color={colors.textMuted} />
+                  </Pressable>
                 </View>
 
                 {!!error && (
