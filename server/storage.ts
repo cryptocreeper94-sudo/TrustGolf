@@ -1,9 +1,10 @@
 import { 
-  users, courses, rounds, swingAnalyses, deals, vendorApplications, conversations, messages,
+  users, courses, rounds, swingAnalyses, deals, vendorApplications, whitelistedUsers, conversations, messages,
   analyticsSessions, analyticsPageViews, analyticsEvents, blogPosts,
   type User, type InsertUser, type Course, type InsertCourse, 
   type Round, type InsertRound, type SwingAnalysis, type Deal, type InsertDeal,
   type VendorApplication, type InsertVendorApplication,
+  type WhitelistedUser, type InsertWhitelistedUser,
   type Conversation, type Message,
   type AnalyticsSession, type AnalyticsPageView, type AnalyticsEvent,
   type BlogPost, type InsertBlogPost
@@ -55,6 +56,12 @@ export interface IStorage {
   deleteConversation(id: number): Promise<void>;
   getMessagesByConversation(conversationId: number): Promise<Message[]>;
   createMessage(conversationId: number, role: string, content: string): Promise<Message>;
+  getWhitelistedUsers(): Promise<WhitelistedUser[]>;
+  getWhitelistedUser(id: number): Promise<WhitelistedUser | undefined>;
+  getWhitelistedUserByNameAndPin(name: string, pin: string): Promise<WhitelistedUser | undefined>;
+  createWhitelistedUser(data: InsertWhitelistedUser): Promise<WhitelistedUser>;
+  updateWhitelistedUser(id: number, data: Partial<WhitelistedUser>): Promise<WhitelistedUser>;
+  deleteWhitelistedUser(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -360,6 +367,39 @@ export class DatabaseStorage implements IStorage {
       LIMIT 20
     `);
     return result.rows;
+  }
+
+  async getWhitelistedUsers(): Promise<WhitelistedUser[]> {
+    return db.select().from(whitelistedUsers).orderBy(desc(whitelistedUsers.createdAt));
+  }
+
+  async getWhitelistedUser(id: number): Promise<WhitelistedUser | undefined> {
+    const [wl] = await db.select().from(whitelistedUsers).where(eq(whitelistedUsers.id, id));
+    return wl;
+  }
+
+  async getWhitelistedUserByNameAndPin(name: string, pin: string): Promise<WhitelistedUser | undefined> {
+    const [wl] = await db.select().from(whitelistedUsers)
+      .where(and(
+        eq(sql`LOWER(${whitelistedUsers.name})`, name.toLowerCase()),
+        eq(whitelistedUsers.pin, pin),
+        eq(whitelistedUsers.status, "active")
+      ));
+    return wl;
+  }
+
+  async createWhitelistedUser(data: InsertWhitelistedUser): Promise<WhitelistedUser> {
+    const [wl] = await db.insert(whitelistedUsers).values(data).returning();
+    return wl;
+  }
+
+  async updateWhitelistedUser(id: number, data: Partial<WhitelistedUser>): Promise<WhitelistedUser> {
+    const [wl] = await db.update(whitelistedUsers).set(data).where(eq(whitelistedUsers.id, id)).returning();
+    return wl;
+  }
+
+  async deleteWhitelistedUser(id: number): Promise<void> {
+    await db.delete(whitelistedUsers).where(eq(whitelistedUsers.id, id));
   }
 }
 

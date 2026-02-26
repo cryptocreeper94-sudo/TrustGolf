@@ -106,6 +106,15 @@ export const vendorApplications = pgTable("vendor_applications", {
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
+export const whitelistedUsers = pgTable("whitelisted_users", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  pin: text("pin").notNull(),
+  status: text("status").notNull().default("active"),
+  linkedUserId: varchar("linked_user_id").references(() => users.id),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
 export const conversations = pgTable("conversations", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
@@ -220,6 +229,7 @@ export const insertCourseSchema = createInsertSchema(courses).omit({ id: true, c
 export const insertRoundSchema = createInsertSchema(rounds).omit({ id: true, createdAt: true });
 export const insertDealSchema = createInsertSchema(deals).omit({ id: true, createdAt: true });
 export const insertVendorApplicationSchema = createInsertSchema(vendorApplications).omit({ id: true, createdAt: true, status: true, notes: true });
+export const insertWhitelistedUserSchema = createInsertSchema(whitelistedUsers).omit({ id: true, createdAt: true, status: true, linkedUserId: true });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -239,3 +249,5 @@ export type AnalyticsPageView = typeof analyticsPageViews.$inferSelect;
 export type AnalyticsEvent = typeof analyticsEvents.$inferSelect;
 export type BlogPost = typeof blogPosts.$inferSelect;
 export type InsertBlogPost = z.infer<typeof insertBlogPostSchema>;
+export type WhitelistedUser = typeof whitelistedUsers.$inferSelect;
+export type InsertWhitelistedUser = z.infer<typeof insertWhitelistedUserSchema>;

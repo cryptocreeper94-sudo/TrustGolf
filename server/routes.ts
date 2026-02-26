@@ -327,6 +327,118 @@ Sitemap: ${SITE_URL}/sitemap.xml
     });
   });
 
+  app.post("/api/whitelist/login", async (req: Request, res: Response) => {
+    const { name, pin } = req.body;
+    if (!name || !pin) return res.status(400).json({ error: "Name and pin are required" });
+
+    const wl = await storage.getWhitelistedUserByNameAndPin(name, pin);
+    if (!wl) return res.status(401).json({ error: "Invalid name or pin" });
+
+    if (wl.linkedUserId) {
+      const user = await storage.getUser(wl.linkedUserId);
+      if (user) {
+        return res.json({
+          whitelistId: wl.id,
+          name: wl.name,
+          needsAccount: false,
+          user: {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            displayName: user.displayName,
+            handicap: user.handicap,
+            emailVerified: user.emailVerified,
+          },
+        });
+      }
+    }
+
+    res.json({
+      whitelistId: wl.id,
+      name: wl.name,
+      needsAccount: true,
+      user: null,
+    });
+  });
+
+  app.post("/api/whitelist/create-account", async (req: Request, res: Response) => {
+    const { whitelistId, username, email, password, displayName } = req.body;
+    if (!whitelistId || !username || !email || !password) {
+      return res.status(400).json({ error: "All fields are required" });
+    }
+
+    const wl = await storage.getWhitelistedUser(whitelistId);
+    if (!wl) return res.status(404).json({ error: "Whitelist entry not found" });
+    if (wl.linkedUserId) return res.status(409).json({ error: "Account already created for this whitelist entry" });
+
+    const pwError = validatePassword(password);
+    if (pwError) return res.status(400).json({ error: pwError });
+
+    const existingUser = await storage.getUserByUsername(username);
+    if (existingUser) return res.status(409).json({ error: "Username already taken" });
+
+    const existingEmail = await storage.getUserByEmail(email);
+    if (existingEmail) return res.status(409).json({ error: "Email already registered" });
+
+    const passwordHash = await bcrypt.hash(password, 12);
+    const verificationToken = crypto.randomBytes(32).toString("hex");
+
+    const user = await storage.createUser({
+      username,
+      email,
+      password: passwordHash,
+      displayName: displayName || wl.name,
+      verificationToken,
+      emailVerified: false,
+    });
+
+    await storage.updateWhitelistedUser(wl.id, { linkedUserId: user.id, status: "claimed" });
+
+    try {
+      await sendVerificationEmail(email, displayName || wl.name, verificationToken);
+    } catch (err: any) {
+      console.error("Failed to send verification email:", err.message);
+    }
+
+    res.status(201).json({
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      displayName: user.displayName,
+      handicap: user.handicap,
+      emailVerified: user.emailVerified,
+    });
+  });
+
+  app.get("/api/whitelist", async (_req: Request, res: Response) => {
+    const list = await storage.getWhitelistedUsers();
+    res.json(list);
+  });
+
+  app.post("/api/whitelist", async (req: Request, res: Response) => {
+    const { name, pin } = req.body;
+    if (!name || !pin) return res.status(400).json({ error: "Name and pin are required" });
+    const wl = await storage.createWhitelistedUser({ name, pin });
+    res.status(201).json(wl);
+  });
+
+  app.patch("/api/whitelist/:id", async (req: Request, res: Response) => {
+    const id = parseInt(req.params.id);
+    const { name, pin, status } = req.body;
+    const data: any = {};
+    if (name) data.name = name;
+    if (pin) data.pin = pin;
+    if (status) data.status = status;
+    const wl = await storage.updateWhitelistedUser(id, data);
+    res.json(wl);
+  });
+
+  app.delete("/api/whitelist/:id", async (req: Request, res: Response) => {
+    const id = parseInt(req.params.id);
+    await storage.deleteWhitelistedUser(id);
+    res.json({ success: true });
+  });
+
   function resolveImageUrl(url: string | null, req: Request): string | null {
     if (!url) return url;
     if (url.startsWith("/")) {
