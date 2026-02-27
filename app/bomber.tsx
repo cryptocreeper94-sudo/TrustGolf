@@ -969,9 +969,7 @@ export default function BomberGame() {
             </View>
             <PremiumText variant="hero" color={accentColor} style={{
               fontSize: 54, letterSpacing: 10, fontWeight: "900",
-              textShadowColor: `${accentDim}0.5)`,
-              textShadowOffset: { width: 0, height: 0 },
-              textShadowRadius: 30,
+              ...(Platform.OS === "web" ? { textShadow: `0px 0px 30px ${accentDim}0.5)` } as any : { textShadowColor: `${accentDim}0.5)`, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 30 }),
             }}>BOMBER</PremiumText>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginTop: 8 }}>
               <View style={{ flex: 1, height: 1, backgroundColor: `${accentDim}0.12)` }} />
@@ -1129,7 +1127,7 @@ export default function BomberGame() {
                 flexDirection: "row", alignItems: "center", gap: 16, padding: 20, borderRadius: 20,
                 backgroundColor: `${accentDim}0.04)`,
                 borderWidth: 1.5, borderColor: `${accentDim}0.2)`,
-                shadowColor: accentColor, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 20,
+                ...(Platform.OS === "web" ? { boxShadow: `0px 4px 20px ${accentColor}26` } as any : { shadowColor: accentColor, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 20 }),
               }}>
                 <View style={{
                   width: 56, height: 56, borderRadius: 16,
@@ -1156,7 +1154,7 @@ export default function BomberGame() {
                 flexDirection: "row", alignItems: "center", gap: 16, padding: 20, borderRadius: 20,
                 backgroundColor: "rgba(255,82,82,0.04)",
                 borderWidth: 1.5, borderColor: "rgba(255,82,82,0.18)",
-                shadowColor: contestColor, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 20,
+                ...(Platform.OS === "web" ? { boxShadow: `0px 4px 20px ${contestColor}1F` } as any : { shadowColor: contestColor, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 20 }),
               }}>
                 <View style={{
                   width: 56, height: 56, borderRadius: 16,
@@ -1301,7 +1299,7 @@ export default function BomberGame() {
                 paddingVertical: 16, borderRadius: 16,
                 backgroundColor: `${accentDim}0.06)`,
                 borderWidth: 1.5, borderColor: `${accentDim}0.25)`,
-                shadowColor: accentColor, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 12,
+                ...(Platform.OS === "web" ? { boxShadow: `0px 2px 12px ${accentColor}1A` } as any : { shadowColor: accentColor, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 12 }),
               }}>
                 <Ionicons name="log-in-outline" size={18} color={accentColor} />
                 <PremiumText variant="subtitle" color={accentColor} style={{ fontSize: 14, fontWeight: "800", letterSpacing: 1 }}>SIGN IN</PremiumText>
@@ -1879,10 +1877,7 @@ export default function BomberGame() {
           )}
           <Pressable onPress={handleTap} style={[styles.driveButton, {
             backgroundColor: nightMode ? "#00FF88" : "#FFD700",
-            shadowColor: nightMode ? "#00FF88" : "#FFD700",
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.4,
-            shadowRadius: 16,
+            ...(Platform.OS === "web" ? { boxShadow: nightMode ? "0px 4px 16px rgba(0, 255, 136, 0.4)" : "0px 4px 16px rgba(255, 215, 0, 0.4)" } as any : { shadowColor: nightMode ? "#00FF88" : "#FFD700", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 16 }),
             elevation: 8,
           }]}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>

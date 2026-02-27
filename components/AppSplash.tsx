@@ -215,10 +215,15 @@ const styles = StyleSheet.create({
     height: 120,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#C5A55A",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.4,
-    shadowRadius: 24,
+    ...Platform.select({
+      web: { boxShadow: "0px 0px 24px rgba(197, 165, 90, 0.4)" } as any,
+      default: {
+        shadowColor: "#C5A55A",
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.4,
+        shadowRadius: 24,
+      },
+    }),
     elevation: 16,
   },
   logo: {

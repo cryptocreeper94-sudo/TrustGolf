@@ -1,5 +1,5 @@
 import React from "react";
-import { Text, TextStyle, Platform } from "react-native";
+import { Text, TextStyle, Platform, StyleSheet } from "react-native";
 import { useTheme } from "@/contexts/ThemeContext";
 
 interface PremiumTextProps {
@@ -24,11 +24,14 @@ export function PremiumText({ children, variant = "body", color, style, shadow, 
     label: { fontSize: 11, fontFamily: "Inter_600SemiBold", letterSpacing: 0.8, textTransform: "uppercase" },
   };
 
-  const shadowStyle: TextStyle = shadow ? {
-    textShadowColor: "rgba(0,0,0,0.3)",
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
-  } : {};
+  const shadowStyle: TextStyle = shadow ? Platform.select({
+    web: { textShadow: "0px 2px 4px rgba(0,0,0,0.3)" } as any,
+    default: {
+      textShadowColor: "rgba(0,0,0,0.3)",
+      textShadowOffset: { width: 0, height: 2 },
+      textShadowRadius: 4,
+    },
+  }) : {};
 
   const textColor = accent ? colors.accent : (color || colors.text);
 
