@@ -947,71 +947,123 @@ export default function BomberGame() {
 
   if (gameMode === "menu") {
     return (
-      <View style={[styles.screen, { backgroundColor: nightMode ? "#050518" : "#1a3a5c" }]}>
+      <View style={[styles.screen, { backgroundColor: nightMode ? "#050518" : "#0a1628" }]}>
         <Svg width={svgWidth} height={svgHeight} viewBox={`0 0 ${svgWidth} ${svgHeight}`} style={StyleSheet.absoluteFill}>
           <Defs>
             <SvgLinearGradient id="menuSky" x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0" stopColor={nightMode ? "#0a0a2e" : "#1a3a5c"} />
-              <Stop offset="1" stopColor={nightMode ? "#050518" : "#0d2137"} />
+              <Stop offset="0" stopColor={nightMode ? "#0a0a2e" : "#0d1f3c"} />
+              <Stop offset="0.4" stopColor={nightMode ? "#050518" : "#0a1628"} />
+              <Stop offset="0.7" stopColor={nightMode ? "#0d1a0d" : "#0d2a12"} />
+              <Stop offset="1" stopColor={nightMode ? "#0a150a" : "#0a200a"} />
+            </SvgLinearGradient>
+            <SvgRadialGradient id="menuGlow" cx="50%" cy="25%" r="60%">
+              <Stop offset="0" stopColor={nightMode ? "#00FF88" : "#FFD700"} stopOpacity="0.06" />
+              <Stop offset="0.5" stopColor={nightMode ? "#00FF88" : "#FFD700"} stopOpacity="0.02" />
+              <Stop offset="1" stopColor={nightMode ? "#00FF88" : "#FFD700"} stopOpacity="0" />
+            </SvgRadialGradient>
+            <SvgLinearGradient id="menuHillFar" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor={nightMode ? "#0a200a" : "#1a3a1a"} />
+              <Stop offset="1" stopColor={nightMode ? "#050f05" : "#0d260d"} />
+            </SvgLinearGradient>
+            <SvgLinearGradient id="menuGround" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor={nightMode ? "#0d2d0d" : "#1B5E20"} />
+              <Stop offset="1" stopColor={nightMode ? "#0a1a0a" : "#0d3d12"} />
             </SvgLinearGradient>
           </Defs>
           <Rect x="0" y="0" width={svgWidth} height={svgHeight} fill="url(#menuSky)" />
-          {nightMode && stars.map((s, i) => <Circle key={i} cx={s.x} cy={s.y} r={s.r} fill="white" opacity={s.opacity} />)}
+          <Rect x="0" y="0" width={svgWidth} height={svgHeight} fill="url(#menuGlow)" />
+          {nightMode && stars.map((s, i) => (
+            <Circle key={i} cx={s.x} cy={s.y} r={s.r} fill="white" opacity={s.opacity * (0.7 + Math.sin(i * 0.5 + cloudOffset * 0.02) * 0.3)} />
+          ))}
+          {!nightMode && clouds.slice(0, 3).map((c, i) => {
+            const cx = ((c.x + cloudOffset * c.speed * 0.5) % (svgWidth + 120)) - 60;
+            return <Ellipse key={`mc-${i}`} cx={cx} cy={c.y * 0.7} rx={c.rx * 0.8} ry={c.ry * 0.6} fill="white" opacity={0.06} />;
+          })}
+          <Path d={hillPath} fill="url(#menuHillFar)" opacity={0.4} />
+          {treeLine.filter((_, i) => i % 3 === 0).map((t, i) => (
+            <Ellipse key={`mt-${i}`} cx={t.x} cy={svgHeight * 0.72} rx={t.w * 0.8} ry={t.h * 0.4} fill={nightMode ? "#0a200a" : "#1B5E20"} opacity={0.3} />
+          ))}
+          <Rect x="0" y={svgHeight * 0.75} width={svgWidth} height={svgHeight * 0.25} fill="url(#menuGround)" />
+          {nightMode && (
+            <G>
+              <Circle cx={svgWidth * 0.82} cy={svgHeight * 0.08} r={22} fill="#E0E0E0" opacity={0.08} />
+              <Circle cx={svgWidth * 0.82} cy={svgHeight * 0.08} r={8} fill="#E0E0E0" opacity={0.15} />
+            </G>
+          )}
         </Svg>
 
         <ScrollView style={{ flex: 1 }} contentContainerStyle={[styles.menuContent, { paddingTop: insets.top + webTopInset + 16, paddingBottom: insets.bottom + 40 }]}>
           <View style={styles.menuHeader}>
             <Pressable onPress={() => router.back()} style={styles.topBtn}>
-              <Ionicons name="close" size={22} color="#fff" />
+              <Ionicons name="close" size={22} color="rgba(255,255,255,0.7)" />
             </Pressable>
             <View style={{ flex: 1 }} />
             <Pressable onPress={() => { setShowHamburger(true); bomberSounds.play("menuTap"); Haptics.selectionAsync(); }} style={styles.topBtn}>
-              <Ionicons name="menu" size={24} color="#fff" />
+              <Ionicons name="menu" size={24} color="rgba(255,255,255,0.7)" />
             </Pressable>
           </View>
 
-          <Animated.View entering={FadeInUp.duration(500)} style={styles.menuTitleArea}>
-            <PremiumText variant="hero" color={nightMode ? "#00FF88" : "#FFD700"} style={{ fontSize: 42, letterSpacing: 4 }}>BOMBER</PremiumText>
-            <PremiumText variant="caption" color="rgba(255,255,255,0.5)" style={{ fontSize: 12, letterSpacing: 3, marginTop: 4 }}>LONG DRIVE CONTEST</PremiumText>
+          <Animated.View entering={FadeInUp.duration(600)} style={styles.menuTitleArea}>
+            <View style={{ alignItems: "center", marginBottom: 6 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                <View style={{ width: 32, height: 1.5, backgroundColor: nightMode ? "#00FF88" : "#FFD700", opacity: 0.4, borderRadius: 1 }} />
+                <Ionicons name="golf-outline" size={16} color={nightMode ? "rgba(0,255,136,0.5)" : "rgba(255,215,0,0.5)"} />
+                <View style={{ width: 32, height: 1.5, backgroundColor: nightMode ? "#00FF88" : "#FFD700", opacity: 0.4, borderRadius: 1 }} />
+              </View>
+            </View>
+            <PremiumText variant="hero" color={nightMode ? "#00FF88" : "#FFD700"} style={{
+              fontSize: 48, letterSpacing: 8, fontWeight: "900",
+              textShadowColor: nightMode ? "rgba(0,255,136,0.4)" : "rgba(255,215,0,0.4)",
+              textShadowOffset: { width: 0, height: 0 },
+              textShadowRadius: 20,
+            }}>BOMBER</PremiumText>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginTop: 6 }}>
+              <View style={{ flex: 1, height: 0.5, backgroundColor: "rgba(255,255,255,0.15)" }} />
+              <PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 10, letterSpacing: 4, fontWeight: "600" }}>LONG DRIVE CONTEST</PremiumText>
+              <View style={{ flex: 1, height: 0.5, backgroundColor: "rgba(255,255,255,0.15)" }} />
+            </View>
+            <PremiumText variant="caption" color="rgba(255,255,255,0.2)" style={{ fontSize: 8, letterSpacing: 3, marginTop: 4 }}>BY DARKWAVE STUDIOS</PremiumText>
           </Animated.View>
 
           {isLoggedIn && profileData && (
-            <Animated.View entering={FadeIn.duration(400).delay(200)} style={styles.profileBar}>
+            <Animated.View entering={FadeIn.duration(500).delay(200)} style={[styles.profileBar, { backgroundColor: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.08)" }]}>
               <View style={styles.profileRow}>
-                <View style={[styles.divisionBadge, { borderColor: division.color }]}>
-                  <Ionicons name={division.icon as any} size={16} color={division.color} />
-                  <PremiumText variant="caption" color={division.color} style={{ fontSize: 10, fontWeight: "700" }}>{division.name}</PremiumText>
+                <View style={[styles.divisionBadge, { borderColor: division.color + "40", backgroundColor: division.color + "12" }]}>
+                  <Ionicons name={division.icon as any} size={18} color={division.color} />
+                  <View>
+                    <PremiumText variant="caption" color={division.color} style={{ fontSize: 11, fontWeight: "800", letterSpacing: 1 }}>{division.name.toUpperCase()}</PremiumText>
+                    <PremiumText variant="caption" color="rgba(255,255,255,0.3)" style={{ fontSize: 8 }}>Lv {levelInfo.level}</PremiumText>
+                  </View>
                 </View>
                 <View style={styles.profileStats}>
                   <View style={styles.profileStatItem}>
-                    <PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 9 }}>LEVEL</PremiumText>
-                    <PremiumText variant="title" color="#fff" style={{ fontSize: 18 }}>{levelInfo.level}</PremiumText>
+                    <PremiumText variant="caption" color="rgba(255,255,255,0.35)" style={{ fontSize: 8, letterSpacing: 1 }}>BEST</PremiumText>
+                    <PremiumText variant="title" color="#fff" style={{ fontSize: 20, fontWeight: "900" }}>{personalBest || "—"}</PremiumText>
                   </View>
+                  <View style={{ width: 1, height: 24, backgroundColor: "rgba(255,255,255,0.08)" }} />
                   <View style={styles.profileStatItem}>
-                    <PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 9 }}>BEST</PremiumText>
-                    <PremiumText variant="title" color="#fff" style={{ fontSize: 18 }}>{personalBest || "—"}</PremiumText>
+                    <PremiumText variant="caption" color="rgba(255,255,255,0.35)" style={{ fontSize: 8, letterSpacing: 1 }}>DRIVES</PremiumText>
+                    <PremiumText variant="title" color="#fff" style={{ fontSize: 20, fontWeight: "900" }}>{profileData.profile.totalDrives}</PremiumText>
                   </View>
+                  <View style={{ width: 1, height: 24, backgroundColor: "rgba(255,255,255,0.08)" }} />
                   <View style={styles.profileStatItem}>
-                    <PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 9 }}>DRIVES</PremiumText>
-                    <PremiumText variant="title" color="#fff" style={{ fontSize: 18 }}>{profileData.profile.totalDrives}</PremiumText>
+                    <PremiumText variant="caption" color="rgba(255,255,255,0.35)" style={{ fontSize: 8, letterSpacing: 1 }}>STREAK</PremiumText>
+                    <PremiumText variant="title" color="#FF9800" style={{ fontSize: 20, fontWeight: "900" }}>{profileData.profile.currentStreak}</PremiumText>
                   </View>
                 </View>
               </View>
-              <View style={styles.xpBar}>
+              <View style={[styles.xpBar, { marginTop: 10 }]}>
                 <View style={[styles.xpFill, { width: `${(levelInfo.currentXp / levelInfo.nextLevelXp) * 100}%`, backgroundColor: division.color }]} />
+                <PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ position: "absolute", right: 4, fontSize: 7, fontWeight: "600" }}>{levelInfo.currentXp}/{levelInfo.nextLevelXp} XP</PremiumText>
               </View>
-              <View style={styles.currencyRow}>
-                <View style={styles.currencyItem}>
-                  <Ionicons name="logo-bitcoin" size={14} color="#FFD700" />
-                  <PremiumText variant="caption" color="#FFD700" style={{ fontSize: 12, fontWeight: "700" }}>{profileData.profile.coins}</PremiumText>
+              <View style={[styles.currencyRow, { marginTop: 10 }]}>
+                <View style={[styles.currencyItem, { backgroundColor: "rgba(255,215,0,0.08)", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 5 }]}>
+                  <Ionicons name="logo-bitcoin" size={13} color="#FFD700" />
+                  <PremiumText variant="caption" color="#FFD700" style={{ fontSize: 13, fontWeight: "800" }}>{profileData.profile.coins.toLocaleString()}</PremiumText>
                 </View>
-                <View style={styles.currencyItem}>
-                  <Ionicons name="diamond" size={14} color="#B9F2FF" />
-                  <PremiumText variant="caption" color="#B9F2FF" style={{ fontSize: 12, fontWeight: "700" }}>{profileData.profile.gems}</PremiumText>
-                </View>
-                <View style={styles.currencyItem}>
-                  <Ionicons name="flame" size={14} color="#FF9800" />
-                  <PremiumText variant="caption" color="#FF9800" style={{ fontSize: 12, fontWeight: "700" }}>{profileData.profile.currentStreak}d</PremiumText>
+                <View style={[styles.currencyItem, { backgroundColor: "rgba(185,242,255,0.08)", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 5 }]}>
+                  <Ionicons name="diamond" size={13} color="#B9F2FF" />
+                  <PremiumText variant="caption" color="#B9F2FF" style={{ fontSize: 13, fontWeight: "800" }}>{profileData.profile.gems}</PremiumText>
                 </View>
               </View>
             </Animated.View>
@@ -1069,7 +1121,7 @@ export default function BomberGame() {
           )}
 
           <View style={styles.modeButtons}>
-            <Animated.View entering={FadeInUp.duration(400).delay(400)}>
+            <Animated.View entering={FadeInUp.duration(500).delay(400)}>
               <Pressable onPress={() => {
                 setGameMode("freeplay"); setGameState("idle");
                 if (selectedVenue.venueId !== "driving_range") {
@@ -1078,34 +1130,60 @@ export default function BomberGame() {
                 } else {
                   const w = getRandomWeather(); setWeather(w); setWind(generateWindForWeather(w));
                 }
-              }} style={[styles.modeBtn, { backgroundColor: nightMode ? "rgba(0,255,136,0.15)" : "rgba(255,215,0,0.15)", borderColor: nightMode ? "#00FF88" : "#FFD700" }]}>
-                <Ionicons name="flash" size={28} color={nightMode ? "#00FF88" : "#FFD700"} />
+                bomberSounds.play("menuTap"); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              }} style={[styles.modeBtn, {
+                backgroundColor: nightMode ? "rgba(0,255,136,0.08)" : "rgba(255,215,0,0.08)",
+                borderColor: nightMode ? "rgba(0,255,136,0.25)" : "rgba(255,215,0,0.25)",
+                borderWidth: 1,
+              }]}>
+                <View style={{
+                  width: 52, height: 52, borderRadius: 14,
+                  backgroundColor: nightMode ? "rgba(0,255,136,0.12)" : "rgba(255,215,0,0.12)",
+                  alignItems: "center", justifyContent: "center",
+                }}>
+                  <Ionicons name="flash" size={26} color={nightMode ? "#00FF88" : "#FFD700"} />
+                </View>
                 <View style={{ flex: 1 }}>
-                  <PremiumText variant="subtitle" color="#fff" style={{ fontSize: 16 }}>Free Play</PremiumText>
-                  <PremiumText variant="caption" color="rgba(255,255,255,0.5)" style={{ fontSize: 11 }}>
+                  <PremiumText variant="subtitle" color="#fff" style={{ fontSize: 17, fontWeight: "800", letterSpacing: 1 }}>FREE PLAY</PremiumText>
+                  <PremiumText variant="caption" color="rgba(255,255,255,0.45)" style={{ fontSize: 11, marginTop: 2 }}>
                     {selectedVenue.venueId !== "driving_range" ? `Drive at ${selectedVenue.name}` : "Unlimited drives. Chase your longest."}
                   </PremiumText>
                 </View>
+                <Ionicons name="chevron-forward" size={18} color={nightMode ? "rgba(0,255,136,0.4)" : "rgba(255,215,0,0.4)"} />
               </Pressable>
             </Animated.View>
 
-            <Animated.View entering={FadeInUp.duration(400).delay(500)}>
-              <Pressable onPress={startContest} style={[styles.modeBtn, { backgroundColor: "rgba(255,82,82,0.12)", borderColor: "#FF5252" }]}>
-                <Ionicons name="trophy" size={28} color="#FF5252" />
+            <Animated.View entering={FadeInUp.duration(500).delay(500)}>
+              <Pressable onPress={() => { startContest(); bomberSounds.play("menuTap"); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); }} style={[styles.modeBtn, {
+                backgroundColor: "rgba(255,82,82,0.06)",
+                borderColor: "rgba(255,82,82,0.2)",
+                borderWidth: 1,
+              }]}>
+                <View style={{
+                  width: 52, height: 52, borderRadius: 14,
+                  backgroundColor: "rgba(255,82,82,0.1)",
+                  alignItems: "center", justifyContent: "center",
+                }}>
+                  <Ionicons name="trophy" size={26} color="#FF5252" />
+                </View>
                 <View style={{ flex: 1 }}>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                    <PremiumText variant="subtitle" color="#fff" style={{ fontSize: 16 }}>Contest Mode</PremiumText>
+                    <PremiumText variant="subtitle" color="#fff" style={{ fontSize: 17, fontWeight: "800", letterSpacing: 1 }}>CONTEST</PremiumText>
                     {isPro && (
-                      <View style={{ backgroundColor: "rgba(255,215,0,0.2)", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 }}>
-                        <PremiumText variant="caption" color="#FFD700" style={{ fontSize: 9, fontWeight: "800" }}>PRO</PremiumText>
+                      <View style={{ backgroundColor: "rgba(255,215,0,0.15)", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, borderWidth: 1, borderColor: "rgba(255,215,0,0.3)" }}>
+                        <PremiumText variant="caption" color="#FFD700" style={{ fontSize: 8, fontWeight: "800", letterSpacing: 1 }}>PRO</PremiumText>
                       </View>
                     )}
                   </View>
-                  <PremiumText variant="caption" color="rgba(255,255,255,0.5)" style={{ fontSize: 11 }}>
-                    {isPro ? "Unlimited contests. Compete anytime." : dailyContestUsed ? "Daily contest used. Upgrade for unlimited." : "1 free contest per day. Qualify, bracket, finals."}
+                  <PremiumText variant="caption" color="rgba(255,255,255,0.45)" style={{ fontSize: 11, marginTop: 2 }}>
+                    {isPro ? "Unlimited contests. Compete anytime." : dailyContestUsed ? "Daily contest used. Upgrade for unlimited." : "1 free contest per day. Bracket elimination."}
                   </PremiumText>
                 </View>
-                {!isPro && dailyContestUsed && <Ionicons name="lock-closed" size={18} color="rgba(255,255,255,0.4)" />}
+                {!isPro && dailyContestUsed ? (
+                  <Ionicons name="lock-closed" size={18} color="rgba(255,255,255,0.3)" />
+                ) : (
+                  <Ionicons name="chevron-forward" size={18} color="rgba(255,82,82,0.4)" />
+                )}
               </Pressable>
             </Animated.View>
           </View>
@@ -1672,18 +1750,27 @@ export default function BomberGame() {
       {gameState === "idle" && (
         <Animated.View entering={FadeIn.duration(400)} style={styles.startPrompt}>
           {driverDef && driverDef.id !== "standard" && (
-            <View style={[styles.equippedTag, { borderColor: RARITY_COLORS[driverDef.rarity] + "60" }]}>
+            <View style={[styles.equippedTag, { borderColor: RARITY_COLORS[driverDef.rarity] + "30", backgroundColor: RARITY_COLORS[driverDef.rarity] + "10" }]}>
               <Ionicons name="construct" size={10} color={RARITY_COLORS[driverDef.rarity]} />
-              <PremiumText variant="caption" color={RARITY_COLORS[driverDef.rarity]} style={{ fontSize: 9 }}>{driverDef.name}</PremiumText>
+              <PremiumText variant="caption" color={RARITY_COLORS[driverDef.rarity]} style={{ fontSize: 9, fontWeight: "700" }}>{driverDef.name}</PremiumText>
             </View>
           )}
-          <Pressable onPress={handleTap} style={[styles.driveButton, { backgroundColor: nightMode ? "#00FF88" : "#FFD700" }]}>
-            <Ionicons name="flash" size={24} color={nightMode ? "#0a0a2e" : "#1B5E20"} />
-            <PremiumText variant="subtitle" color={nightMode ? "#0a0a2e" : "#1B5E20"} style={{ fontSize: 18 }}>
-              {gameMode === "contest" && contest ? `DRIVE (${contest.ballsRemaining} left)` : "DRIVE"}
-            </PremiumText>
+          <Pressable onPress={handleTap} style={[styles.driveButton, {
+            backgroundColor: nightMode ? "#00FF88" : "#FFD700",
+            shadowColor: nightMode ? "#00FF88" : "#FFD700",
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.4,
+            shadowRadius: 16,
+            elevation: 8,
+          }]}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <Ionicons name="flash" size={22} color={nightMode ? "#0a0a2e" : "#1B5E20"} />
+              <PremiumText variant="subtitle" color={nightMode ? "#0a0a2e" : "#1B5E20"} style={{ fontSize: 18, fontWeight: "900", letterSpacing: 3 }}>
+                {gameMode === "contest" && contest ? `DRIVE  ·  ${contest.ballsRemaining} LEFT` : "DRIVE"}
+              </PremiumText>
+            </View>
           </Pressable>
-          <PremiumText variant="caption" color="rgba(255,255,255,0.5)" style={{ fontSize: 10, marginTop: 8 }}>Tap to start swing</PremiumText>
+          <PremiumText variant="caption" color="rgba(255,255,255,0.35)" style={{ fontSize: 10, marginTop: 10, letterSpacing: 2 }}>TAP TO START SWING</PremiumText>
         </Animated.View>
       )}
 

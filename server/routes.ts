@@ -2271,6 +2271,14 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
 
   // ===== BOMBER GAME API =====
 
+  const isWhitelistedUser = async (userId: string): Promise<boolean> => {
+    try {
+      const { whitelistedUsers } = await import("@shared/schema");
+      const wl = await db.select().from(whitelistedUsers).where(eq(whitelistedUsers.linkedUserId, userId));
+      return wl.length > 0 && wl[0].status === "active";
+    } catch { return false; }
+  };
+
   app.get("/api/bomber/profile/:userId", async (req: Request, res: Response) => {
     try {
       const { userId } = req.params;
@@ -2280,12 +2288,16 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
         await storage.addBomberEquipment(userId, "standard", "driver");
         await storage.addBomberEquipment(userId, "standard", "ball");
       }
+      const whitelisted = await isWhitelistedUser(userId);
+      if (whitelisted && !profile.bomberPro) {
+        profile = await storage.updateBomberProfile(userId, { bomberPro: true });
+      }
       const equipment = await storage.getBomberEquipment(userId);
       const chests = await storage.getBomberChestQueue(userId);
       const { getLevelFromXp, getDivision } = await import("@shared/bomber-data");
       const levelInfo = getLevelFromXp(profile.xp);
       const division = getDivision(profile.xp);
-      res.json({ profile, equipment, chests, levelInfo, division });
+      res.json({ profile, equipment, chests, levelInfo, division, whitelisted });
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }
@@ -2541,7 +2553,11 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
       let profile = await storage.getBomberProfile(userId);
       if (!profile) profile = await storage.createBomberProfile(userId);
 
-      if (profile.bomberPro) {
+      const whitelisted = await isWhitelistedUser(userId);
+      if (profile.bomberPro || whitelisted) {
+        if (whitelisted && !profile.bomberPro) {
+          await storage.updateBomberProfile(userId, { bomberPro: true });
+        }
         return res.json({ eligible: true, isPro: true, contestsUsedToday: 0, freeContestsPerDay: 999 });
       }
 
