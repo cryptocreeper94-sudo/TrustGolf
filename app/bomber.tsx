@@ -4,7 +4,8 @@ import {
 } from "react-native";
 import Svg, {
   Rect, Circle, Line, Text as SvgText, Defs, LinearGradient as SvgLinearGradient,
-  Stop, Polyline, G, Ellipse,
+  RadialGradient as SvgRadialGradient,
+  Stop, Polyline, G, Ellipse, Path, Polygon,
 } from "react-native-svg";
 import Animated, {
   useSharedValue, useAnimatedStyle, withSpring,
@@ -85,6 +86,77 @@ function generateStars(count: number, w: number, h: number) {
   return stars;
 }
 
+function generateClouds(w: number, h: number) {
+  const clouds = [];
+  for (let i = 0; i < 5; i++) {
+    clouds.push({
+      x: Math.random() * w * 1.2 - w * 0.1,
+      y: h * 0.04 + Math.random() * h * 0.2,
+      rx: 30 + Math.random() * 40,
+      ry: 10 + Math.random() * 8,
+      opacity: 0.15 + Math.random() * 0.2,
+      speed: 0.08 + Math.random() * 0.12,
+    });
+  }
+  return clouds;
+}
+
+function generateTreeLine(w: number, groundY: number) {
+  const trees = [];
+  for (let x = 0; x < w + 20; x += 8 + Math.random() * 16) {
+    const h = 12 + Math.random() * 22;
+    trees.push({ x, h, w: 6 + Math.random() * 6, y: groundY - h * 0.6 });
+  }
+  return trees;
+}
+
+function generateSpectators(w: number, groundY: number) {
+  const specs = [];
+  const startX = 10;
+  const endX = w * 0.18;
+  for (let x = startX; x < endX; x += 6 + Math.random() * 4) {
+    const row = Math.floor(Math.random() * 3);
+    specs.push({
+      x,
+      y: groundY + 16 + row * 8,
+      h: 8 + Math.random() * 4,
+      color: ["#E8D5B7", "#C4A882", "#D4B896", "#BFA07A", "#E0C8A8"][Math.floor(Math.random() * 5)],
+    });
+  }
+  return specs;
+}
+
+function generateHillPath(w: number, groundY: number, heightRange: number, y0: number) {
+  let d = `M0,${y0}`;
+  const segments = 12;
+  const segW = w / segments;
+  for (let i = 0; i <= segments; i++) {
+    const x = i * segW;
+    const h = Math.sin(i * 0.7 + 1.3) * heightRange * 0.6 + Math.cos(i * 1.4) * heightRange * 0.4;
+    const cy = y0 - Math.abs(h);
+    if (i === 0) d = `M0,${cy}`;
+    else {
+      const cpx = x - segW * 0.5;
+      d += ` Q${cpx},${cy - Math.random() * 4} ${x},${cy}`;
+    }
+  }
+  d += ` L${w},${groundY + 50} L0,${groundY + 50} Z`;
+  return d;
+}
+
+function generateFairwayStripes(teeX: number, landingAreaWidth: number, groundY: number, groundH: number) {
+  const stripes = [];
+  const stripeW = landingAreaWidth / 14;
+  for (let i = 0; i < 14; i++) {
+    stripes.push({
+      x: teeX + i * stripeW,
+      w: stripeW,
+      dark: i % 2 === 0,
+    });
+  }
+  return stripes;
+}
+
 function simulateDrive(power: number, accuracyPct: number, wind: number, driverDef?: EquipmentDef, ballDef?: EquipmentDef, weather?: WeatherCondition, venueAltBonus?: number) {
   const speedBonus = (driverDef?.speedBonus || 0) + (ballDef?.speedBonus || 0);
   const accuracyBonus = (driverDef?.accuracyBonus || 0) + (ballDef?.accuracyBonus || 0);
@@ -155,7 +227,14 @@ export default function BomberGame() {
   const [trajectoryPoints, setTrajectoryPoints] = useState<string>("");
   const [ballPos, setBallPos] = useState({ x: 0, y: 0 });
   const [showBall, setShowBall] = useState(false);
-  const [stars] = useState(() => generateStars(40, screenWidth, screenHeight));
+  const [stars] = useState(() => generateStars(60, screenWidth, screenHeight));
+  const [clouds] = useState(() => generateClouds(screenWidth, screenHeight));
+  const [cloudOffset, setCloudOffset] = useState(0);
+  const [treeLine] = useState(() => generateTreeLine(screenWidth, screenHeight * 0.7));
+  const [spectators] = useState(() => generateSpectators(screenWidth, screenHeight * 0.7));
+  const [hillPath] = useState(() => generateHillPath(screenWidth, screenHeight * 0.7, 25, screenHeight * 0.7 - 10));
+  const [hillPath2] = useState(() => generateHillPath(screenWidth, screenHeight * 0.7, 15, screenHeight * 0.7 - 3));
+  const [landingDust, setLandingDust] = useState<{ x: number; y: number; particles: { dx: number; dy: number; r: number; o: number }[] } | null>(null);
 
   const [profileData, setProfileData] = useState<BomberProfileData | null>(null);
   const [equippedDriverId, setEquippedDriverId] = useState("standard");
@@ -225,6 +304,13 @@ export default function BomberGame() {
     AsyncStorage.getItem("bomber_sound_enabled").then((val) => {
       if (val === "false") setSoundEnabled(false);
     });
+  }, []);
+
+  useEffect(() => {
+    const cloudTimer = setInterval(() => {
+      setCloudOffset((prev) => prev + 0.3);
+    }, 50);
+    return () => clearInterval(cloudTimer);
   }, []);
 
   useEffect(() => {
@@ -727,6 +813,16 @@ export default function BomberGame() {
         setShowBall(false);
         setBallTrail([]);
 
+        const landX = yardToScreenX(result.carry + result.roll);
+        const dustParticles = Array.from({ length: 12 }, () => ({
+          dx: (Math.random() - 0.5) * 20,
+          dy: -Math.random() * 15 - 3,
+          r: 1.5 + Math.random() * 3,
+          o: 0.4 + Math.random() * 0.4,
+        }));
+        setLandingDust({ x: landX, y: groundY, particles: dustParticles });
+        setTimeout(() => setLandingDust(null), 800);
+
         bomberSounds.play("impact");
         if (result.inBounds && result.total >= 300) {
           setTimeout(() => bomberSounds.play("crowd"), 300);
@@ -835,9 +931,14 @@ export default function BomberGame() {
   for (let y = GRID_START_YARD + MARKER_INTERVAL; y <= GRID_END_YARD; y += MARKER_INTERVAL) gridMarkers.push(y);
 
   const stadiumLights = [
-    { x: svgWidth * 0.15, y: 20 }, { x: svgWidth * 0.35, y: 15 },
-    { x: svgWidth * 0.55, y: 15 }, { x: svgWidth * 0.75, y: 20 }, { x: svgWidth * 0.9, y: 18 },
+    { x: svgWidth * 0.15, y: 20, poleH: groundY * 0.55 }, { x: svgWidth * 0.35, y: 15, poleH: groundY * 0.6 },
+    { x: svgWidth * 0.55, y: 15, poleH: groundY * 0.6 }, { x: svgWidth * 0.75, y: 20, poleH: groundY * 0.55 }, { x: svgWidth * 0.9, y: 18, poleH: groundY * 0.52 },
   ];
+  const fairwayStripes = generateFairwayStripes(teeX, landingAreaWidth, groundY, svgHeight - groundY);
+  const sunX = svgWidth * 0.88;
+  const sunY = svgHeight * 0.08;
+  const ballShadowX = showBall ? ballPos.x : 0;
+  const ballShadowOpacity = showBall ? Math.max(0.05, 0.2 * (1 - (groundY - ballPos.y) / (groundY * 0.6))) : 0;
 
   const windLabel = wind > 0 ? `${Math.abs(wind)} mph tailwind` : wind < 0 ? `${Math.abs(wind)} mph headwind` : "No wind";
   const windIcon: any = wind > 0 ? "arrow-forward" : wind < 0 ? "arrow-back" : "remove";
@@ -1239,65 +1340,229 @@ export default function BomberGame() {
             <SvgLinearGradient id="groundGrad" x1="0" y1="0" x2="0" y2="1">
               <Stop offset="0" stopColor={theme.ground} /><Stop offset="1" stopColor={theme.groundDark} />
             </SvgLinearGradient>
+            <SvgLinearGradient id="fairwayDark" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor="rgba(0,0,0,0.06)" /><Stop offset="1" stopColor="rgba(0,0,0,0.02)" />
+            </SvgLinearGradient>
+            <SvgLinearGradient id="fairwayLight" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor="rgba(255,255,255,0.04)" /><Stop offset="1" stopColor="rgba(255,255,255,0.01)" />
+            </SvgLinearGradient>
+            <SvgRadialGradient id="sunGlow" cx="50%" cy="50%" r="50%">
+              <Stop offset="0" stopColor="#FFF9C4" stopOpacity="1" />
+              <Stop offset="0.3" stopColor="#FFF176" stopOpacity="0.6" />
+              <Stop offset="0.6" stopColor="#FFE082" stopOpacity="0.15" />
+              <Stop offset="1" stopColor="#FFE082" stopOpacity="0" />
+            </SvgRadialGradient>
+            <SvgRadialGradient id="moonGlow" cx="50%" cy="50%" r="50%">
+              <Stop offset="0" stopColor="#E8F5E9" stopOpacity="0.8" />
+              <Stop offset="0.4" stopColor="#B2DFDB" stopOpacity="0.2" />
+              <Stop offset="1" stopColor="#B2DFDB" stopOpacity="0" />
+            </SvgRadialGradient>
+            <SvgRadialGradient id="spotlightCone" cx="50%" cy="0%" r="80%">
+              <Stop offset="0" stopColor="#FFF9C4" stopOpacity={nightMode ? "0.08" : "0"} />
+              <Stop offset="1" stopColor="#FFF9C4" stopOpacity="0" />
+            </SvgRadialGradient>
+            <SvgLinearGradient id="teeBoxGrad" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor={nightMode ? "#2E7D32" : "#66BB6A"} />
+              <Stop offset="1" stopColor={nightMode ? "#1B5E20" : "#388E3C"} />
+            </SvgLinearGradient>
+            <SvgLinearGradient id="hillFar" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor={nightMode ? "#0d3d1a" : "#5D8A5E"} />
+              <Stop offset="1" stopColor={nightMode ? "#0a2d12" : "#4A7A4B"} />
+            </SvgLinearGradient>
+            <SvgLinearGradient id="hillNear" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor={nightMode ? "#153d1a" : "#4CAF50"} />
+              <Stop offset="1" stopColor={nightMode ? "#0d2d10" : "#388E3C"} />
+            </SvgLinearGradient>
           </Defs>
+
+          {/* SKY */}
           <Rect x="0" y="0" width={svgWidth} height={groundY} fill="url(#skyGrad)" />
-          <Rect x="0" y={groundY} width={svgWidth} height={svgHeight - groundY} fill="url(#groundGrad)" />
-          {nightMode && stars.map((s, i) => <Circle key={i} cx={s.x} cy={s.y} r={s.r} fill="white" opacity={s.opacity} />)}
+
+          {/* STARS (night) */}
+          {nightMode && stars.map((s, i) => (
+            <Circle key={i} cx={s.x} cy={s.y} r={s.r} fill="white" opacity={s.opacity * (0.7 + Math.sin(i * 0.5 + cloudOffset * 0.02) * 0.3)} />
+          ))}
+
+          {/* SUN (day) with lens flare */}
           {!nightMode && (
-            <>
-              <Circle cx={svgWidth * 0.88} cy={svgHeight * 0.08} r={28} fill="#FFF176" opacity={0.9} />
-              <Circle cx={svgWidth * 0.88} cy={svgHeight * 0.08} r={40} fill="#FFF176" opacity={0.15} />
-            </>
+            <G>
+              <Circle cx={sunX} cy={sunY} r={55} fill="url(#sunGlow)" />
+              <Circle cx={sunX} cy={sunY} r={22} fill="#FFF9C4" opacity={0.95} />
+              <Circle cx={sunX} cy={sunY} r={18} fill="#FFEE58" />
+              <Line x1={sunX - 35} y1={sunY} x2={sunX - 26} y2={sunY} stroke="#FFF9C4" strokeWidth={1.5} opacity={0.4} />
+              <Line x1={sunX + 26} y1={sunY} x2={sunX + 35} y2={sunY} stroke="#FFF9C4" strokeWidth={1.5} opacity={0.4} />
+              <Line x1={sunX} y1={sunY - 35} x2={sunX} y2={sunY - 26} stroke="#FFF9C4" strokeWidth={1.5} opacity={0.4} />
+              <Line x1={sunX} y1={sunY + 26} x2={sunX} y2={sunY + 35} stroke="#FFF9C4" strokeWidth={1.5} opacity={0.4} />
+              <Circle cx={sunX - 30} cy={sunY + 50} r={4} fill="#FFF9C4" opacity={0.12} />
+              <Circle cx={sunX - 45} cy={sunY + 80} r={3} fill="#FFF9C4" opacity={0.08} />
+              <Ellipse cx={sunX - 60} cy={sunY + 110} rx={6} ry={3} fill="#FFF9C4" opacity={0.06} />
+            </G>
           )}
-          {nightMode && stadiumLights.map((l, i) => (
-            <G key={i}>
-              <Circle cx={l.x} cy={l.y} r={8} fill="#FFF9C4" opacity={0.9} />
-              <Circle cx={l.x} cy={l.y} r={20} fill="#FFF9C4" opacity={0.12} />
-              <Circle cx={l.x} cy={l.y} r={40} fill="#FFF9C4" opacity={0.04} />
+
+          {/* MOON (night) */}
+          {nightMode && (
+            <G>
+              <Circle cx={svgWidth * 0.82} cy={svgHeight * 0.06} r={30} fill="url(#moonGlow)" />
+              <Circle cx={svgWidth * 0.82} cy={svgHeight * 0.06} r={12} fill="#E0E0E0" opacity={0.7} />
+              <Circle cx={svgWidth * 0.82 - 3} cy={svgHeight * 0.06 - 2} r={2} fill="#BDBDBD" opacity={0.3} />
+              <Circle cx={svgWidth * 0.82 + 4} cy={svgHeight * 0.06 + 3} r={1.5} fill="#BDBDBD" opacity={0.25} />
+            </G>
+          )}
+
+          {/* CLOUDS (day) - drifting */}
+          {!nightMode && clouds.map((c, i) => {
+            const cx = ((c.x + cloudOffset * c.speed) % (svgWidth + 120)) - 60;
+            return (
+              <G key={`cloud-${i}`}>
+                <Ellipse cx={cx} cy={c.y} rx={c.rx} ry={c.ry} fill="white" opacity={c.opacity} />
+                <Ellipse cx={cx - c.rx * 0.5} cy={c.y + 2} rx={c.rx * 0.6} ry={c.ry * 0.7} fill="white" opacity={c.opacity * 0.8} />
+                <Ellipse cx={cx + c.rx * 0.4} cy={c.y + 1} rx={c.rx * 0.5} ry={c.ry * 0.6} fill="white" opacity={c.opacity * 0.7} />
+              </G>
+            );
+          })}
+
+          {/* DISTANT HILLS (back layer) */}
+          <Path d={hillPath} fill="url(#hillFar)" opacity={nightMode ? 0.6 : 0.4} />
+
+          {/* TREE LINE along horizon */}
+          {treeLine.map((t, i) => (
+            <G key={`tree-${i}`}>
+              <Rect x={t.x - 1} y={t.y + t.h * 0.3} width={2} height={t.h * 0.4} fill={nightMode ? "#1a3a1a" : "#5D4037"} opacity={nightMode ? 0.5 : 0.3} />
+              <Ellipse cx={t.x} cy={t.y} rx={t.w * 0.7} ry={t.h * 0.5} fill={nightMode ? "#0d2d0d" : "#2E7D32"} opacity={nightMode ? 0.5 : 0.35} />
             </G>
           ))}
-          <Line x1={teeX} y1={groundY} x2={teeX + landingAreaWidth} y2={groundY} stroke={theme.gridLine} strokeWidth={1} />
+
+          {/* NEAR HILLS */}
+          <Path d={hillPath2} fill="url(#hillNear)" opacity={nightMode ? 0.5 : 0.3} />
+
+          {/* GROUND */}
+          <Rect x="0" y={groundY} width={svgWidth} height={svgHeight - groundY} fill="url(#groundGrad)" />
+
+          {/* FAIRWAY MOWING STRIPES */}
+          {fairwayStripes.map((stripe, i) => (
+            <Rect key={`stripe-${i}`} x={stripe.x} y={groundY} width={stripe.w} height={svgHeight - groundY}
+              fill={stripe.dark ? "url(#fairwayDark)" : "url(#fairwayLight)"} />
+          ))}
+
+          {/* TEE BOX — detailed platform */}
+          <Rect x={teeX - 18} y={groundY - 2} width={36} height={10} rx={3} fill="url(#teeBoxGrad)" opacity={0.9} />
+          <Rect x={teeX - 14} y={groundY - 1} width={28} height={3} rx={1.5} fill={nightMode ? "#43A047" : "#81C784"} opacity={0.6} />
+          <Rect x={teeX - 1} y={groundY - 6} width={2} height={5} rx={1} fill={nightMode ? "#A5D6A7" : "#fff"} opacity={0.8} />
+          <Circle cx={teeX} cy={groundY - 7} r={2.5} fill={theme.ball} />
+
+          {/* GOLFER SILHOUETTE at tee */}
+          {gameState === "idle" && (
+            <G opacity={0.6}>
+              <Circle cx={teeX + 1} cy={groundY - 28} r={4} fill={nightMode ? "#1B5E20" : "#3E2723"} />
+              <Rect x={teeX - 1.5} y={groundY - 24} width={5} height={12} rx={2} fill={nightMode ? "#1B5E20" : "#3E2723"} />
+              <Line x1={teeX + 3} y1={groundY - 20} x2={teeX + 12} y2={groundY - 28} stroke={nightMode ? "#1B5E20" : "#3E2723"} strokeWidth={1.5} strokeLinecap="round" />
+              <Line x1={teeX - 1} y1={groundY - 12} x2={teeX - 3} y2={groundY - 4} stroke={nightMode ? "#1B5E20" : "#3E2723"} strokeWidth={1.5} strokeLinecap="round" />
+              <Line x1={teeX + 3} y1={groundY - 12} x2={teeX + 5} y2={groundY - 4} stroke={nightMode ? "#1B5E20" : "#3E2723"} strokeWidth={1.5} strokeLinecap="round" />
+            </G>
+          )}
+
+          {/* SPECTATORS behind tee box */}
+          {spectators.map((s, i) => (
+            <G key={`spec-${i}`} opacity={nightMode ? 0.25 : 0.4}>
+              <Circle cx={s.x} cy={s.y - s.h * 0.6} r={2.5} fill={s.color} />
+              <Rect x={s.x - 2} y={s.y - s.h * 0.4} width={4} height={s.h * 0.5} rx={1.5} fill={s.color} opacity={0.8} />
+            </G>
+          ))}
+
+          {/* STADIUM LIGHTS (night) — with poles and volumetric cones */}
+          {nightMode && stadiumLights.map((l, i) => (
+            <G key={`light-${i}`}>
+              <Line x1={l.x} y1={groundY} x2={l.x} y2={l.y + 8} stroke="#444" strokeWidth={2.5} opacity={0.6} />
+              <Rect x={l.x - 6} y={l.y} width={12} height={6} rx={2} fill="#555" opacity={0.8} />
+              <Path
+                d={`M${l.x - 5},${l.y + 6} L${l.x - 40},${groundY} L${l.x + 40},${groundY} L${l.x + 5},${l.y + 6} Z`}
+                fill="url(#spotlightCone)" opacity={0.5}
+              />
+              <Circle cx={l.x - 3} cy={l.y + 3} r={2} fill="#FFF9C4" opacity={0.95} />
+              <Circle cx={l.x + 3} cy={l.y + 3} r={2} fill="#FFF9C4" opacity={0.95} />
+              <Circle cx={l.x} cy={l.y + 3} r={2} fill="#FFF9C4" opacity={0.9} />
+              <Circle cx={l.x} cy={l.y + 3} r={10} fill="#FFF9C4" opacity={0.08} />
+              <Circle cx={l.x} cy={l.y + 3} r={25} fill="#FFF9C4" opacity={0.03} />
+            </G>
+          ))}
+
+          {/* GRID LINE (horizon) */}
+          <Line x1={teeX} y1={groundY} x2={teeX + landingAreaWidth} y2={groundY} stroke={theme.gridLine} strokeWidth={1.5} />
+
+          {/* BOUNDARY LINES — left and right edges of the grid */}
+          <Line x1={teeX} y1={groundY - 16} x2={teeX} y2={groundY + svgHeight * 0.08} stroke={nightMode ? "rgba(255,82,82,0.3)" : "rgba(255,82,82,0.2)"} strokeWidth={1} strokeDasharray="4,4" />
+          <Line x1={teeX + landingAreaWidth} y1={groundY - 16} x2={teeX + landingAreaWidth} y2={groundY + svgHeight * 0.08} stroke={nightMode ? "rgba(255,82,82,0.3)" : "rgba(255,82,82,0.2)"} strokeWidth={1} strokeDasharray="4,4" />
+
+          {/* GRID MARKERS with flags at 50-yard intervals */}
           {gridMarkers.map((yard) => {
             const x = yardToScreenX(yard);
+            const isMajor = yard % 50 === 0;
             return (
               <G key={yard}>
-                <Line x1={x} y1={groundY - 8} x2={x} y2={groundY + 8} stroke={theme.gridLine} strokeWidth={1} />
-                {yard % 50 === 0 && (
-                  <>
-                    <Line x1={x} y1={groundY - 14} x2={x} y2={groundY + 14} stroke={theme.gridLine} strokeWidth={1.5} />
-                    <SvgText x={x} y={groundY + 28} textAnchor="middle" fill={theme.text} fontSize={11} fontWeight="600">{yard}</SvgText>
-                  </>
+                <Line x1={x} y1={groundY - (isMajor ? 14 : 6)} x2={x} y2={groundY + (isMajor ? 14 : 6)} stroke={theme.gridLine} strokeWidth={isMajor ? 1.5 : 0.8} />
+                {isMajor && (
+                  <G>
+                    <Line x1={x} y1={groundY - 14} x2={x} y2={groundY - 28} stroke={nightMode ? "#4CAF50" : "#fff"} strokeWidth={1} opacity={0.7} />
+                    <Polygon points={`${x},${groundY - 28} ${x + 8},${groundY - 25} ${x},${groundY - 22}`} fill={yard === 300 ? "#FFD700" : yard === 400 ? "#FF5252" : nightMode ? "#00FF88" : "#fff"} opacity={0.7} />
+                    <SvgText x={x} y={groundY + 26} textAnchor="middle" fill={theme.text} fontSize={10} fontWeight="700">{yard}</SvgText>
+                  </G>
                 )}
               </G>
             );
           })}
-          <Rect x={teeX - 6} y={groundY - 4} width={12} height={8} rx={2} fill={nightMode ? "#4CAF50" : "#fff"} opacity={0.7} />
-          {trajectoryPoints.length > 0 && (
-            <>
-              <Polyline points={trajectoryPoints} fill="none" stroke={theme.tracerGlow} strokeWidth={nightMode ? 8 : 5} strokeLinecap="round" strokeLinejoin="round" />
-              <Polyline points={trajectoryPoints} fill="none" stroke={theme.tracer} strokeWidth={nightMode ? 3 : 2} strokeLinecap="round" strokeLinejoin="round" />
-            </>
+
+          {/* BALL SHADOW on ground */}
+          {showBall && (
+            <Ellipse cx={ballShadowX} cy={groundY + 2} rx={6} ry={2} fill="#000" opacity={ballShadowOpacity} />
           )}
+
+          {/* TRAJECTORY TRACER */}
+          {trajectoryPoints.length > 0 && (
+            <G>
+              <Polyline points={trajectoryPoints} fill="none" stroke={theme.tracerGlow} strokeWidth={nightMode ? 10 : 6} strokeLinecap="round" strokeLinejoin="round" opacity={0.6} />
+              <Polyline points={trajectoryPoints} fill="none" stroke={theme.tracer} strokeWidth={nightMode ? 3.5 : 2.5} strokeLinecap="round" strokeLinejoin="round" />
+            </G>
+          )}
+
+          {/* BALL TRAIL particles */}
           {showBall && ballTrail.length > 1 && ballTrail.map((tp, i) => {
             const age = (ballTrail.length - 1 - i) / ballTrail.length;
-            const opacity = Math.max(0.02, (1 - age) * 0.5);
-            const r = Math.max(1, 3 * (1 - age));
+            const opacity = Math.max(0.02, (1 - age) * 0.6);
+            const r = Math.max(0.8, 3.5 * (1 - age));
             const isPowerDrive = power >= 85;
             const trailColor = isPowerDrive ? (nightMode ? "#FF6B35" : "#FF4500") : theme.tracer;
             return <Circle key={i} cx={tp.x} cy={tp.y} r={r} fill={trailColor} opacity={opacity} />;
           })}
-          {showBall && power >= 85 && ballTrail.length > 1 && ballTrail.slice(-4).map((tp, i) => (
-            <Circle key={`glow-${i}`} cx={tp.x} cy={tp.y} r={6 + i * 2} fill={nightMode ? "#FF6B35" : "#FF4500"} opacity={0.06 + i * 0.02} />
+
+          {/* POWER DRIVE outer glow */}
+          {showBall && power >= 85 && ballTrail.length > 1 && ballTrail.slice(-5).map((tp, i) => (
+            <Circle key={`glow-${i}`} cx={tp.x} cy={tp.y} r={8 + i * 2.5} fill={nightMode ? "#FF6B35" : "#FF4500"} opacity={0.04 + i * 0.015} />
           ))}
+
+          {/* THE BALL */}
           {showBall && (
-            <>
-              {nightMode && <Circle cx={ballPos.x} cy={ballPos.y} r={8} fill={theme.ball} opacity={0.15} />}
-              {power >= 85 && <Circle cx={ballPos.x} cy={ballPos.y} r={10} fill={nightMode ? "#FF6B35" : "#FF4500"} opacity={0.12} />}
-              <Circle cx={ballPos.x} cy={ballPos.y} r={4} fill={theme.ball} />
-            </>
+            <G>
+              {nightMode && <Circle cx={ballPos.x} cy={ballPos.y} r={12} fill={theme.ball} opacity={0.1} />}
+              {nightMode && <Circle cx={ballPos.x} cy={ballPos.y} r={7} fill={theme.ball} opacity={0.2} />}
+              {power >= 85 && <Circle cx={ballPos.x} cy={ballPos.y} r={12} fill={nightMode ? "#FF6B35" : "#FF4500"} opacity={0.1} />}
+              <Circle cx={ballPos.x} cy={ballPos.y} r={4.5} fill={theme.ball} />
+              <Circle cx={ballPos.x - 1} cy={ballPos.y - 1} r={1.5} fill="#fff" opacity={0.5} />
+            </G>
           )}
+
+          {/* LANDING DUST BURST */}
+          {landingDust && landingDust.particles.map((p, i) => (
+            <Circle key={`dust-${i}`} cx={landingDust.x + p.dx} cy={landingDust.y + p.dy} r={p.r}
+              fill={nightMode ? "#4CAF50" : "#8D6E63"} opacity={p.o * 0.6} />
+          ))}
+
+          {/* LANDING MARKER */}
           {gameState === "landed" && currentResult && (
-            <Circle cx={yardToScreenX(currentResult.carry + currentResult.roll)} cy={groundY} r={6} fill={currentResult.inBounds ? theme.tracer : "#FF5252"} opacity={0.8} />
+            <G>
+              <Circle cx={yardToScreenX(currentResult.carry + currentResult.roll)} cy={groundY} r={8} fill={currentResult.inBounds ? theme.tracer : "#FF5252"} opacity={0.15} />
+              <Circle cx={yardToScreenX(currentResult.carry + currentResult.roll)} cy={groundY} r={5} fill={currentResult.inBounds ? theme.tracer : "#FF5252"} opacity={0.4} />
+              <Circle cx={yardToScreenX(currentResult.carry + currentResult.roll)} cy={groundY} r={2.5} fill={currentResult.inBounds ? theme.tracer : "#FF5252"} opacity={0.9} />
+            </G>
           )}
         </Svg>
       </Pressable>
