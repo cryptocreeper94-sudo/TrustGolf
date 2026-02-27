@@ -54,7 +54,7 @@ Trust Golf is built on a modern full-stack architecture:
 **Phase 1 — Playable MVP**:
 - Swing mechanic: Timing-based power meter with angle control (two-tap: power then accuracy)
 - Ball flight physics: realistic trajectory with carry + roll, must land in-bounds
-- Side-view or 3/4 view rendering of the drive with grid markers
+- Behind-the-player perspective view with vanishing point, fairway narrowing to horizon, golfer silhouette at bottom center, perspective-scaled ball flight, arc/semicircle swing gauge (Golf Clash-style), trees lining fairway edges with depth scaling
 - Day and night mode toggle (different sky, lighting, tracer colors)
 - Ball tracer effect on every shot
 - Big dramatic distance display on landing (carry + roll breakdown)

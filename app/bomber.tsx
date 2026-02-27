@@ -68,9 +68,6 @@ interface ContestState {
   result: "pending" | "win" | "lose";
 }
 
-const GRID_START_YARD = 150;
-const GRID_END_YARD = 475;
-const MARKER_INTERVAL = 25;
 const GRAVITY = 9.81;
 const DRAG = 0.9965;
 const MPH_TO_MS = 0.44704;
@@ -99,62 +96,6 @@ function generateClouds(w: number, h: number) {
     });
   }
   return clouds;
-}
-
-function generateTreeLine(w: number, groundY: number) {
-  const trees = [];
-  for (let x = 0; x < w + 20; x += 8 + Math.random() * 16) {
-    const h = 12 + Math.random() * 22;
-    trees.push({ x, h, w: 6 + Math.random() * 6, y: groundY - h * 0.6 });
-  }
-  return trees;
-}
-
-function generateSpectators(w: number, groundY: number) {
-  const specs = [];
-  const startX = 10;
-  const endX = w * 0.18;
-  for (let x = startX; x < endX; x += 6 + Math.random() * 4) {
-    const row = Math.floor(Math.random() * 3);
-    specs.push({
-      x,
-      y: groundY + 16 + row * 8,
-      h: 8 + Math.random() * 4,
-      color: ["#E8D5B7", "#C4A882", "#D4B896", "#BFA07A", "#E0C8A8"][Math.floor(Math.random() * 5)],
-    });
-  }
-  return specs;
-}
-
-function generateHillPath(w: number, groundY: number, heightRange: number, y0: number) {
-  let d = `M0,${y0}`;
-  const segments = 12;
-  const segW = w / segments;
-  for (let i = 0; i <= segments; i++) {
-    const x = i * segW;
-    const h = Math.sin(i * 0.7 + 1.3) * heightRange * 0.6 + Math.cos(i * 1.4) * heightRange * 0.4;
-    const cy = y0 - Math.abs(h);
-    if (i === 0) d = `M0,${cy}`;
-    else {
-      const cpx = x - segW * 0.5;
-      d += ` Q${cpx},${cy - Math.random() * 4} ${x},${cy}`;
-    }
-  }
-  d += ` L${w},${groundY + 50} L0,${groundY + 50} Z`;
-  return d;
-}
-
-function generateFairwayStripes(teeX: number, landingAreaWidth: number, groundY: number, groundH: number) {
-  const stripes = [];
-  const stripeW = landingAreaWidth / 14;
-  for (let i = 0; i < 14; i++) {
-    stripes.push({
-      x: teeX + i * stripeW,
-      w: stripeW,
-      dark: i % 2 === 0,
-    });
-  }
-  return stripes;
 }
 
 function simulateDrive(power: number, accuracyPct: number, wind: number, driverDef?: EquipmentDef, ballDef?: EquipmentDef, weather?: WeatherCondition, venueAltBonus?: number) {
@@ -227,13 +168,17 @@ export default function BomberGame() {
   const [trajectoryPoints, setTrajectoryPoints] = useState<string>("");
   const [ballPos, setBallPos] = useState({ x: 0, y: 0 });
   const [showBall, setShowBall] = useState(false);
+  const [ballScale, setBallScale] = useState(1);
   const [stars] = useState(() => generateStars(60, screenWidth, screenHeight));
   const [clouds] = useState(() => generateClouds(screenWidth, screenHeight));
   const [cloudOffset, setCloudOffset] = useState(0);
-  const [treeLine] = useState(() => generateTreeLine(screenWidth, screenHeight * 0.7));
-  const [spectators] = useState(() => generateSpectators(screenWidth, screenHeight * 0.7));
-  const [hillPath] = useState(() => generateHillPath(screenWidth, screenHeight * 0.7, 25, screenHeight * 0.7 - 10));
-  const [hillPath2] = useState(() => generateHillPath(screenWidth, screenHeight * 0.7, 15, screenHeight * 0.7 - 3));
+  const [perspTrees] = useState(() => {
+    const tr: { t: number; lOff: number; rOff: number; hM: number; wM: number }[] = [];
+    for (let i = 0; i < 22; i++) {
+      tr.push({ t: (i + 0.3 + Math.sin(i * 3.7) * 0.15) / 22, lOff: 8 + Math.abs(Math.sin(i * 2.3)) * 22, rOff: 8 + Math.abs(Math.cos(i * 1.9)) * 22, hM: 0.7 + Math.abs(Math.sin(i * 4.1)) * 0.6, wM: 0.6 + Math.abs(Math.cos(i * 3.3)) * 0.6 });
+    }
+    return tr;
+  });
   const [landingDust, setLandingDust] = useState<{ x: number; y: number; particles: { dx: number; dy: number; r: number; o: number }[] } | null>(null);
 
   const [profileData, setProfileData] = useState<BomberProfileData | null>(null);
@@ -618,19 +563,23 @@ export default function BomberGame() {
 
   const svgWidth = screenWidth;
   const svgHeight = screenHeight;
-  const groundY = svgHeight * 0.7;
-  const teeX = svgWidth * 0.08;
-  const landingAreaWidth = svgWidth * 0.85;
+  const horizonY = svgHeight * 0.30;
+  const golferBaseY = svgHeight * 0.78;
+  const centerX = svgWidth / 2;
+  const fairwayBottomW = svgWidth * 0.78;
+  const groundY = golferBaseY;
 
-  const yardToScreenX = useCallback((yard: number) => {
-    const fraction = (yard - GRID_START_YARD) / (GRID_END_YARD - GRID_START_YARD);
-    return teeX + fraction * landingAreaWidth;
-  }, [teeX, landingAreaWidth]);
+  const perspProject = useCallback((yardDist: number, heightM: number, maxH: number, lateralPct: number = 0) => {
+    lateralPct = Math.max(-1, Math.min(1, lateralPct));
+    const t = Math.max(0, Math.min(1, yardDist / 500));
+    const depth = Math.pow(t, 0.5);
+    const gY = golferBaseY - (golferBaseY - horizonY) * depth * 0.95;
+    const scl = Math.max(0.06, 1 - depth * 0.94);
+    const hPx = (heightM / Math.max(maxH, 1)) * (golferBaseY - horizonY) * 0.55 * Math.max(0.3, scl);
+    const fwHW = (fairwayBottomW / 2) * (1 - depth * 0.95);
+    return { x: centerX + lateralPct * fwHW, y: gY - hPx, groundY: gY, scale: scl, fwLeft: centerX - fwHW, fwRight: centerX + fwHW };
+  }, [svgHeight, svgWidth, horizonY, golferBaseY, centerX, fairwayBottomW]);
 
-  const heightToScreenY = useCallback((heightM: number, maxHeight: number) => {
-    const maxVisualHeight = groundY * 0.7;
-    return groundY - (heightM / Math.max(maxHeight, 1)) * maxVisualHeight;
-  }, [groundY]);
 
   const startShotClock = () => {
     setShotClock(SHOT_CLOCK_SECONDS);
@@ -813,14 +762,15 @@ export default function BomberGame() {
         setShowBall(false);
         setBallTrail([]);
 
-        const landX = yardToScreenX(result.carry + result.roll);
-        const dustParticles = Array.from({ length: 12 }, () => ({
-          dx: (Math.random() - 0.5) * 20,
-          dy: -Math.random() * 15 - 3,
-          r: 1.5 + Math.random() * 3,
-          o: 0.4 + Math.random() * 0.4,
-        }));
-        setLandingDust({ x: landX, y: groundY, particles: dustParticles });
+        const accDrift = (a - 50) / 50;
+          const landProj = perspProject(result.carry + result.roll, 0, 1, accDrift * Math.min(1, (result.carry + result.roll) / 300) * 0.6);
+          const dustParticles = Array.from({ length: 12 }, () => ({
+            dx: (Math.random() - 0.5) * 20 * landProj.scale,
+            dy: -Math.random() * 15 * landProj.scale - 3,
+            r: (1.5 + Math.random() * 3) * landProj.scale,
+            o: 0.4 + Math.random() * 0.4,
+          }));
+          setLandingDust({ x: landProj.x, y: landProj.groundY, particles: dustParticles });
         setTimeout(() => setLandingDust(null), 800);
 
         bomberSounds.play("impact");
@@ -870,15 +820,25 @@ export default function BomberGame() {
       }
 
       const pt = result.points[frameIndex];
-      const screenPt = { x: yardToScreenX(pt.x / YARD_TO_M), y: heightToScreenY(pt.y, maxH) };
-      setBallPos(screenPt);
-      trailHistory.push(screenPt);
-      if (trailHistory.length > 12) trailHistory.shift();
-      setBallTrail([...trailHistory]);
-      const tracerPts = result.points.slice(0, frameIndex + 1);
-      setTrajectoryPoints(tracerPts.map((p) => `${yardToScreenX(p.x / YARD_TO_M)},${heightToScreenY(p.y, maxH)}`).join(" "));
+        const yardDist = pt.x / YARD_TO_M;
+        const accLateral = (a - 50) / 50;
+        const latPct = accLateral * Math.min(1, yardDist / 300) * 0.6;
+        const proj = perspProject(yardDist, pt.y, maxH, latPct);
+        const screenPt = { x: proj.x, y: proj.y };
+        setBallPos(screenPt);
+        setBallScale(proj.scale);
+        trailHistory.push(screenPt);
+        if (trailHistory.length > 12) trailHistory.shift();
+        setBallTrail([...trailHistory]);
+        const tracerPts = result.points.slice(0, frameIndex + 1);
+        setTrajectoryPoints(tracerPts.map((pp) => {
+          const yd = pp.x / YARD_TO_M;
+          const lt = accLateral * Math.min(1, yd / 300) * 0.6;
+          const pr = perspProject(yd, pp.y, maxH, lt);
+          return `${pr.x},${pr.y}`;
+        }).join(" "));
     }, 14);
-  }, [wind, nightMode, personalBest, driverDef, ballDef, weather, gameMode, contest, yardToScreenX, heightToScreenY, consecutiveInBounds, completedChallengeIds, selectedVenue]);
+  }, [wind, nightMode, personalBest, driverDef, ballDef, weather, gameMode, contest, perspProject, consecutiveInBounds, completedChallengeIds, selectedVenue]);
 
   const resetDrive = useCallback(() => {
     setGameState("idle");
@@ -888,6 +848,7 @@ export default function BomberGame() {
     setTrajectoryPoints("");
     setBallPos({ x: 0, y: 0 });
     setShowBall(false);
+    setBallScale(1);
     setBallTrail([]);
     setChallengeJustCompleted(null);
     setXpGained(0);
@@ -927,18 +888,6 @@ export default function BomberGame() {
   const nightBg = { sky1: "#0a0a2e", sky2: "#050518", ground: "#1a3a1a", groundDark: "#0d260d", gridLine: "rgba(255,255,255,0.25)", text: "rgba(255,255,255,0.45)", tracer: "#00FF88", tracerGlow: "rgba(0,255,136,0.25)", ball: "#00FF88" };
   const theme = nightMode ? nightBg : dayBg;
 
-  const gridMarkers: number[] = [];
-  for (let y = GRID_START_YARD + MARKER_INTERVAL; y <= GRID_END_YARD; y += MARKER_INTERVAL) gridMarkers.push(y);
-
-  const stadiumLights = [
-    { x: svgWidth * 0.15, y: 20, poleH: groundY * 0.55 }, { x: svgWidth * 0.35, y: 15, poleH: groundY * 0.6 },
-    { x: svgWidth * 0.55, y: 15, poleH: groundY * 0.6 }, { x: svgWidth * 0.75, y: 20, poleH: groundY * 0.55 }, { x: svgWidth * 0.9, y: 18, poleH: groundY * 0.52 },
-  ];
-  const fairwayStripes = generateFairwayStripes(teeX, landingAreaWidth, groundY, svgHeight - groundY);
-  const sunX = svgWidth * 0.88;
-  const sunY = svgHeight * 0.08;
-  const ballShadowX = showBall ? ballPos.x : 0;
-  const ballShadowOpacity = showBall ? Math.max(0.05, 0.2 * (1 - (groundY - ballPos.y) / (groundY * 0.6))) : 0;
 
   const windLabel = wind > 0 ? `${Math.abs(wind)} mph tailwind` : wind < 0 ? `${Math.abs(wind)} mph headwind` : "No wind";
   const windIcon: any = wind > 0 ? "arrow-forward" : wind < 0 ? "arrow-back" : "remove";
@@ -980,7 +929,7 @@ export default function BomberGame() {
           {nightMode && stars.map((s, i) => (
             <Circle key={i} cx={s.x} cy={s.y} r={s.r} fill="white" opacity={s.opacity * (0.5 + Math.sin(i * 0.5 + cloudOffset * 0.02) * 0.3)} />
           ))}
-          <Path d={hillPath} fill={nightMode ? "#050f05" : "#0a1a0a"} opacity={0.35} />
+          <Path d={`M0,${svgHeight * 0.72} Q${svgWidth * 0.15},${svgHeight * 0.68} ${svgWidth * 0.3},${svgHeight * 0.73} Q${svgWidth * 0.5},${svgHeight * 0.66} ${svgWidth * 0.7},${svgHeight * 0.71} Q${svgWidth * 0.85},${svgHeight * 0.67} ${svgWidth},${svgHeight * 0.72} L${svgWidth},${svgHeight} L0,${svgHeight} Z`} fill={nightMode ? "#050f05" : "#0a1a0a"} opacity={0.35} />
           <Rect x="0" y={svgHeight * 0.78} width={svgWidth} height={svgHeight * 0.22} fill="url(#menuGround)" />
           <Line x1="0" y1={svgHeight * 0.78} x2={svgWidth} y2={svgHeight * 0.78} stroke={accentColor} strokeWidth="0.5" opacity="0.08" />
         </Svg>
@@ -1493,238 +1442,345 @@ export default function BomberGame() {
         disabled={gameState === "flying" || gameState === "landed"}
       >
         <Svg width={svgWidth} height={svgHeight} viewBox={`0 0 ${svgWidth} ${svgHeight}`}>
-          <Defs>
-            <SvgLinearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0" stopColor={theme.sky1} /><Stop offset="1" stopColor={theme.sky2} />
-            </SvgLinearGradient>
-            <SvgLinearGradient id="groundGrad" x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0" stopColor={theme.ground} /><Stop offset="1" stopColor={theme.groundDark} />
-            </SvgLinearGradient>
-            <SvgLinearGradient id="fairwayDark" x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0" stopColor="rgba(0,0,0,0.06)" /><Stop offset="1" stopColor="rgba(0,0,0,0.02)" />
-            </SvgLinearGradient>
-            <SvgLinearGradient id="fairwayLight" x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0" stopColor="rgba(255,255,255,0.04)" /><Stop offset="1" stopColor="rgba(255,255,255,0.01)" />
-            </SvgLinearGradient>
-            <SvgRadialGradient id="sunGlow" cx="50%" cy="50%" r="50%">
-              <Stop offset="0" stopColor="#FFF9C4" stopOpacity="1" />
-              <Stop offset="0.3" stopColor="#FFF176" stopOpacity="0.6" />
-              <Stop offset="0.6" stopColor="#FFE082" stopOpacity="0.15" />
-              <Stop offset="1" stopColor="#FFE082" stopOpacity="0" />
-            </SvgRadialGradient>
-            <SvgRadialGradient id="moonGlow" cx="50%" cy="50%" r="50%">
-              <Stop offset="0" stopColor="#E8F5E9" stopOpacity="0.8" />
-              <Stop offset="0.4" stopColor="#B2DFDB" stopOpacity="0.2" />
-              <Stop offset="1" stopColor="#B2DFDB" stopOpacity="0" />
-            </SvgRadialGradient>
-            <SvgRadialGradient id="spotlightCone" cx="50%" cy="0%" r="80%">
-              <Stop offset="0" stopColor="#FFF9C4" stopOpacity={nightMode ? "0.08" : "0"} />
-              <Stop offset="1" stopColor="#FFF9C4" stopOpacity="0" />
-            </SvgRadialGradient>
-            <SvgLinearGradient id="teeBoxGrad" x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0" stopColor={nightMode ? "#2E7D32" : "#66BB6A"} />
-              <Stop offset="1" stopColor={nightMode ? "#1B5E20" : "#388E3C"} />
-            </SvgLinearGradient>
-            <SvgLinearGradient id="hillFar" x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0" stopColor={nightMode ? "#0d3d1a" : "#5D8A5E"} />
-              <Stop offset="1" stopColor={nightMode ? "#0a2d12" : "#4A7A4B"} />
-            </SvgLinearGradient>
-            <SvgLinearGradient id="hillNear" x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0" stopColor={nightMode ? "#153d1a" : "#4CAF50"} />
-              <Stop offset="1" stopColor={nightMode ? "#0d2d10" : "#388E3C"} />
-            </SvgLinearGradient>
-          </Defs>
+            <Defs>
+              <SvgLinearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0" stopColor={theme.sky1} /><Stop offset="1" stopColor={theme.sky2} />
+              </SvgLinearGradient>
+              <SvgLinearGradient id="fairwayGrad" x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0" stopColor={nightMode ? "#1a4a25" : "#4CAF50"} />
+                <Stop offset="1" stopColor={nightMode ? "#2d6b3a" : "#66BB6A"} />
+              </SvgLinearGradient>
+              <SvgLinearGradient id="roughGrad" x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0" stopColor={nightMode ? "#0d3318" : "#388E3C"} />
+                <Stop offset="1" stopColor={nightMode ? "#1a4a25" : "#2E7D32"} />
+              </SvgLinearGradient>
+              <SvgRadialGradient id="sunGlowP" cx="50%" cy="50%" r="50%">
+                <Stop offset="0" stopColor="#FFF9C4" stopOpacity="1" />
+                <Stop offset="0.3" stopColor="#FFF176" stopOpacity="0.6" />
+                <Stop offset="1" stopColor="#FFE082" stopOpacity="0" />
+              </SvgRadialGradient>
+              <SvgRadialGradient id="moonGlowP" cx="50%" cy="50%" r="50%">
+                <Stop offset="0" stopColor="#E8F5E9" stopOpacity="0.8" />
+                <Stop offset="0.4" stopColor="#B2DFDB" stopOpacity="0.2" />
+                <Stop offset="1" stopColor="#B2DFDB" stopOpacity="0" />
+              </SvgRadialGradient>
+              <SvgLinearGradient id="mountainGrad" x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0" stopColor={nightMode ? "#0a2d12" : "#3E7B46"} />
+                <Stop offset="1" stopColor={nightMode ? "#153d1a" : "#2E7D32"} />
+              </SvgLinearGradient>
+            </Defs>
 
-          {/* SKY */}
-          <Rect x="0" y="0" width={svgWidth} height={groundY} fill="url(#skyGrad)" />
+            {/* SKY */}
+            <Rect x="0" y="0" width={svgWidth} height={svgHeight} fill="url(#skyGrad)" />
 
-          {/* STARS (night) */}
-          {nightMode && stars.map((s, i) => (
-            <Circle key={i} cx={s.x} cy={s.y} r={s.r} fill="white" opacity={s.opacity * (0.7 + Math.sin(i * 0.5 + cloudOffset * 0.02) * 0.3)} />
-          ))}
+            {/* STARS (night) */}
+            {nightMode && stars.map((s, i) => (
+              <Circle key={i} cx={s.x} cy={s.y} r={s.r} fill="white" opacity={s.opacity * (0.7 + Math.sin(i * 0.5 + cloudOffset * 0.02) * 0.3)} />
+            ))}
 
-          {/* SUN (day) with lens flare */}
-          {!nightMode && (
-            <G>
-              <Circle cx={sunX} cy={sunY} r={55} fill="url(#sunGlow)" />
-              <Circle cx={sunX} cy={sunY} r={22} fill="#FFF9C4" opacity={0.95} />
-              <Circle cx={sunX} cy={sunY} r={18} fill="#FFEE58" />
-              <Line x1={sunX - 35} y1={sunY} x2={sunX - 26} y2={sunY} stroke="#FFF9C4" strokeWidth={1.5} opacity={0.4} />
-              <Line x1={sunX + 26} y1={sunY} x2={sunX + 35} y2={sunY} stroke="#FFF9C4" strokeWidth={1.5} opacity={0.4} />
-              <Line x1={sunX} y1={sunY - 35} x2={sunX} y2={sunY - 26} stroke="#FFF9C4" strokeWidth={1.5} opacity={0.4} />
-              <Line x1={sunX} y1={sunY + 26} x2={sunX} y2={sunY + 35} stroke="#FFF9C4" strokeWidth={1.5} opacity={0.4} />
-              <Circle cx={sunX - 30} cy={sunY + 50} r={4} fill="#FFF9C4" opacity={0.12} />
-              <Circle cx={sunX - 45} cy={sunY + 80} r={3} fill="#FFF9C4" opacity={0.08} />
-              <Ellipse cx={sunX - 60} cy={sunY + 110} rx={6} ry={3} fill="#FFF9C4" opacity={0.06} />
-            </G>
-          )}
-
-          {/* MOON (night) */}
-          {nightMode && (
-            <G>
-              <Circle cx={svgWidth * 0.82} cy={svgHeight * 0.06} r={30} fill="url(#moonGlow)" />
-              <Circle cx={svgWidth * 0.82} cy={svgHeight * 0.06} r={12} fill="#E0E0E0" opacity={0.7} />
-              <Circle cx={svgWidth * 0.82 - 3} cy={svgHeight * 0.06 - 2} r={2} fill="#BDBDBD" opacity={0.3} />
-              <Circle cx={svgWidth * 0.82 + 4} cy={svgHeight * 0.06 + 3} r={1.5} fill="#BDBDBD" opacity={0.25} />
-            </G>
-          )}
-
-          {/* CLOUDS (day) - drifting */}
-          {!nightMode && clouds.map((c, i) => {
-            const cx = ((c.x + cloudOffset * c.speed) % (svgWidth + 120)) - 60;
-            return (
-              <G key={`cloud-${i}`}>
-                <Ellipse cx={cx} cy={c.y} rx={c.rx} ry={c.ry} fill="white" opacity={c.opacity} />
-                <Ellipse cx={cx - c.rx * 0.5} cy={c.y + 2} rx={c.rx * 0.6} ry={c.ry * 0.7} fill="white" opacity={c.opacity * 0.8} />
-                <Ellipse cx={cx + c.rx * 0.4} cy={c.y + 1} rx={c.rx * 0.5} ry={c.ry * 0.6} fill="white" opacity={c.opacity * 0.7} />
+            {/* SUN (day) */}
+            {!nightMode && (
+              <G>
+                <Circle cx={svgWidth * 0.78} cy={svgHeight * 0.08} r={55} fill="url(#sunGlowP)" />
+                <Circle cx={svgWidth * 0.78} cy={svgHeight * 0.08} r={22} fill="#FFF9C4" opacity={0.95} />
+                <Circle cx={svgWidth * 0.78} cy={svgHeight * 0.08} r={18} fill="#FFEE58" />
               </G>
-            );
-          })}
+            )}
 
-          {/* DISTANT HILLS (back layer) */}
-          <Path d={hillPath} fill="url(#hillFar)" opacity={nightMode ? 0.6 : 0.4} />
-
-          {/* TREE LINE along horizon */}
-          {treeLine.map((t, i) => (
-            <G key={`tree-${i}`}>
-              <Rect x={t.x - 1} y={t.y + t.h * 0.3} width={2} height={t.h * 0.4} fill={nightMode ? "#1a3a1a" : "#5D4037"} opacity={nightMode ? 0.5 : 0.3} />
-              <Ellipse cx={t.x} cy={t.y} rx={t.w * 0.7} ry={t.h * 0.5} fill={nightMode ? "#0d2d0d" : "#2E7D32"} opacity={nightMode ? 0.5 : 0.35} />
-            </G>
-          ))}
-
-          {/* NEAR HILLS */}
-          <Path d={hillPath2} fill="url(#hillNear)" opacity={nightMode ? 0.5 : 0.3} />
-
-          {/* GROUND */}
-          <Rect x="0" y={groundY} width={svgWidth} height={svgHeight - groundY} fill="url(#groundGrad)" />
-
-          {/* FAIRWAY MOWING STRIPES */}
-          {fairwayStripes.map((stripe, i) => (
-            <Rect key={`stripe-${i}`} x={stripe.x} y={groundY} width={stripe.w} height={svgHeight - groundY}
-              fill={stripe.dark ? "url(#fairwayDark)" : "url(#fairwayLight)"} />
-          ))}
-
-          {/* TEE BOX — detailed platform */}
-          <Rect x={teeX - 18} y={groundY - 2} width={36} height={10} rx={3} fill="url(#teeBoxGrad)" opacity={0.9} />
-          <Rect x={teeX - 14} y={groundY - 1} width={28} height={3} rx={1.5} fill={nightMode ? "#43A047" : "#81C784"} opacity={0.6} />
-          <Rect x={teeX - 1} y={groundY - 6} width={2} height={5} rx={1} fill={nightMode ? "#A5D6A7" : "#fff"} opacity={0.8} />
-          <Circle cx={teeX} cy={groundY - 7} r={2.5} fill={theme.ball} />
-
-          {/* GOLFER SILHOUETTE at tee */}
-          {gameState === "idle" && (
-            <G opacity={0.6}>
-              <Circle cx={teeX + 1} cy={groundY - 28} r={4} fill={nightMode ? "#1B5E20" : "#3E2723"} />
-              <Rect x={teeX - 1.5} y={groundY - 24} width={5} height={12} rx={2} fill={nightMode ? "#1B5E20" : "#3E2723"} />
-              <Line x1={teeX + 3} y1={groundY - 20} x2={teeX + 12} y2={groundY - 28} stroke={nightMode ? "#1B5E20" : "#3E2723"} strokeWidth={1.5} strokeLinecap="round" />
-              <Line x1={teeX - 1} y1={groundY - 12} x2={teeX - 3} y2={groundY - 4} stroke={nightMode ? "#1B5E20" : "#3E2723"} strokeWidth={1.5} strokeLinecap="round" />
-              <Line x1={teeX + 3} y1={groundY - 12} x2={teeX + 5} y2={groundY - 4} stroke={nightMode ? "#1B5E20" : "#3E2723"} strokeWidth={1.5} strokeLinecap="round" />
-            </G>
-          )}
-
-          {/* SPECTATORS behind tee box */}
-          {spectators.map((s, i) => (
-            <G key={`spec-${i}`} opacity={nightMode ? 0.25 : 0.4}>
-              <Circle cx={s.x} cy={s.y - s.h * 0.6} r={2.5} fill={s.color} />
-              <Rect x={s.x - 2} y={s.y - s.h * 0.4} width={4} height={s.h * 0.5} rx={1.5} fill={s.color} opacity={0.8} />
-            </G>
-          ))}
-
-          {/* STADIUM LIGHTS (night) — with poles and volumetric cones */}
-          {nightMode && stadiumLights.map((l, i) => (
-            <G key={`light-${i}`}>
-              <Line x1={l.x} y1={groundY} x2={l.x} y2={l.y + 8} stroke="#444" strokeWidth={2.5} opacity={0.6} />
-              <Rect x={l.x - 6} y={l.y} width={12} height={6} rx={2} fill="#555" opacity={0.8} />
-              <Path
-                d={`M${l.x - 5},${l.y + 6} L${l.x - 40},${groundY} L${l.x + 40},${groundY} L${l.x + 5},${l.y + 6} Z`}
-                fill="url(#spotlightCone)" opacity={0.5}
-              />
-              <Circle cx={l.x - 3} cy={l.y + 3} r={2} fill="#FFF9C4" opacity={0.95} />
-              <Circle cx={l.x + 3} cy={l.y + 3} r={2} fill="#FFF9C4" opacity={0.95} />
-              <Circle cx={l.x} cy={l.y + 3} r={2} fill="#FFF9C4" opacity={0.9} />
-              <Circle cx={l.x} cy={l.y + 3} r={10} fill="#FFF9C4" opacity={0.08} />
-              <Circle cx={l.x} cy={l.y + 3} r={25} fill="#FFF9C4" opacity={0.03} />
-            </G>
-          ))}
-
-          {/* GRID LINE (horizon) */}
-          <Line x1={teeX} y1={groundY} x2={teeX + landingAreaWidth} y2={groundY} stroke={theme.gridLine} strokeWidth={1.5} />
-
-          {/* BOUNDARY LINES — left and right edges of the grid */}
-          <Line x1={teeX} y1={groundY - 16} x2={teeX} y2={groundY + svgHeight * 0.08} stroke={nightMode ? "rgba(255,82,82,0.3)" : "rgba(255,82,82,0.2)"} strokeWidth={1} strokeDasharray="4,4" />
-          <Line x1={teeX + landingAreaWidth} y1={groundY - 16} x2={teeX + landingAreaWidth} y2={groundY + svgHeight * 0.08} stroke={nightMode ? "rgba(255,82,82,0.3)" : "rgba(255,82,82,0.2)"} strokeWidth={1} strokeDasharray="4,4" />
-
-          {/* GRID MARKERS with flags at 50-yard intervals */}
-          {gridMarkers.map((yard) => {
-            const x = yardToScreenX(yard);
-            const isMajor = yard % 50 === 0;
-            return (
-              <G key={yard}>
-                <Line x1={x} y1={groundY - (isMajor ? 14 : 6)} x2={x} y2={groundY + (isMajor ? 14 : 6)} stroke={theme.gridLine} strokeWidth={isMajor ? 1.5 : 0.8} />
-                {isMajor && (
-                  <G>
-                    <Line x1={x} y1={groundY - 14} x2={x} y2={groundY - 28} stroke={nightMode ? "#4CAF50" : "#fff"} strokeWidth={1} opacity={0.7} />
-                    <Polygon points={`${x},${groundY - 28} ${x + 8},${groundY - 25} ${x},${groundY - 22}`} fill={yard === 300 ? "#FFD700" : yard === 400 ? "#FF5252" : nightMode ? "#00FF88" : "#fff"} opacity={0.7} />
-                    <SvgText x={x} y={groundY + 26} textAnchor="middle" fill={theme.text} fontSize={10} fontWeight="700">{yard}</SvgText>
-                  </G>
-                )}
+            {/* MOON (night) */}
+            {nightMode && (
+              <G>
+                <Circle cx={svgWidth * 0.8} cy={svgHeight * 0.06} r={30} fill="url(#moonGlowP)" />
+                <Circle cx={svgWidth * 0.8} cy={svgHeight * 0.06} r={12} fill="#E0E0E0" opacity={0.7} />
               </G>
-            );
-          })}
+            )}
 
-          {/* BALL SHADOW on ground */}
-          {showBall && (
-            <Ellipse cx={ballShadowX} cy={groundY + 2} rx={6} ry={2} fill="#000" opacity={ballShadowOpacity} />
-          )}
+            {/* CLOUDS */}
+            {!nightMode && clouds.map((cl, i) => {
+              const cx = ((cl.x + cloudOffset * cl.speed) % (svgWidth + 120)) - 60;
+              return (
+                <G key={`cloud-${i}`}>
+                  <Ellipse cx={cx} cy={cl.y} rx={cl.rx} ry={cl.ry} fill="white" opacity={cl.opacity} />
+                  <Ellipse cx={cx - cl.rx * 0.5} cy={cl.y + 2} rx={cl.rx * 0.6} ry={cl.ry * 0.7} fill="white" opacity={cl.opacity * 0.8} />
+                </G>
+              );
+            })}
 
-          {/* TRAJECTORY TRACER */}
-          {trajectoryPoints.length > 0 && (
-            <G>
-              <Polyline points={trajectoryPoints} fill="none" stroke={theme.tracerGlow} strokeWidth={nightMode ? 10 : 6} strokeLinecap="round" strokeLinejoin="round" opacity={0.6} />
-              <Polyline points={trajectoryPoints} fill="none" stroke={theme.tracer} strokeWidth={nightMode ? 3.5 : 2.5} strokeLinecap="round" strokeLinejoin="round" />
+            {/* MOUNTAINS along horizon */}
+            <Path d={`M0,${horizonY + 15} Q${svgWidth * 0.08},${horizonY - 20} ${svgWidth * 0.15},${horizonY + 8} Q${svgWidth * 0.22},${horizonY - 30} ${svgWidth * 0.32},${horizonY + 5} Q${svgWidth * 0.38},${horizonY - 15} ${svgWidth * 0.45},${horizonY + 10} Q${svgWidth * 0.55},${horizonY - 35} ${svgWidth * 0.65},${horizonY + 3} Q${svgWidth * 0.72},${horizonY - 18} ${svgWidth * 0.8},${horizonY + 12} Q${svgWidth * 0.88},${horizonY - 12} ${svgWidth},${horizonY + 15} L${svgWidth},${horizonY + 40} L0,${horizonY + 40} Z`} fill="url(#mountainGrad)" opacity={nightMode ? 0.6 : 0.45} />
+
+            {/* ROUGH/GROUND below horizon */}
+            <Rect x="0" y={horizonY + 5} width={svgWidth} height={svgHeight - horizonY} fill="url(#roughGrad)" />
+
+            {/* FAIRWAY — perspective trapezoid */}
+            {(() => {
+              const fwBL = centerX - fairwayBottomW / 2;
+              const fwBR = centerX + fairwayBottomW / 2;
+              const topW = fairwayBottomW * 0.05;
+              const fwTL = centerX - topW / 2;
+              const fwTR = centerX + topW / 2;
+              return <Path d={`M${fwBL},${golferBaseY + 40} L${fwTL},${horizonY + 8} L${fwTR},${horizonY + 8} L${fwBR},${golferBaseY + 40} Z`} fill="url(#fairwayGrad)" />;
+            })()}
+
+            {/* FAIRWAY MOWING STRIPES */}
+            {Array.from({ length: 24 }).map((_, i) => {
+              const t1 = i / 24;
+              const t2 = (i + 1) / 24;
+              const d1 = Math.pow(t1, 0.5);
+              const d2 = Math.pow(t2, 0.5);
+              const rangeY = golferBaseY + 40 - horizonY - 8;
+              const y1p = golferBaseY + 40 - rangeY * d1;
+              const y2p = golferBaseY + 40 - rangeY * d2;
+              const w1 = fairwayBottomW * (1 - d1 * 0.95);
+              const w2 = fairwayBottomW * (1 - d2 * 0.95);
+              if (i % 2 !== 0) return null;
+              return (
+                <Path key={`mow-${i}`}
+                  d={`M${centerX - w1 / 2},${y1p} L${centerX - w2 / 2},${y2p} L${centerX + w2 / 2},${y2p} L${centerX + w1 / 2},${y1p} Z`}
+                  fill={nightMode ? "rgba(255,255,255,0.025)" : "rgba(0,0,0,0.035)"}
+                />
+              );
+            })}
+
+            {/* CENTER LINE */}
+            <Line x1={centerX} y1={golferBaseY + 20} x2={centerX} y2={horizonY + 10} stroke={nightMode ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.08)"} strokeWidth={1} strokeDasharray="8,6" />
+
+            {/* FAIRWAY EDGE LINES */}
+            {(() => {
+              const fwBL = centerX - fairwayBottomW / 2;
+              const fwBR = centerX + fairwayBottomW / 2;
+              const topW = fairwayBottomW * 0.05;
+              const fwTL = centerX - topW / 2;
+              const fwTR = centerX + topW / 2;
+              return (
+                <G>
+                  <Line x1={fwBL} y1={golferBaseY + 40} x2={fwTL} y2={horizonY + 8} stroke={nightMode ? "rgba(255,82,82,0.2)" : "rgba(255,82,82,0.15)"} strokeWidth={1.5} strokeDasharray="6,4" />
+                  <Line x1={fwBR} y1={golferBaseY + 40} x2={fwTR} y2={horizonY + 8} stroke={nightMode ? "rgba(255,82,82,0.2)" : "rgba(255,82,82,0.15)"} strokeWidth={1.5} strokeDasharray="6,4" />
+                </G>
+              );
+            })()}
+
+            {/* DISTANCE MARKERS */}
+            {[200, 250, 300, 350, 400, 450].map((yard) => {
+              const t = Math.min(1, yard / 500);
+              const depth = Math.pow(t, 0.5);
+              const y = golferBaseY - (golferBaseY - horizonY) * depth * 0.95;
+              const fwHW = (fairwayBottomW / 2) * (1 - depth * 0.95);
+              const scl = Math.max(0.1, 1 - depth * 0.9);
+              const isMajor = yard % 50 === 0;
+              const isSpecial = yard === 300 || yard === 400;
+              return (
+                <G key={`marker-${yard}`}>
+                  <Line x1={centerX - fwHW} y1={y} x2={centerX + fwHW} y2={y} stroke={nightMode ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.2)"} strokeWidth={isSpecial ? 1.5 : 0.8} />
+                  {isMajor && (
+                    <G>
+                      <Line x1={centerX + fwHW - 2} y1={y} x2={centerX + fwHW - 2} y2={y - 16 * scl} stroke={nightMode ? "#4CAF50" : "#fff"} strokeWidth={1} opacity={0.6} />
+                      <Polygon points={`${centerX + fwHW - 2},${y - 16 * scl} ${centerX + fwHW + 8 * scl},${y - 12 * scl} ${centerX + fwHW - 2},${y - 8 * scl}`}
+                        fill={yard === 300 ? "#FFD700" : yard === 400 ? "#FF5252" : nightMode ? "#00FF88" : "#fff"} opacity={0.7} />
+                      <SvgText x={centerX + fwHW + 12 * scl} y={y + 3} textAnchor="start" fill={nightMode ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.6)"} fontSize={Math.max(7, 11 * scl)} fontWeight="700">{yard}</SvgText>
+                    </G>
+                  )}
+                </G>
+              );
+            })}
+
+            {/* TREES along fairway edges */}
+            {perspTrees.map((tree, i) => {
+              const depth = Math.pow(tree.t, 0.5);
+              const y = golferBaseY - (golferBaseY - horizonY) * depth * 0.95;
+              const fwHW = (fairwayBottomW / 2) * (1 - depth * 0.95);
+              const scl = Math.max(0.1, 1 - depth * 0.85);
+              const treeH = 28 * scl * tree.hM;
+              const treeW = 14 * scl * tree.wM;
+              const trW = Math.max(1, 2 * scl);
+              const treeCol = nightMode ? "#0d2d0d" : "#2E7D32";
+              const trunkCol = nightMode ? "#1a3a1a" : "#5D4037";
+              return (
+                <G key={`ptree-${i}`} opacity={0.4 + 0.4 * scl}>
+                  <Rect x={centerX - fwHW - tree.lOff * scl - trW / 2} y={y - treeH * 0.3} width={trW} height={treeH * 0.45} fill={trunkCol} />
+                  <Ellipse cx={centerX - fwHW - tree.lOff * scl} cy={y - treeH * 0.65} rx={treeW * 0.7} ry={treeH * 0.45} fill={treeCol} />
+                  <Rect x={centerX + fwHW + tree.rOff * scl - trW / 2} y={y - treeH * 0.3} width={trW} height={treeH * 0.45} fill={trunkCol} />
+                  <Ellipse cx={centerX + fwHW + tree.rOff * scl} cy={y - treeH * 0.65} rx={treeW * 0.7} ry={treeH * 0.45} fill={treeCol} />
+                </G>
+              );
+            })}
+
+            {/* TRAJECTORY TRACER */}
+            {trajectoryPoints.length > 0 && (
+              <G>
+                <Polyline points={trajectoryPoints} fill="none" stroke={theme.tracerGlow} strokeWidth={nightMode ? 8 : 5} strokeLinecap="round" strokeLinejoin="round" opacity={0.5} />
+                <Polyline points={trajectoryPoints} fill="none" stroke={theme.tracer} strokeWidth={nightMode ? 3 : 2} strokeLinecap="round" strokeLinejoin="round" />
+              </G>
+            )}
+
+            {/* BALL TRAIL */}
+            {showBall && ballTrail.length > 1 && ballTrail.map((tp, i) => {
+              const age = (ballTrail.length - 1 - i) / ballTrail.length;
+              const op = Math.max(0.02, (1 - age) * 0.6);
+              const r = Math.max(0.5, 3 * ballScale * (1 - age));
+              const isPD = power >= 85;
+              const trailCol = isPD ? (nightMode ? "#FF6B35" : "#FF4500") : theme.tracer;
+              return <Circle key={i} cx={tp.x} cy={tp.y} r={r} fill={trailCol} opacity={op} />;
+            })}
+
+            {/* POWER DRIVE glow */}
+            {showBall && power >= 85 && ballTrail.length > 1 && ballTrail.slice(-3).map((tp, i) => (
+              <Circle key={`glow-${i}`} cx={tp.x} cy={tp.y} r={(6 + i * 2) * ballScale} fill={nightMode ? "#FF6B35" : "#FF4500"} opacity={0.04 + i * 0.015} />
+            ))}
+
+            {/* THE BALL — perspective scaled */}
+            {showBall && (
+              <G>
+                {nightMode && <Circle cx={ballPos.x} cy={ballPos.y} r={10 * ballScale} fill={theme.ball} opacity={0.1} />}
+                {power >= 85 && <Circle cx={ballPos.x} cy={ballPos.y} r={10 * ballScale} fill={nightMode ? "#FF6B35" : "#FF4500"} opacity={0.1} />}
+                <Circle cx={ballPos.x} cy={ballPos.y} r={Math.max(2, 5 * ballScale)} fill={theme.ball} />
+                <Circle cx={ballPos.x - 0.8 * ballScale} cy={ballPos.y - 0.8 * ballScale} r={Math.max(0.5, 1.5 * ballScale)} fill="#fff" opacity={0.5} />
+              </G>
+            )}
+
+            {/* BALL SHADOW */}
+            {showBall && (
+              <Ellipse cx={ballPos.x} cy={golferBaseY + 5} rx={4 * ballScale} ry={1.5 * ballScale} fill="#000" opacity={0.1} />
+            )}
+
+            {/* LANDING DUST */}
+            {landingDust && landingDust.particles.map((p, i) => (
+              <Circle key={`dust-${i}`} cx={landingDust.x + p.dx} cy={landingDust.y + p.dy} r={p.r}
+                fill={nightMode ? "#4CAF50" : "#8D6E63"} opacity={p.o * 0.6} />
+            ))}
+
+            {/* LANDING MARKER */}
+            {gameState === "landed" && currentResult && (() => {
+              const lp = perspProject(currentResult.carry + currentResult.roll, 0, 1, ((accuracy - 50) / 50) * 0.6);
+              return (
+                <G>
+                  <Circle cx={lp.x} cy={lp.groundY} r={6 * lp.scale} fill={currentResult.inBounds ? theme.tracer : "#FF5252"} opacity={0.3} />
+                  <Circle cx={lp.x} cy={lp.groundY} r={3 * lp.scale} fill={currentResult.inBounds ? theme.tracer : "#FF5252"} opacity={0.6} />
+                </G>
+              );
+            })()}
+
+            {/* GOLFER — behind view */}
+            <G opacity={gameState === "flying" ? 0.6 : 0.9}>
+              <Ellipse cx={centerX} cy={golferBaseY + 24} rx={16} ry={4} fill="rgba(0,0,0,0.15)" />
+              <Ellipse cx={centerX - 5} cy={golferBaseY + 21} rx={4} ry={2.5} fill="#333" />
+              <Ellipse cx={centerX + 5} cy={golferBaseY + 21} rx={4} ry={2.5} fill="#333" />
+              <Path d={`M${centerX - 3},${golferBaseY + 18} L${centerX - 6},${golferBaseY - 5} L${centerX - 1},${golferBaseY - 5} L${centerX - 1},${golferBaseY + 18} Z`} fill="#B8945C" />
+              <Path d={`M${centerX + 3},${golferBaseY + 18} L${centerX + 6},${golferBaseY - 5} L${centerX + 1},${golferBaseY - 5} L${centerX + 1},${golferBaseY + 18} Z`} fill="#A8844C" />
+              <Rect x={centerX - 9} y={golferBaseY - 7} width={18} height={3} rx={1} fill="#5D4037" />
+              <Path d={`M${centerX - 12},${golferBaseY - 7} Q${centerX - 14},${golferBaseY - 22} ${centerX - 10},${golferBaseY - 35} L${centerX + 10},${golferBaseY - 35} Q${centerX + 14},${golferBaseY - 22} ${centerX + 12},${golferBaseY - 7} Z`} fill={nightMode ? "#1a3a2a" : "#1B5E20"} />
+              <Path d={`M${centerX - 4},${golferBaseY - 35} Q${centerX},${golferBaseY - 37} ${centerX + 4},${golferBaseY - 35}`} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth={1} />
+              {gameState === "idle" ? (
+                <G>
+                  <Path d={`M${centerX - 12},${golferBaseY - 30} Q${centerX - 18},${golferBaseY - 22} ${centerX - 15},${golferBaseY - 12}`} stroke={nightMode ? "#1a3a2a" : "#1B5E20"} strokeWidth={5} fill="none" strokeLinecap="round" />
+                  <Path d={`M${centerX + 12},${golferBaseY - 30} Q${centerX + 18},${golferBaseY - 22} ${centerX + 15},${golferBaseY - 12}`} stroke={nightMode ? "#1a3a2a" : "#1B5E20"} strokeWidth={5} fill="none" strokeLinecap="round" />
+                  <Circle cx={centerX - 15} cy={golferBaseY - 11} r={2.5} fill="#C8A882" />
+                  <Circle cx={centerX + 15} cy={golferBaseY - 11} r={2.5} fill="#C8A882" />
+                  <Line x1={centerX + 15} y1={golferBaseY - 11} x2={centerX + 18} y2={golferBaseY + 15} stroke="#999" strokeWidth={1.5} strokeLinecap="round" />
+                  <Rect x={centerX + 16} y={golferBaseY + 13} width={6} height={3} rx={1} fill="#888" />
+                </G>
+              ) : (
+                <G>
+                  <Path d={`M${centerX - 12},${golferBaseY - 30} Q${centerX - 8},${golferBaseY - 20} ${centerX + 2},${golferBaseY - 14}`} stroke={nightMode ? "#1a3a2a" : "#1B5E20"} strokeWidth={5} fill="none" strokeLinecap="round" />
+                  <Path d={`M${centerX + 12},${golferBaseY - 30} Q${centerX + 8},${golferBaseY - 20} ${centerX + 2},${golferBaseY - 14}`} stroke={nightMode ? "#1a3a2a" : "#1B5E20"} strokeWidth={5} fill="none" strokeLinecap="round" />
+                  <Circle cx={centerX + 2} cy={golferBaseY - 13} r={2.5} fill="#C8A882" />
+                  {gameState === "powering" && (
+                    <Line x1={centerX + 2} y1={golferBaseY - 13} x2={centerX - 20} y2={golferBaseY - 50} stroke="#999" strokeWidth={1.5} strokeLinecap="round" />
+                  )}
+                  {(gameState === "aiming" || gameState === "flying" || gameState === "landed") && (
+                    <Line x1={centerX + 2} y1={golferBaseY - 13} x2={centerX + 25} y2={golferBaseY - 50} stroke="#999" strokeWidth={1.5} strokeLinecap="round" />
+                  )}
+                </G>
+              )}
+              <Rect x={centerX - 3} y={golferBaseY - 41} width={6} height={6} fill="#C8A882" rx={2} />
+              <Circle cx={centerX} cy={golferBaseY - 50} r={8} fill="#C8A882" />
+              <Path d={`M${centerX - 6},${golferBaseY - 53} Q${centerX - 7},${golferBaseY - 58} ${centerX - 3},${golferBaseY - 59} Q${centerX},${golferBaseY - 60} ${centerX + 3},${golferBaseY - 59} Q${centerX + 7},${golferBaseY - 58} ${centerX + 6},${golferBaseY - 53}`} fill="#3E2723" />
+              <Ellipse cx={centerX} cy={golferBaseY - 55} rx={10} ry={4} fill={nightMode ? "#1a3a2a" : "#1B5E20"} />
+              <Path d={`M${centerX - 10},${golferBaseY - 55} L${centerX - 13},${golferBaseY - 54}`} stroke={nightMode ? "#1a3a2a" : "#1B5E20"} strokeWidth={2.5} strokeLinecap="round" />
             </G>
-          )}
 
-          {/* BALL TRAIL particles */}
-          {showBall && ballTrail.length > 1 && ballTrail.map((tp, i) => {
-            const age = (ballTrail.length - 1 - i) / ballTrail.length;
-            const opacity = Math.max(0.02, (1 - age) * 0.6);
-            const r = Math.max(0.8, 3.5 * (1 - age));
-            const isPowerDrive = power >= 85;
-            const trailColor = isPowerDrive ? (nightMode ? "#FF6B35" : "#FF4500") : theme.tracer;
-            return <Circle key={i} cx={tp.x} cy={tp.y} r={r} fill={trailColor} opacity={opacity} />;
-          })}
+            {/* TEE + BALL at golfer's feet */}
+            {gameState === "idle" && (
+              <G>
+                <Rect x={centerX - 1} y={golferBaseY + 14} width={2} height={5} rx={1} fill={nightMode ? "#A5D6A7" : "#fff"} opacity={0.8} />
+                <Circle cx={centerX} cy={golferBaseY + 12} r={3} fill="#fff" />
+              </G>
+            )}
 
-          {/* POWER DRIVE outer glow */}
-          {showBall && power >= 85 && ballTrail.length > 1 && ballTrail.slice(-5).map((tp, i) => (
-            <Circle key={`glow-${i}`} cx={tp.x} cy={tp.y} r={8 + i * 2.5} fill={nightMode ? "#FF6B35" : "#FF4500"} opacity={0.04 + i * 0.015} />
-          ))}
-
-          {/* THE BALL */}
-          {showBall && (
-            <G>
-              {nightMode && <Circle cx={ballPos.x} cy={ballPos.y} r={12} fill={theme.ball} opacity={0.1} />}
-              {nightMode && <Circle cx={ballPos.x} cy={ballPos.y} r={7} fill={theme.ball} opacity={0.2} />}
-              {power >= 85 && <Circle cx={ballPos.x} cy={ballPos.y} r={12} fill={nightMode ? "#FF6B35" : "#FF4500"} opacity={0.1} />}
-              <Circle cx={ballPos.x} cy={ballPos.y} r={4.5} fill={theme.ball} />
-              <Circle cx={ballPos.x - 1} cy={ballPos.y - 1} r={1.5} fill="#fff" opacity={0.5} />
-            </G>
-          )}
-
-          {/* LANDING DUST BURST */}
-          {landingDust && landingDust.particles.map((p, i) => (
-            <Circle key={`dust-${i}`} cx={landingDust.x + p.dx} cy={landingDust.y + p.dy} r={p.r}
-              fill={nightMode ? "#4CAF50" : "#8D6E63"} opacity={p.o * 0.6} />
-          ))}
-
-          {/* LANDING MARKER */}
-          {gameState === "landed" && currentResult && (
-            <G>
-              <Circle cx={yardToScreenX(currentResult.carry + currentResult.roll)} cy={groundY} r={8} fill={currentResult.inBounds ? theme.tracer : "#FF5252"} opacity={0.15} />
-              <Circle cx={yardToScreenX(currentResult.carry + currentResult.roll)} cy={groundY} r={5} fill={currentResult.inBounds ? theme.tracer : "#FF5252"} opacity={0.4} />
-              <Circle cx={yardToScreenX(currentResult.carry + currentResult.roll)} cy={groundY} r={2.5} fill={currentResult.inBounds ? theme.tracer : "#FF5252"} opacity={0.9} />
-            </G>
-          )}
-        </Svg>
+            {/* ARC SWING GAUGE */}
+            {(gameState === "powering" || gameState === "aiming") && (() => {
+              const gaugeR = Math.min(svgWidth * 0.28, 130);
+              const gaugeCx = centerX;
+              const gaugeCy = svgHeight - 55;
+              const meterValue = gameState === "powering" ? power : accuracy;
+              const needleAngle = Math.PI - (meterValue / 100) * Math.PI;
+              const needleX = gaugeCx + Math.cos(needleAngle) * gaugeR;
+              const needleY = gaugeCy - Math.sin(needleAngle) * gaugeR;
+              const needleMidX = gaugeCx + Math.cos(needleAngle) * (gaugeR * 0.3);
+              const needleMidY = gaugeCy - Math.sin(needleAngle) * (gaugeR * 0.3);
+              const arcSegs = 20;
+              const segColors = gameState === "powering"
+                ? Array.from({ length: arcSegs }).map((_, i) => {
+                    const pct = i / arcSegs;
+                    if (pct < 0.35) return "#4CAF50";
+                    if (pct < 0.6) return "#8BC34A";
+                    if (pct < 0.8) return "#FFC107";
+                    if (pct < 0.92) return "#FF9800";
+                    return "#F44336";
+                  })
+                : Array.from({ length: arcSegs }).map((_, i) => {
+                    const pct = Math.abs(i / arcSegs - 0.5) * 2;
+                    if (pct < 0.25) return "#4CAF50";
+                    if (pct < 0.5) return "#8BC34A";
+                    if (pct < 0.75) return "#FFC107";
+                    return "#F44336";
+                  });
+              return (
+                <G>
+                  {Array.from({ length: arcSegs }).map((_, i) => {
+                    const a1 = Math.PI - (i / arcSegs) * Math.PI;
+                    const a2 = Math.PI - ((i + 1) / arcSegs) * Math.PI;
+                    const oR = gaugeR;
+                    const iR = gaugeR - 14;
+                    const x1o = gaugeCx + Math.cos(a1) * oR;
+                    const y1o = gaugeCy - Math.sin(a1) * oR;
+                    const x2o = gaugeCx + Math.cos(a2) * oR;
+                    const y2o = gaugeCy - Math.sin(a2) * oR;
+                    const x1i = gaugeCx + Math.cos(a2) * iR;
+                    const y1i = gaugeCy - Math.sin(a2) * iR;
+                    const x2i = gaugeCx + Math.cos(a1) * iR;
+                    const y2i = gaugeCy - Math.sin(a1) * iR;
+                    const filled = gameState === "powering" ? ((i + 1) / arcSegs * 100) <= power : true;
+                    return (
+                      <Path key={`seg-${i}`}
+                        d={`M${x1o},${y1o} A${oR},${oR} 0 0,1 ${x2o},${y2o} L${x1i},${y1i} A${iR},${iR} 0 0,0 ${x2i},${y2i} Z`}
+                        fill={segColors[i]}
+                        opacity={filled ? 0.85 : 0.15}
+                      />
+                    );
+                  })}
+                  <Circle cx={gaugeCx} cy={gaugeCy} r={6} fill="rgba(255,255,255,0.9)" />
+                  <Line x1={needleMidX} y1={needleMidY} x2={needleX} y2={needleY} stroke="#fff" strokeWidth={3} strokeLinecap="round" />
+                  <Circle cx={needleX} cy={needleY} r={5} fill="#fff" />
+                  <Circle cx={needleX} cy={needleY} r={8} fill="#fff" opacity={0.2} />
+                  {gameState === "aiming" && (
+                    <Line x1={gaugeCx} y1={gaugeCy - gaugeR - 4} x2={gaugeCx} y2={gaugeCy - gaugeR + 18} stroke="#4CAF50" strokeWidth={2.5} opacity={0.8} />
+                  )}
+                  <SvgText x={gaugeCx} y={gaugeCy - 20} textAnchor="middle" fill="#fff" fontSize={22} fontWeight="900">{meterValue}%</SvgText>
+                  <SvgText x={gaugeCx} y={gaugeCy - 5} textAnchor="middle" fill="rgba(255,255,255,0.5)" fontSize={10} fontWeight="700">
+                    {gameState === "powering" ? "POWER" : "ACCURACY"}
+                  </SvgText>
+                  {gameState === "aiming" && (
+                    <G>
+                      <SvgText x={gaugeCx - gaugeR - 5} y={gaugeCy + 4} textAnchor="end" fill="rgba(255,255,255,0.4)" fontSize={8}>HOOK</SvgText>
+                      <SvgText x={gaugeCx + gaugeR + 5} y={gaugeCy + 4} textAnchor="start" fill="rgba(255,255,255,0.4)" fontSize={8}>SLICE</SvgText>
+                    </G>
+                  )}
+                  <SvgText x={gaugeCx} y={gaugeCy + 20} textAnchor="middle" fill="rgba(255,255,255,0.5)" fontSize={11} fontWeight="600">TAP</SvgText>
+                </G>
+              );
+            })()}
+          </Svg>
       </Pressable>
 
       <View style={[styles.topBar, { paddingTop: insets.top + webTopInset }]} pointerEvents="box-none">
@@ -1797,35 +1853,6 @@ export default function BomberGame() {
               <PremiumText variant="caption" color={shotClock <= 10 ? "#FF5252" : "#fff"} style={{ fontSize: 14, fontWeight: "800" }}>{shotClock}</PremiumText>
             </View>
           )}
-        </View>
-      )}
-
-      {(gameState === "powering" || gameState === "aiming") && (
-        <View style={[styles.powerMeterContainer, { top: svgHeight * 0.2, left: 16 }]} pointerEvents="none">
-          <View style={[styles.powerMeterTrack, { height: svgHeight * 0.4, borderColor: "rgba(255,255,255,0.3)" }]}>
-            <View style={[styles.powerMeterFill, { height: `${power}%`, backgroundColor: power < 40 ? "#4CAF50" : power < 70 ? "#FFC107" : power < 90 ? "#FF9800" : "#F44336" }]} />
-            {gameState === "powering" && (
-              <View style={[styles.powerMeterIndicator, { bottom: `${power}%` }]}>
-                <View style={styles.powerMeterArrow} />
-              </View>
-            )}
-          </View>
-          <PremiumText variant="caption" color="#fff" style={{ fontSize: 12, marginTop: 6, fontWeight: "700" }}>{power}%</PremiumText>
-          {gameState === "powering" && <PremiumText variant="caption" color="rgba(255,255,255,0.6)" style={{ fontSize: 9, marginTop: 2 }}>TAP</PremiumText>}
-        </View>
-      )}
-
-      {gameState === "aiming" && (
-        <View style={[styles.accuracyMeterContainer, { bottom: svgHeight * 0.12 }]} pointerEvents="none">
-          <View style={[styles.accuracyMeterTrack, { width: svgWidth * 0.6, borderColor: "rgba(255,255,255,0.3)" }]}>
-            <View style={styles.accuracyCenterLine} />
-            <View style={[styles.accuracyIndicator, { left: `${accuracy}%`, backgroundColor: Math.abs(accuracy - 50) < 15 ? "#4CAF50" : Math.abs(accuracy - 50) < 30 ? "#FFC107" : "#F44336" }]} />
-          </View>
-          <View style={styles.accuracyLabels}>
-            <PremiumText variant="caption" color="rgba(255,255,255,0.5)" style={{ fontSize: 9 }}>HOOK</PremiumText>
-            <PremiumText variant="caption" color="#fff" style={{ fontSize: 10, fontWeight: "700" }}>ACCURACY</PremiumText>
-            <PremiumText variant="caption" color="rgba(255,255,255,0.5)" style={{ fontSize: 9 }}>SLICE</PremiumText>
-          </View>
         </View>
       )}
 
@@ -1970,7 +1997,7 @@ function EquipmentModal({ visible, onClose, profileData, equippedDriverId, equip
                 <View style={{ flex: 1 }}>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                     <PremiumText variant="body" color="#fff" style={{ fontWeight: "700", fontSize: 14 }}>{d.name}</PremiumText>
-                    {owned && <PremiumText variant="caption" color="rgba(255,255,255,0.3)" style={{ fontSize: 9 }}>Lv{owned.level}</PremiumText>}
+                    {!!owned && <PremiumText variant="caption" color="rgba(255,255,255,0.3)" style={{ fontSize: 9 }}>Lv{(owned as any).level}</PremiumText>}
                   </View>
                   <PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 10 }}>{d.description}</PremiumText>
                   <View style={{ flexDirection: "row", gap: 8, marginTop: 4 }}>
@@ -1995,7 +2022,7 @@ function EquipmentModal({ visible, onClose, profileData, equippedDriverId, equip
                 <View style={{ flex: 1 }}>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                     <PremiumText variant="body" color="#fff" style={{ fontWeight: "700", fontSize: 14 }}>{b.name}</PremiumText>
-                    {owned && <PremiumText variant="caption" color="rgba(255,255,255,0.3)" style={{ fontSize: 9 }}>Lv{owned.level}</PremiumText>}
+                    {!!owned && <PremiumText variant="caption" color="rgba(255,255,255,0.3)" style={{ fontSize: 9 }}>Lv{(owned as any).level}</PremiumText>}
                   </View>
                   <PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 10 }}>{b.description}</PremiumText>
                   <View style={{ flexDirection: "row", gap: 8, marginTop: 4 }}>
@@ -2510,16 +2537,6 @@ const styles = StyleSheet.create({
   ballCounter: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 6 },
   ballDot: { width: 8, height: 8, borderRadius: 4 },
   shotClockBadge: { position: "absolute", right: 0, top: 0, flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10 },
-  powerMeterContainer: { position: "absolute", alignItems: "center", zIndex: 5 },
-  powerMeterTrack: { width: 28, borderRadius: 14, borderWidth: 1.5, overflow: "hidden", justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.3)" },
-  powerMeterFill: { width: "100%", borderRadius: 12 },
-  powerMeterIndicator: { position: "absolute", left: -8, width: 44, height: 3, alignItems: "flex-end" },
-  powerMeterArrow: { width: 0, height: 0, borderTopWidth: 5, borderBottomWidth: 5, borderRightWidth: 8, borderTopColor: "transparent", borderBottomColor: "transparent", borderRightColor: "#fff" },
-  accuracyMeterContainer: { position: "absolute", left: 0, right: 0, alignItems: "center", zIndex: 5 },
-  accuracyMeterTrack: { height: 20, borderRadius: 10, borderWidth: 1.5, backgroundColor: "rgba(0,0,0,0.3)", position: "relative" },
-  accuracyCenterLine: { position: "absolute", left: "50%", top: 2, bottom: 2, width: 2, backgroundColor: "rgba(255,255,255,0.4)", marginLeft: -1 },
-  accuracyIndicator: { position: "absolute", top: 2, width: 16, height: 16, borderRadius: 8, marginLeft: -8 },
-  accuracyLabels: { flexDirection: "row", justifyContent: "space-between", width: "60%", marginTop: 4 },
   startPrompt: { position: "absolute", bottom: "15%", left: 0, right: 0, alignItems: "center", zIndex: 10 },
   equippedTag: { flexDirection: "row", alignItems: "center", gap: 4, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, marginBottom: 8 },
   driveButton: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 36, paddingVertical: 16, borderRadius: 30 },
