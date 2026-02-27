@@ -197,6 +197,9 @@ export default function BomberGame() {
   const [challengeJustCompleted, setChallengeJustCompleted] = useState<VenueChallenge | null>(null);
   const [consecutiveInBounds, setConsecutiveInBounds] = useState(0);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [showHamburger, setShowHamburger] = useState(false);
+  const [installPrompt, setInstallPrompt] = useState<any>(null);
+  const [isStandalone, setIsStandalone] = useState(false);
 
   const powerRef = useRef(0);
   const accuracyRef = useRef(50);
@@ -223,6 +226,40 @@ export default function BomberGame() {
       if (val === "false") setSoundEnabled(false);
     });
   }, []);
+
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    const mq = window.matchMedia("(display-mode: standalone)");
+    setIsStandalone(mq.matches);
+    const mql = (e: any) => setIsStandalone(e.matches);
+    mq.addEventListener("change", mql);
+    const link = document.querySelector('link[rel="manifest"]');
+    const originalHref = link?.getAttribute("href") || "/manifest.json";
+    if (link) link.setAttribute("href", "/bomber-manifest.json");
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/bomber-sw.js", { scope: "/" }).catch(() => {});
+    }
+    const handler = (e: any) => { e.preventDefault(); setInstallPrompt(e); };
+    window.addEventListener("beforeinstallprompt", handler);
+    const installed = () => setIsStandalone(true);
+    window.addEventListener("appinstalled", installed);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handler);
+      window.removeEventListener("appinstalled", installed);
+      mq.removeEventListener("change", mql);
+      if (link) link.setAttribute("href", originalHref);
+    };
+  }, []);
+
+  const handleInstallPWA = () => {
+    if (installPrompt) {
+      installPrompt.prompt();
+      installPrompt.userChoice.then((r: any) => {
+        if (r.outcome === "accepted") setIsStandalone(true);
+        setInstallPrompt(null);
+      });
+    }
+  };
 
   useEffect(() => {
     if (isLoggedIn && user) {
@@ -827,11 +864,8 @@ export default function BomberGame() {
               <Ionicons name="close" size={22} color="#fff" />
             </Pressable>
             <View style={{ flex: 1 }} />
-            <Pressable onPress={() => { setSoundEnabled(!soundEnabled); AsyncStorage.setItem("bomber_sound_enabled", String(!soundEnabled)); Haptics.selectionAsync(); }} style={styles.topBtn}>
-              <Ionicons name={soundEnabled ? "volume-high" : "volume-mute"} size={20} color="#fff" />
-            </Pressable>
-            <Pressable onPress={() => { setNightMode(!nightMode); Haptics.selectionAsync(); }} style={styles.topBtn}>
-              <Ionicons name={nightMode ? "sunny" : "moon"} size={20} color="#fff" />
+            <Pressable onPress={() => { setShowHamburger(true); bomberSounds.play("menuTap"); Haptics.selectionAsync(); }} style={styles.topBtn}>
+              <Ionicons name="menu" size={24} color="#fff" />
             </Pressable>
           </View>
 
@@ -975,31 +1009,22 @@ export default function BomberGame() {
             </Animated.View>
           </View>
 
-          <View style={styles.menuActions}>
-            <Pressable onPress={() => { setShowEquipment(true); }} style={[styles.menuActionBtn, { borderColor: "rgba(255,255,255,0.15)" }]}>
-              <Ionicons name="construct-outline" size={18} color="#fff" />
-              <PremiumText variant="caption" color="#fff" style={{ fontSize: 12 }}>Equipment</PremiumText>
-            </Pressable>
-            <Pressable onPress={() => { loadLeaderboard(); setShowLeaderboard(true); }} style={[styles.menuActionBtn, { borderColor: "rgba(255,255,255,0.15)" }]}>
-              <Ionicons name="podium-outline" size={18} color="#fff" />
-              <PremiumText variant="caption" color="#fff" style={{ fontSize: 12 }}>Leaderboard</PremiumText>
-            </Pressable>
-          </View>
-
-          <View style={styles.menuActions}>
-            <Pressable onPress={() => setShowVenues(true)} style={[styles.menuActionBtn, { borderColor: "rgba(255,255,255,0.15)" }]}>
-              <Ionicons name="map-outline" size={18} color="#fff" />
-              <PremiumText variant="caption" color="#fff" style={{ fontSize: 12 }}>Venues</PremiumText>
-            </Pressable>
-            <Pressable onPress={() => { loadAchievements(); setShowAchievements(true); }} style={[styles.menuActionBtn, { borderColor: "rgba(255,255,255,0.15)" }]}>
-              <Ionicons name="ribbon-outline" size={18} color="#fff" />
-              <PremiumText variant="caption" color="#fff" style={{ fontSize: 12 }}>Achievements</PremiumText>
-            </Pressable>
-            <Pressable onPress={() => { loadTournaments(); setShowTournaments(true); }} style={[styles.menuActionBtn, { borderColor: "rgba(255,255,255,0.15)" }]}>
-              <Ionicons name="calendar-outline" size={18} color="#fff" />
-              <PremiumText variant="caption" color="#fff" style={{ fontSize: 12 }}>Events</PremiumText>
-            </Pressable>
-          </View>
+          {Platform.OS === "web" && !isStandalone && (
+            <Animated.View entering={FadeInUp.duration(400).delay(450)}>
+              <Pressable onPress={handleInstallPWA} style={{ flexDirection: "row", alignItems: "center", gap: 14, backgroundColor: "rgba(255,215,0,0.1)", borderWidth: 1.5, borderColor: "rgba(255,215,0,0.4)", borderRadius: 16, padding: 16, marginBottom: 16 }}>
+                <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "rgba(255,215,0,0.15)", alignItems: "center", justifyContent: "center" }}>
+                  <Ionicons name="download-outline" size={22} color="#FFD700" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <PremiumText variant="subtitle" color="#FFD700" style={{ fontSize: 14, fontWeight: "800" }}>Install Bomber</PremiumText>
+                  <PremiumText variant="caption" color="rgba(255,255,255,0.45)" style={{ fontSize: 10 }}>
+                    {installPrompt ? "Add to home screen for fullscreen" : "Use browser menu to install"}
+                  </PremiumText>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color="#FFD700" />
+              </Pressable>
+            </Animated.View>
+          )}
 
           {dailyChallenge && (
             <Animated.View entering={FadeInUp.duration(400).delay(600)} style={[styles.challengeCard, { borderColor: "rgba(255,255,255,0.1)" }]}>
@@ -1089,6 +1114,103 @@ export default function BomberGame() {
           tournaments={tournaments}
           nightMode={nightMode}
         />
+        <Modal visible={showHamburger} animationType="slide" transparent>
+          <View style={{ flex: 1, backgroundColor: nightMode ? "rgba(5,5,24,0.98)" : "rgba(0,0,0,0.97)" }}>
+            <ScrollView contentContainerStyle={{ paddingTop: insets.top + webTopInset + 16, paddingHorizontal: 24, paddingBottom: insets.bottom + 40 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 28 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                  <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: "rgba(255,215,0,0.1)", alignItems: "center", justifyContent: "center", borderWidth: 1.5, borderColor: "rgba(255,215,0,0.3)" }}>
+                    <Ionicons name="flash" size={24} color="#FFD700" />
+                  </View>
+                  <View>
+                    <PremiumText variant="subtitle" color="#fff" style={{ fontSize: 20, letterSpacing: 2 }}>BOMBER</PremiumText>
+                    <PremiumText variant="caption" color="rgba(255,255,255,0.3)" style={{ fontSize: 9, letterSpacing: 2 }}>LONG DRIVE CONTEST</PremiumText>
+                  </View>
+                </View>
+                <Pressable onPress={() => setShowHamburger(false)} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.06)", alignItems: "center", justifyContent: "center" }}>
+                  <Ionicons name="close" size={22} color="#fff" />
+                </Pressable>
+              </View>
+
+              {Platform.OS === "web" && !isStandalone && (
+                <Pressable onPress={handleInstallPWA} style={{ backgroundColor: "rgba(255,215,0,0.12)", borderWidth: 1.5, borderColor: "#FFD700", borderRadius: 16, padding: 18, marginBottom: 28, flexDirection: "row", alignItems: "center", gap: 14 }}>
+                  <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: "rgba(255,215,0,0.2)", alignItems: "center", justifyContent: "center" }}>
+                    <Ionicons name="download" size={26} color="#FFD700" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <PremiumText variant="subtitle" color="#FFD700" style={{ fontSize: 16, fontWeight: "800" }}>Install Bomber App</PremiumText>
+                    <PremiumText variant="caption" color="rgba(255,255,255,0.5)" style={{ fontSize: 11, marginTop: 2 }}>
+                      {installPrompt ? "Add to your home screen for fullscreen play" : "Use your browser menu to add to home screen"}
+                    </PremiumText>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color="#FFD700" />
+                </Pressable>
+              )}
+
+              <PremiumText variant="caption" color="rgba(255,255,255,0.3)" style={{ fontSize: 10, letterSpacing: 2, marginBottom: 12 }}>GAME</PremiumText>
+              {[
+                { icon: "stats-chart-outline", label: "Dashboard", desc: "Your stats & progress", onPress: () => { setShowHamburger(false); router.push("/bomber-dashboard"); } },
+                { icon: "construct-outline", label: "Equipment", desc: "Drivers & balls", onPress: () => { setShowHamburger(false); setShowEquipment(true); } },
+                { icon: "podium-outline", label: "Leaderboard", desc: "Top drives worldwide", onPress: () => { setShowHamburger(false); loadLeaderboard(); setShowLeaderboard(true); } },
+                { icon: "map-outline", label: "Venues", desc: "12 real course venues", onPress: () => { setShowHamburger(false); setShowVenues(true); } },
+                { icon: "ribbon-outline", label: "Achievements", desc: `${unlockedAchievementIds.length}/${ACHIEVEMENTS.length} unlocked`, onPress: () => { setShowHamburger(false); loadAchievements(); setShowAchievements(true); } },
+                { icon: "calendar-outline", label: "Events", desc: "Tournaments & specials", onPress: () => { setShowHamburger(false); loadTournaments(); setShowTournaments(true); } },
+              ].map((item) => (
+                <Pressable key={item.label} onPress={() => { item.onPress(); Haptics.selectionAsync(); }} style={{ flexDirection: "row", alignItems: "center", gap: 14, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "rgba(255,255,255,0.06)" }}>
+                  <View style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.04)", alignItems: "center", justifyContent: "center" }}>
+                    <Ionicons name={item.icon as any} size={20} color="rgba(255,255,255,0.7)" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <PremiumText variant="body" color="#fff" style={{ fontWeight: "600", fontSize: 15 }}>{item.label}</PremiumText>
+                    <PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 11 }}>{item.desc}</PremiumText>
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.2)" />
+                </Pressable>
+              ))}
+
+              <PremiumText variant="caption" color="rgba(255,255,255,0.3)" style={{ fontSize: 10, letterSpacing: 2, marginTop: 28, marginBottom: 12 }}>SETTINGS</PremiumText>
+              <Pressable onPress={() => { setSoundEnabled(!soundEnabled); AsyncStorage.setItem("bomber_sound_enabled", String(!soundEnabled)); Haptics.selectionAsync(); }} style={{ flexDirection: "row", alignItems: "center", gap: 14, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "rgba(255,255,255,0.06)" }}>
+                <View style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.04)", alignItems: "center", justifyContent: "center" }}>
+                  <Ionicons name={soundEnabled ? "volume-high" : "volume-mute"} size={20} color="rgba(255,255,255,0.7)" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <PremiumText variant="body" color="#fff" style={{ fontWeight: "600", fontSize: 15 }}>Sound Effects</PremiumText>
+                  <PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 11 }}>{soundEnabled ? "On" : "Off"}</PremiumText>
+                </View>
+                <View style={{ width: 44, height: 26, borderRadius: 13, backgroundColor: soundEnabled ? "rgba(0,255,136,0.3)" : "rgba(255,255,255,0.1)", justifyContent: "center", padding: 2 }}>
+                  <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: soundEnabled ? "#00FF88" : "rgba(255,255,255,0.4)", alignSelf: soundEnabled ? "flex-end" : "flex-start" }} />
+                </View>
+              </Pressable>
+              <Pressable onPress={() => { setNightMode(!nightMode); Haptics.selectionAsync(); }} style={{ flexDirection: "row", alignItems: "center", gap: 14, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "rgba(255,255,255,0.06)" }}>
+                <View style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.04)", alignItems: "center", justifyContent: "center" }}>
+                  <Ionicons name={nightMode ? "moon" : "sunny"} size={20} color="rgba(255,255,255,0.7)" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <PremiumText variant="body" color="#fff" style={{ fontWeight: "600", fontSize: 15 }}>Night Mode</PremiumText>
+                  <PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 11 }}>{nightMode ? "On" : "Off"}</PremiumText>
+                </View>
+                <View style={{ width: 44, height: 26, borderRadius: 13, backgroundColor: nightMode ? "rgba(0,255,136,0.3)" : "rgba(255,255,255,0.1)", justifyContent: "center", padding: 2 }}>
+                  <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: nightMode ? "#00FF88" : "rgba(255,255,255,0.4)", alignSelf: nightMode ? "flex-end" : "flex-start" }} />
+                </View>
+              </Pressable>
+
+              {isPro && (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginTop: 24, padding: 14, backgroundColor: "rgba(255,215,0,0.08)", borderRadius: 12, borderWidth: 1, borderColor: "rgba(255,215,0,0.2)" }}>
+                  <Ionicons name="shield-checkmark" size={20} color="#FFD700" />
+                  <View style={{ flex: 1 }}>
+                    <PremiumText variant="body" color="#FFD700" style={{ fontWeight: "700", fontSize: 13 }}>Bomber Pro Active</PremiumText>
+                    <PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 10 }}>Unlimited contests unlocked</PremiumText>
+                  </View>
+                </View>
+              )}
+
+              <View style={{ alignItems: "center", marginTop: 44, gap: 4 }}>
+                <PremiumText variant="caption" color="rgba(255,255,255,0.15)" style={{ fontSize: 10 }}>Bomber v1.0</PremiumText>
+                <PremiumText variant="caption" color="rgba(255,255,255,0.1)" style={{ fontSize: 9 }}>DarkWave Studios LLC &copy; 2026</PremiumText>
+              </View>
+            </ScrollView>
+          </View>
+        </Modal>
         {newAchievements.length > 0 && (
           <AchievementToast
             achievements={newAchievements}

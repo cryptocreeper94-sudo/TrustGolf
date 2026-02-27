@@ -27,7 +27,8 @@ Trust Golf is built on a modern full-stack architecture:
     *   **Developer Dashboard**: An admin panel for managing courses, deals, affiliate programs, and whitelist members.
     *   **Self-Hosted Analytics**: A first-party tracking system for sessions, page views, and events, with a dashboard in the developer panel to monitor KPIs.
     *   **AI-Driven Blog**: An SEO-focused blog system where AI (GPT-4o) generates posts, managed via the developer dashboard.
-    *   **PWA Support**: Offline caching and installability through a service worker and manifest.
+    *   **PWA Support**: Offline caching and installability through a service worker and manifest. **Bomber PWA**: Standalone PWA served at `/play` with its own manifest (`/bomber-manifest.json`), service worker (`/bomber-sw.js`), and branding separate from the Trust Golf PWA. Installs as "Bomber" on home screen. Bomber screen dynamically swaps manifest for proper PWA identity.
+    *   **Bomber Dashboard**: User stats screen at `/bomber-dashboard` with division progress, top drives, achievement progress, equipment collection, venue completion, and global rank.
     *   **TrustVault Integration**: Enables media storage, editing, and video processing with webhook callbacks for rendering status.
     *   **Trust Layer Ecosystem Page**: A dedicated `/ecosystem` page displaying the DarkWave Studios ecosystem directory widget (from dwsc.io), SSO/Blockchain/API feature cards, linked from the footer.
 

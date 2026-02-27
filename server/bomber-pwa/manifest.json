@@ -1,0 +1,38 @@
+{
+  "name": "Bomber — Long Drive Contest",
+  "short_name": "Bomber",
+  "description": "The ultimate long drive contest. Crush 400-yard bombs, compete in brackets, unlock legendary venues, and climb the global leaderboard. By DarkWave Studios LLC.",
+  "start_url": "/bomber",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#050518",
+  "theme_color": "#FFD700",
+  "lang": "en-US",
+  "dir": "ltr",
+  "categories": ["games", "sports", "entertainment"],
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "/assets/images/icon.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/images/favicon.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Play Now",
+      "short_name": "Play",
+      "description": "Jump into a drive",
+      "url": "/play",
+      "icons": [{ "src": "/assets/images/icon.png", "sizes": "96x96" }]
+    }
+  ]
+}

@@ -206,6 +206,19 @@ function configureExpoAndLanding(app: express.Application) {
     next();
   });
 
+  const bomberPwaPath = path.resolve(process.cwd(), "server/bomber-pwa");
+  app.get("/bomber-manifest.json", (_req: Request, res: Response) => {
+    res.sendFile(path.resolve(bomberPwaPath, "manifest.json"));
+  });
+  app.get("/bomber-sw.js", (_req: Request, res: Response) => {
+    res.setHeader("Content-Type", "application/javascript");
+    res.setHeader("Service-Worker-Allowed", "/");
+    res.sendFile(path.resolve(bomberPwaPath, "sw.js"));
+  });
+  app.get("/play", (_req: Request, res: Response) => {
+    res.sendFile(path.resolve(bomberPwaPath, "index.html"));
+  });
+
   app.use("/assets", express.static(path.resolve(process.cwd(), "assets")));
   app.use("/course-images", express.static(path.resolve(process.cwd(), "server/public/courses"), { maxAge: "30d" }));
   app.use(express.static(path.resolve(process.cwd(), "public")));

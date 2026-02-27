@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#050518">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="description" content="The ultimate long drive contest. Crush 400-yard bombs, compete in brackets, unlock legendary venues, and climb the global leaderboard.">
+  <link rel="manifest" href="/bomber-manifest.json">
+  <title>Bomber — Long Drive Contest</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #050518;
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    .container {
+      text-align: center;
+      padding: 40px 24px;
+      max-width: 400px;
+      width: 100%;
+    }
+    .logo-ring {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 215, 0, 0.3);
+      background: rgba(255, 215, 0, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 24px;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    .logo-ring svg { width: 48px; height: 48px; }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.15); }
+      50% { box-shadow: 0 0 0 20px rgba(255, 215, 0, 0); }
+    }
+    h1 {
+      font-size: 42px;
+      font-weight: 900;
+      letter-spacing: 6px;
+      color: #FFD700;
+      margin-bottom: 6px;
+    }
+    .subtitle {
+      font-size: 11px;
+      letter-spacing: 3px;
+      color: rgba(255, 255, 255, 0.4);
+      text-transform: uppercase;
+      margin-bottom: 40px;
+    }
+    .install-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      background: linear-gradient(135deg, #FFD700, #FFA000);
+      color: #1B5E20;
+      border: none;
+      border-radius: 28px;
+      padding: 18px 32px;
+      font-size: 16px;
+      font-weight: 800;
+      cursor: pointer;
+      width: 100%;
+      margin-bottom: 16px;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .install-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(255, 215, 0, 0.3); }
+    .install-btn:active { transform: translateY(0); }
+    .install-btn svg { width: 22px; height: 22px; }
+    .play-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      background: transparent;
+      color: #fff;
+      border: 1.5px solid rgba(255, 255, 255, 0.2);
+      border-radius: 28px;
+      padding: 16px 32px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      width: 100%;
+      margin-bottom: 32px;
+      transition: border-color 0.2s;
+      text-decoration: none;
+    }
+    .play-btn:hover { border-color: rgba(255, 255, 255, 0.5); }
+    .features { display: flex; flex-direction: column; gap: 16px; text-align: left; margin-bottom: 40px; }
+    .feature {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .feature-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: 20px;
+    }
+    .feature-text h3 { font-size: 14px; font-weight: 700; margin-bottom: 2px; }
+    .feature-text p { font-size: 11px; color: rgba(255, 255, 255, 0.4); line-height: 1.4; }
+    .ios-instructions {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 16px;
+      display: none;
+    }
+    .ios-instructions p { font-size: 12px; color: rgba(255, 255, 255, 0.5); line-height: 1.6; }
+    .ios-instructions strong { color: #FFD700; }
+    .footer { color: rgba(255, 255, 255, 0.1); font-size: 10px; }
+    .hidden { display: none; }
+    .stars {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      pointer-events: none; overflow: hidden; z-index: -1;
+    }
+    .star {
+      position: absolute;
+      width: 2px; height: 2px;
+      background: #fff;
+      border-radius: 50%;
+      animation: twinkle 3s ease-in-out infinite;
+    }
+    @keyframes twinkle {
+      0%, 100% { opacity: 0.2; }
+      50% { opacity: 0.8; }
+    }
+  </style>
+</head>
+<body>
+  <div class="stars" id="stars"></div>
+  <div class="container">
+    <div class="logo-ring">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#FFD700" stroke-width="2">
+        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+      </svg>
+    </div>
+    <h1>BOMBER</h1>
+    <p class="subtitle">Long Drive Contest</p>
+
+    <div class="features">
+      <div class="feature">
+        <div class="feature-icon" style="background:rgba(255,215,0,0.1)">&#9889;</div>
+        <div class="feature-text">
+          <h3>Crush 400+ Yard Bombs</h3>
+          <p>Real physics engine with ball speed, launch angle, and wind</p>
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon" style="background:rgba(255,82,82,0.1)">&#127942;</div>
+        <div class="feature-text">
+          <h3>Contest Mode</h3>
+          <p>Qualifying, brackets, and finals against AI opponents</p>
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon" style="background:rgba(33,150,243,0.1)">&#127759;</div>
+        <div class="feature-text">
+          <h3>12 Real Venues</h3>
+          <p>Augusta, Pebble Beach, St Andrews, and more legendary courses</p>
+        </div>
+      </div>
+    </div>
+
+    <button class="install-btn" id="installBtn" onclick="handleInstall()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+      INSTALL BOMBER
+    </button>
+
+    <div class="ios-instructions" id="iosInstructions">
+      <p>To install on <strong>iOS</strong>: Tap the <strong>Share</strong> button in Safari, then tap <strong>"Add to Home Screen"</strong></p>
+    </div>
+
+    <a class="play-btn" id="playBtn" href="/bomber">
+      PLAY IN BROWSER
+    </a>
+
+    <p class="footer">DarkWave Studios LLC &copy; 2026</p>
+  </div>
+
+  <script>
+    // Stars
+    const starsEl = document.getElementById('stars');
+    for (let i = 0; i < 50; i++) {
+      const star = document.createElement('div');
+      star.className = 'star';
+      star.style.left = Math.random() * 100 + '%';
+      star.style.top = Math.random() * 100 + '%';
+      star.style.animationDelay = Math.random() * 3 + 's';
+      star.style.opacity = (0.1 + Math.random() * 0.5).toString();
+      starsEl.appendChild(star);
+    }
+
+    // PWA Install
+    let deferredPrompt = null;
+    const installBtn = document.getElementById('installBtn');
+    const iosInstructions = document.getElementById('iosInstructions');
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      installBtn.style.display = 'flex';
+    });
+
+    function handleInstall() {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then((result) => {
+          if (result.outcome === 'accepted') {
+            installBtn.textContent = 'INSTALLED!';
+            installBtn.style.opacity = '0.6';
+          }
+          deferredPrompt = null;
+        });
+      } else {
+        // Show iOS instructions or redirect
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        if (isIOS) {
+          iosInstructions.style.display = 'block';
+        } else {
+          window.location.href = '/bomber';
+        }
+      }
+    }
+
+    // If already installed as PWA, redirect to game
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      window.location.replace('/bomber');
+    }
+
+    // Register service worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/bomber-sw.js').catch(() => {});
+    }
+  </script>
+</body>
+</html>
