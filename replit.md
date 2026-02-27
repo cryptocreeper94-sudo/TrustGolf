@@ -172,6 +172,14 @@ Phase 3 adds venues, achievements, and tournament infrastructure:
 - **API Routes** (in `server/routes.ts`): 9 new endpoints for venues, tournaments, and achievements
 - **Shared Data** (`shared/bomber-data.ts`): VENUE_DEFS (12 venues), ACHIEVEMENTS (25 defs), getVenueDef, getVenueWeather, checkAchievements helper
 
+## Bomber Phase 4 — Polish & Game Feel
+Phase 4 adds audio, visual effects, and venue-specific challenges:
+- **Sound Effects** (`lib/bomber-sounds.ts`): Web Audio API synthesized sounds — swing whoosh, impact crack, crowd reaction (300+), chest open/reveal, level up fanfare, achievement unlock, OB miss, shot clock countdown, menu tap. Toggle on/off in menu header, persisted via AsyncStorage
+- **Ball Trail Particles**: Trailing circles behind the ball during flight with decreasing opacity. Power drives (85%+) get a fire trail with extra glow effect. Trail color adapts to day/night mode
+- **Animated Chest Opening**: Three-stage reveal — "Chest Ready" with tap prompt → burst animation with expanding rings → sequential item reveal (coins, XP, gems, equipment) with individual zoom-in animations and rarity glow borders. Each item triggers a chime sound
+- **Venue-Specific Challenges** (`shared/bomber-data.ts` VENUE_CHALLENGES): 16 unique challenges across all 11 real venues. Condition types: distance threshold, headwind mastery, night mode, power threshold, accuracy streak. Challenges shown in menu when venue is selected, with completion tracking (persisted via AsyncStorage). Challenge toast notification on completion
+- **Dependencies added**: `expo-av` (audio support)
+
 ## External Dependencies
 -   **OpenAI**: Used for AI capabilities, specifically the vision model for swing analysis.
 -   **PostgreSQL**: The primary database for all application data.

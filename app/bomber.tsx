@@ -24,9 +24,11 @@ import {
   getDivision, getLevelFromXp, AI_OPPONENTS, simulateAIDrive, getContestOpponent,
   getRandomWeather, generateWindForWeather, VENUE_DEFS, getVenueDef, getVenueWeather,
   ACHIEVEMENTS, getAchievementDef, checkAchievements,
+  VENUE_CHALLENGES, getVenueChallenges, checkVenueChallenge,
   type EquipmentDef, type AIOpponent, type WeatherCondition, type DailyChallenge, type ChestTypeDef,
-  type VenueDef, type AchievementDef,
+  type VenueDef, type AchievementDef, type VenueChallenge,
 } from "@shared/bomber-data";
+import { bomberSounds } from "@/lib/bomber-sounds";
 
 type GameState = "idle" | "powering" | "aiming" | "flying" | "landed";
 type GameMode = "menu" | "freeplay" | "contest";
@@ -190,6 +192,12 @@ export default function BomberGame() {
   const [activeTournament, setActiveTournament] = useState<any>(null);
   const [tournamentEntry, setTournamentEntry] = useState<any>(null);
 
+  const [ballTrail, setBallTrail] = useState<{ x: number; y: number }[]>([]);
+  const [completedChallengeIds, setCompletedChallengeIds] = useState<string[]>([]);
+  const [challengeJustCompleted, setChallengeJustCompleted] = useState<VenueChallenge | null>(null);
+  const [consecutiveInBounds, setConsecutiveInBounds] = useState(0);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+
   const powerRef = useRef(0);
   const accuracyRef = useRef(50);
   const powerDirRef = useRef(1);
@@ -202,6 +210,19 @@ export default function BomberGame() {
 
   const driverDef = getEquipmentDef(equippedDriverId, "driver");
   const ballDef = getEquipmentDef(equippedBallId, "ball");
+
+  useEffect(() => {
+    bomberSounds.setEnabled(soundEnabled);
+  }, [soundEnabled]);
+
+  useEffect(() => {
+    AsyncStorage.getItem("bomber_completed_challenges").then((val) => {
+      if (val) setCompletedChallengeIds(JSON.parse(val));
+    });
+    AsyncStorage.getItem("bomber_sound_enabled").then((val) => {
+      if (val === "false") setSoundEnabled(false);
+    });
+  }, []);
 
   useEffect(() => {
     if (isLoggedIn && user) {
@@ -393,6 +414,7 @@ export default function BomberGame() {
       if (data.newAchievements && data.newAchievements.length > 0) {
         const defs = data.newAchievements.map((a: any) => a.def).filter(Boolean) as AchievementDef[];
         setNewAchievements(defs);
+        bomberSounds.play("achievementUnlock");
         setUnlockedAchievementIds((prev) => [...prev, ...defs.map((d) => d.id)]);
         if (data.profile) setProfileData((prev) => prev ? { ...prev, profile: data.profile } : prev);
       }
@@ -441,6 +463,7 @@ export default function BomberGame() {
         setChestContents(data.contents);
         setShowChestOpen(true);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        bomberSounds.play("chestOpen");
         loadProfile();
       }
     } catch (e) {}
@@ -455,6 +478,7 @@ export default function BomberGame() {
       setShowChestOpen(true);
       setChestToOpen(null);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      bomberSounds.play("chestOpen");
       loadProfile();
     } catch (e) {}
   };
@@ -495,6 +519,7 @@ export default function BomberGame() {
           handleShotClockExpired();
           return 0;
         }
+        if (prev <= 6) bomberSounds.play("countdown");
         return prev - 1;
       });
     }, 1000);
@@ -589,6 +614,7 @@ export default function BomberGame() {
         });
       } else {
         setContest({ ...contest, ballsRemaining: 0, playerBest, playerDrives: newPlayerDrives, result: won ? "win" : "lose" });
+        bomberSounds.play(won ? "levelUp" : "obMiss");
       }
     } else {
       setContest({ ...contest, ballsRemaining: newBallsRemaining, playerBest, playerDrives: newPlayerDrives });
@@ -600,6 +626,7 @@ export default function BomberGame() {
     powerRef.current = 0;
     powerDirRef.current = 1;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    bomberSounds.play("menuTap");
     if (gameMode === "contest") startShotClock();
     const speed = 1.8;
     powerIntervalRef.current = setInterval(() => {
@@ -629,6 +656,7 @@ export default function BomberGame() {
     if (accuracyIntervalRef.current) clearInterval(accuracyIntervalRef.current);
     stopShotClock();
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    bomberSounds.play("swing");
 
     const p = powerRef.current;
     const a = accuracyRef.current;
@@ -636,11 +664,13 @@ export default function BomberGame() {
 
     setGameState("flying");
     setShowBall(true);
+    setBallTrail([]);
 
     const maxH = Math.max(...result.points.map((pt) => pt.y), 1);
     let frameIndex = 0;
     const totalFrames = result.points.length;
     const frameSkip = Math.max(1, Math.floor(totalFrames / 120));
+    const trailHistory: { x: number; y: number }[] = [];
 
     const animInterval = setInterval(() => {
       frameIndex += frameSkip;
@@ -658,11 +688,44 @@ export default function BomberGame() {
         setCurrentResult(driveResult);
         setGameState("landed");
         setShowBall(false);
+        setBallTrail([]);
+
+        bomberSounds.play("impact");
+        if (result.inBounds && result.total >= 300) {
+          setTimeout(() => bomberSounds.play("crowd"), 300);
+        }
+        if (!result.inBounds) {
+          bomberSounds.play("obMiss");
+        }
 
         if (result.inBounds && result.total > personalBest) {
           setPersonalBest(result.total);
           AsyncStorage.setItem("bomber_personal_best", String(result.total));
         }
+
+        const newConsec = result.inBounds ? consecutiveInBounds + 1 : 0;
+        setConsecutiveInBounds(newConsec);
+
+        const venueChallenges = getVenueChallenges(selectedVenue.venueId);
+        for (const ch of venueChallenges) {
+          if (!completedChallengeIds.includes(ch.id)) {
+            const passed = checkVenueChallenge(ch, {
+              distance: result.total, power: Math.round(p), inBounds: result.inBounds,
+              nightMode, wind, consecutiveInBounds: newConsec,
+            });
+            if (passed) {
+              setChallengeJustCompleted(ch);
+              setCompletedChallengeIds((prev) => {
+                const updated = [...prev, ch.id];
+                AsyncStorage.setItem("bomber_completed_challenges", JSON.stringify(updated));
+                return updated;
+              });
+              bomberSounds.play("achievementUnlock");
+              break;
+            }
+          }
+        }
+
         setDriveHistory((prev) => [driveResult, ...prev].slice(0, 10));
         recordDrive(driveResult);
 
@@ -674,11 +737,15 @@ export default function BomberGame() {
       }
 
       const pt = result.points[frameIndex];
-      setBallPos({ x: yardToScreenX(pt.x / YARD_TO_M), y: heightToScreenY(pt.y, maxH) });
+      const screenPt = { x: yardToScreenX(pt.x / YARD_TO_M), y: heightToScreenY(pt.y, maxH) };
+      setBallPos(screenPt);
+      trailHistory.push(screenPt);
+      if (trailHistory.length > 12) trailHistory.shift();
+      setBallTrail([...trailHistory]);
       const tracerPts = result.points.slice(0, frameIndex + 1);
       setTrajectoryPoints(tracerPts.map((p) => `${yardToScreenX(p.x / YARD_TO_M)},${heightToScreenY(p.y, maxH)}`).join(" "));
     }, 14);
-  }, [wind, nightMode, personalBest, driverDef, ballDef, weather, gameMode, contest, yardToScreenX, heightToScreenY]);
+  }, [wind, nightMode, personalBest, driverDef, ballDef, weather, gameMode, contest, yardToScreenX, heightToScreenY, consecutiveInBounds, completedChallengeIds, selectedVenue]);
 
   const resetDrive = useCallback(() => {
     setGameState("idle");
@@ -688,6 +755,8 @@ export default function BomberGame() {
     setTrajectoryPoints("");
     setBallPos({ x: 0, y: 0 });
     setShowBall(false);
+    setBallTrail([]);
+    setChallengeJustCompleted(null);
     setXpGained(0);
     setCoinsGained(0);
     resultScale.value = 0;
@@ -758,6 +827,9 @@ export default function BomberGame() {
               <Ionicons name="close" size={22} color="#fff" />
             </Pressable>
             <View style={{ flex: 1 }} />
+            <Pressable onPress={() => { setSoundEnabled(!soundEnabled); AsyncStorage.setItem("bomber_sound_enabled", String(!soundEnabled)); Haptics.selectionAsync(); }} style={styles.topBtn}>
+              <Ionicons name={soundEnabled ? "volume-high" : "volume-mute"} size={20} color="#fff" />
+            </Pressable>
             <Pressable onPress={() => { setNightMode(!nightMode); Haptics.selectionAsync(); }} style={styles.topBtn}>
               <Ionicons name={nightMode ? "sunny" : "moon"} size={20} color="#fff" />
             </Pressable>
@@ -948,6 +1020,39 @@ export default function BomberGame() {
             </Animated.View>
           )}
 
+          {selectedVenue.venueId !== "driving_range" && (() => {
+            const vChallenges = getVenueChallenges(selectedVenue.venueId);
+            if (vChallenges.length === 0) return null;
+            return (
+              <Animated.View entering={FadeInUp.duration(400).delay(650)} style={[styles.challengeCard, { borderColor: "rgba(255,255,255,0.1)" }]}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                  <Ionicons name="navigate" size={16} color="#FF9800" />
+                  <PremiumText variant="body" color="#fff" style={{ fontWeight: "700", fontSize: 14 }}>{selectedVenue.name} Challenges</PremiumText>
+                </View>
+                {vChallenges.map((ch) => {
+                  const done = completedChallengeIds.includes(ch.id);
+                  return (
+                    <View key={ch.id} style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 6, opacity: done ? 0.5 : 1 }}>
+                      <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: done ? "rgba(76,175,80,0.2)" : "rgba(255,255,255,0.06)", alignItems: "center", justifyContent: "center" }}>
+                        <Ionicons name={done ? "checkmark" : ch.icon as any} size={14} color={done ? "#4CAF50" : "#FF9800"} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <PremiumText variant="caption" color={done ? "rgba(255,255,255,0.5)" : "#fff"} style={{ fontSize: 12, fontWeight: "600" }}>{ch.name}</PremiumText>
+                        <PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 10 }}>{ch.description}</PremiumText>
+                      </View>
+                      {!done && (
+                        <View style={{ flexDirection: "row", gap: 4 }}>
+                          <PremiumText variant="caption" color="#FFD700" style={{ fontSize: 9 }}>+{ch.reward.coins}</PremiumText>
+                          {ch.reward.gems > 0 && <PremiumText variant="caption" color="#B9F2FF" style={{ fontSize: 9 }}>+{ch.reward.gems}g</PremiumText>}
+                        </View>
+                      )}
+                    </View>
+                  );
+                })}
+              </Animated.View>
+            );
+          })()}
+
           {!isLoggedIn && (
             <Animated.View entering={FadeIn.duration(400).delay(700)} style={styles.signInPrompt}>
               <PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 11, textAlign: "center" }}>Sign in to save progress, earn rewards, and compete on the leaderboard</PremiumText>
@@ -989,6 +1094,9 @@ export default function BomberGame() {
             achievements={newAchievements}
             onDismiss={() => setNewAchievements([])}
           />
+        )}
+        {challengeJustCompleted && (
+          <ChallengeCompleteToast challenge={challengeJustCompleted} onDismiss={() => setChallengeJustCompleted(null)} />
         )}
       </View>
     );
@@ -1048,9 +1156,21 @@ export default function BomberGame() {
               <Polyline points={trajectoryPoints} fill="none" stroke={theme.tracer} strokeWidth={nightMode ? 3 : 2} strokeLinecap="round" strokeLinejoin="round" />
             </>
           )}
+          {showBall && ballTrail.length > 1 && ballTrail.map((tp, i) => {
+            const age = (ballTrail.length - 1 - i) / ballTrail.length;
+            const opacity = Math.max(0.02, (1 - age) * 0.5);
+            const r = Math.max(1, 3 * (1 - age));
+            const isPowerDrive = power >= 85;
+            const trailColor = isPowerDrive ? (nightMode ? "#FF6B35" : "#FF4500") : theme.tracer;
+            return <Circle key={i} cx={tp.x} cy={tp.y} r={r} fill={trailColor} opacity={opacity} />;
+          })}
+          {showBall && power >= 85 && ballTrail.length > 1 && ballTrail.slice(-4).map((tp, i) => (
+            <Circle key={`glow-${i}`} cx={tp.x} cy={tp.y} r={6 + i * 2} fill={nightMode ? "#FF6B35" : "#FF4500"} opacity={0.06 + i * 0.02} />
+          ))}
           {showBall && (
             <>
               {nightMode && <Circle cx={ballPos.x} cy={ballPos.y} r={8} fill={theme.ball} opacity={0.15} />}
+              {power >= 85 && <Circle cx={ballPos.x} cy={ballPos.y} r={10} fill={nightMode ? "#FF6B35" : "#FF4500"} opacity={0.12} />}
               <Circle cx={ballPos.x} cy={ballPos.y} r={4} fill={theme.ball} />
             </>
           )}
@@ -1369,33 +1489,114 @@ function LeaderboardModal({ visible, onClose, data, userId, nightMode }: any) {
 }
 
 function ChestOpenModal({ visible, onClose, contents, nightMode }: any) {
+  const [stage, setStage] = useState<"chest" | "opening" | "reveal">("chest");
+  const [revealedItems, setRevealedItems] = useState(0);
+
+  useEffect(() => {
+    if (visible && contents) {
+      setStage("chest");
+      setRevealedItems(0);
+    }
+  }, [visible, contents]);
+
+  const handleOpenChest = () => {
+    setStage("opening");
+    bomberSounds.play("chestOpen");
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setTimeout(() => {
+      setStage("reveal");
+      let itemCount = 0;
+      const totalItems = 2 + (contents?.gems > 0 ? 1 : 0) + (contents?.equipment ? 1 : 0);
+      const revealInterval = setInterval(() => {
+        itemCount++;
+        setRevealedItems(itemCount);
+        bomberSounds.play("chestReveal");
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        if (itemCount >= totalItems) clearInterval(revealInterval);
+      }, 400);
+    }, 800);
+  };
+
   if (!contents) return null;
+
+  const eqDef = contents.equipment ? getEquipmentDef(contents.equipment.id, contents.equipment.type) : null;
+  const eqRarity = eqDef?.rarity || "common";
+  const eqColor = RARITY_COLORS[eqRarity];
+  const glowColor = eqDef ? eqColor : contents.gems > 0 ? "#B9F2FF" : "#FFD700";
+
   return (
     <Modal visible={visible} animationType="fade" transparent>
       <View style={eqStyles.chestOverlay}>
-        <Animated.View entering={ZoomIn.duration(500)} style={[eqStyles.chestPanel, { backgroundColor: nightMode ? "rgba(10,10,46,0.95)" : "rgba(0,0,0,0.92)" }]}>
-          <Ionicons name="gift" size={48} color="#FFD700" />
-          <PremiumText variant="title" color="#fff" style={{ fontSize: 22, marginTop: 12 }}>Chest Opened!</PremiumText>
-          <View style={eqStyles.chestContents}>
-            <View style={eqStyles.chestItem}><Ionicons name="logo-bitcoin" size={20} color="#FFD700" /><PremiumText variant="title" color="#FFD700" style={{ fontSize: 22 }}>{contents.coins}</PremiumText><PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 9 }}>COINS</PremiumText></View>
-            <View style={eqStyles.chestItem}><Ionicons name="star" size={20} color="#B9F2FF" /><PremiumText variant="title" color="#B9F2FF" style={{ fontSize: 22 }}>{contents.xp}</PremiumText><PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 9 }}>XP</PremiumText></View>
-            {contents.gems > 0 && <View style={eqStyles.chestItem}><Ionicons name="diamond" size={20} color="#B9F2FF" /><PremiumText variant="title" color="#B9F2FF" style={{ fontSize: 22 }}>{contents.gems}</PremiumText><PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 9 }}>GEMS</PremiumText></View>}
-          </View>
-          {contents.equipment && (
-            <View style={[eqStyles.eqReward, { borderColor: RARITY_COLORS[getEquipmentDef(contents.equipment.id, contents.equipment.type)?.rarity || "common"] + "40" }]}>
-              <Ionicons name="construct" size={16} color={RARITY_COLORS[getEquipmentDef(contents.equipment.id, contents.equipment.type)?.rarity || "common"]} />
-              <PremiumText variant="body" color="#fff" style={{ fontWeight: "700" }}>
-                {getEquipmentDef(contents.equipment.id, contents.equipment.type)?.name || contents.equipment.id}
-              </PremiumText>
-              <PremiumText variant="caption" color={RARITY_COLORS[getEquipmentDef(contents.equipment.id, contents.equipment.type)?.rarity || "common"]} style={{ fontSize: 10, textTransform: "uppercase" }}>
-                {getEquipmentDef(contents.equipment.id, contents.equipment.type)?.rarity}
-              </PremiumText>
+        {stage === "chest" && (
+          <Animated.View entering={ZoomIn.duration(500)} style={[eqStyles.chestPanel, { backgroundColor: nightMode ? "rgba(10,10,46,0.95)" : "rgba(0,0,0,0.92)" }]}>
+            <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: "rgba(255,215,0,0.1)", alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "rgba(255,215,0,0.3)" }}>
+              <Ionicons name="gift" size={40} color="#FFD700" />
             </View>
-          )}
-          <Pressable onPress={onClose} style={eqStyles.chestCloseBtn}>
-            <PremiumText variant="body" color="#1B5E20" style={{ fontWeight: "800", fontSize: 15 }}>COLLECT</PremiumText>
-          </Pressable>
-        </Animated.View>
+            <PremiumText variant="title" color="#fff" style={{ fontSize: 22, marginTop: 16 }}>Chest Ready!</PremiumText>
+            <PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 11, marginTop: 4 }}>Tap to reveal your rewards</PremiumText>
+            <Pressable onPress={handleOpenChest} style={[eqStyles.chestCloseBtn, { marginTop: 24 }]}>
+              <PremiumText variant="body" color="#1B5E20" style={{ fontWeight: "800", fontSize: 15 }}>OPEN</PremiumText>
+            </Pressable>
+          </Animated.View>
+        )}
+        {stage === "opening" && (
+          <Animated.View entering={ZoomIn.duration(300)} style={{ alignItems: "center" }}>
+            <View style={{ width: 100, height: 100, borderRadius: 50, backgroundColor: "rgba(255,215,0,0.2)", alignItems: "center", justifyContent: "center" }}>
+              <Animated.View entering={ZoomIn.duration(600)} style={{ width: 120, height: 120, borderRadius: 60, backgroundColor: "rgba(255,215,0,0.08)", position: "absolute" }} />
+              <Animated.View entering={ZoomIn.duration(800)} style={{ width: 160, height: 160, borderRadius: 80, backgroundColor: "rgba(255,215,0,0.04)", position: "absolute" }} />
+              <Ionicons name="flash" size={48} color="#FFD700" />
+            </View>
+          </Animated.View>
+        )}
+        {stage === "reveal" && (
+          <Animated.View entering={FadeIn.duration(300)} style={[eqStyles.chestPanel, { backgroundColor: nightMode ? "rgba(10,10,46,0.95)" : "rgba(0,0,0,0.92)", borderColor: glowColor + "30" }]}>
+            <PremiumText variant="caption" color={glowColor} style={{ fontSize: 10, fontWeight: "800", letterSpacing: 2 }}>REWARDS</PremiumText>
+            <PremiumText variant="title" color="#fff" style={{ fontSize: 20, marginTop: 6 }}>Chest Opened!</PremiumText>
+            <View style={eqStyles.chestContents}>
+              {revealedItems >= 1 && (
+                <Animated.View entering={ZoomIn.duration(400)} style={eqStyles.chestItem}>
+                  <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "rgba(255,215,0,0.12)", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,215,0,0.2)" }}>
+                    <Ionicons name="logo-bitcoin" size={22} color="#FFD700" />
+                  </View>
+                  <PremiumText variant="title" color="#FFD700" style={{ fontSize: 22 }}>{contents.coins}</PremiumText>
+                  <PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 9 }}>COINS</PremiumText>
+                </Animated.View>
+              )}
+              {revealedItems >= 2 && (
+                <Animated.View entering={ZoomIn.duration(400)} style={eqStyles.chestItem}>
+                  <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "rgba(185,242,255,0.12)", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(185,242,255,0.2)" }}>
+                    <Ionicons name="star" size={22} color="#B9F2FF" />
+                  </View>
+                  <PremiumText variant="title" color="#B9F2FF" style={{ fontSize: 22 }}>{contents.xp}</PremiumText>
+                  <PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 9 }}>XP</PremiumText>
+                </Animated.View>
+              )}
+              {contents.gems > 0 && revealedItems >= 3 && (
+                <Animated.View entering={ZoomIn.duration(400)} style={eqStyles.chestItem}>
+                  <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "rgba(185,242,255,0.12)", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(185,242,255,0.2)" }}>
+                    <Ionicons name="diamond" size={22} color="#B9F2FF" />
+                  </View>
+                  <PremiumText variant="title" color="#B9F2FF" style={{ fontSize: 22 }}>{contents.gems}</PremiumText>
+                  <PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 9 }}>GEMS</PremiumText>
+                </Animated.View>
+              )}
+            </View>
+            {eqDef && revealedItems >= (2 + (contents.gems > 0 ? 1 : 0) + 1) && (
+              <Animated.View entering={ZoomIn.duration(500)} style={[eqStyles.eqReward, { borderColor: eqColor + "40", backgroundColor: eqColor + "08" }]}>
+                <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: eqColor + "20", alignItems: "center", justifyContent: "center" }}>
+                  <Ionicons name="construct" size={16} color={eqColor} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <PremiumText variant="body" color="#fff" style={{ fontWeight: "700" }}>{eqDef.name}</PremiumText>
+                  <PremiumText variant="caption" color={eqColor} style={{ fontSize: 10, textTransform: "uppercase", fontWeight: "800" }}>{eqRarity}</PremiumText>
+                </View>
+              </Animated.View>
+            )}
+            <Pressable onPress={onClose} style={[eqStyles.chestCloseBtn, { marginTop: 24 }]}>
+              <PremiumText variant="body" color="#1B5E20" style={{ fontWeight: "800", fontSize: 15 }}>COLLECT</PremiumText>
+            </Pressable>
+          </Animated.View>
+        )}
       </View>
     </Modal>
   );
@@ -1635,6 +1836,34 @@ function TournamentsModal({ visible, onClose, tournaments, nightMode }: any) {
         </ScrollView>
       </View>
     </Modal>
+  );
+}
+
+function ChallengeCompleteToast({ challenge, onDismiss }: { challenge: VenueChallenge; onDismiss: () => void }) {
+  const insets = useSafeAreaInsets();
+  const webTopInset = Platform.OS === "web" ? 67 : 0;
+
+  useEffect(() => {
+    const timer = setTimeout(onDismiss, 5000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  return (
+    <Pressable onPress={onDismiss} style={{ position: "absolute", top: insets.top + webTopInset + 60, left: 16, right: 16, zIndex: 99 }}>
+      <Animated.View entering={FadeInDown.duration(400)} style={{ backgroundColor: "rgba(0,0,0,0.92)", borderRadius: 14, borderWidth: 1, borderColor: "rgba(255,152,0,0.4)", padding: 14, flexDirection: "row", alignItems: "center", gap: 10 }}>
+        <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: "rgba(255,152,0,0.15)", alignItems: "center", justifyContent: "center" }}>
+          <Ionicons name={challenge.icon as any} size={18} color="#FF9800" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <PremiumText variant="caption" color="#FF9800" style={{ fontSize: 9, fontWeight: "800", letterSpacing: 1 }}>VENUE CHALLENGE COMPLETE</PremiumText>
+          <PremiumText variant="body" color="#fff" style={{ fontWeight: "700", fontSize: 13 }}>{challenge.name}</PremiumText>
+        </View>
+        <View style={{ flexDirection: "row", gap: 6 }}>
+          <PremiumText variant="caption" color="#FFD700" style={{ fontSize: 10 }}>+{challenge.reward.coins}</PremiumText>
+          {challenge.reward.gems > 0 && <PremiumText variant="caption" color="#B9F2FF" style={{ fontSize: 10 }}>+{challenge.reward.gems}</PremiumText>}
+        </View>
+      </Animated.View>
+    </Pressable>
   );
 }
 

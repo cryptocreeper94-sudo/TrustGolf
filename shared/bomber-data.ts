@@ -397,6 +397,53 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: "legend_div", name: "Legend Status", description: "Reach Legend division", icon: "flame", color: "#FF4500", category: "milestone", reward: { coins: 2500, xp: 1000, gems: 50 } },
 ];
 
+export interface VenueChallenge {
+  id: string;
+  venueId: string;
+  name: string;
+  description: string;
+  icon: string;
+  condition: "distance" | "accuracy" | "power" | "night" | "headwind";
+  target: number;
+  reward: { coins: number; xp: number; gems: number };
+}
+
+export const VENUE_CHALLENGES: VenueChallenge[] = [
+  { id: "pebble_300", venueId: "pebble_7", name: "Ocean Bomber", description: "Hit 300+ yards at Pebble Beach", icon: "water-outline", condition: "distance", target: 300, reward: { coins: 200, xp: 100, gems: 2 } },
+  { id: "pebble_wind", venueId: "pebble_7", name: "Carmel Bay Conqueror", description: "Hit 280+ into headwind at Pebble Beach", icon: "thunderstorm-outline", condition: "headwind", target: 280, reward: { coins: 300, xp: 150, gems: 3 } },
+  { id: "augusta_350", venueId: "augusta_12", name: "Masters Worthy", description: "Hit 350+ yards at Augusta National", icon: "flower-outline", condition: "distance", target: 350, reward: { coins: 400, xp: 200, gems: 5 } },
+  { id: "augusta_night", venueId: "augusta_12", name: "After Hours at Augusta", description: "Hit 320+ at Augusta at night", icon: "moon-outline", condition: "night", target: 320, reward: { coins: 350, xp: 175, gems: 4 } },
+  { id: "sawgrass_accuracy", venueId: "sawgrass_17", name: "Island Precision", description: "Hit 3 in-bounds drives in a row at TPC Sawgrass", icon: "locate-outline", condition: "accuracy", target: 3, reward: { coins: 250, xp: 125, gems: 3 } },
+  { id: "standrews_400", venueId: "standrews_17", name: "Road Hole Rocket", description: "Hit 400+ yards at St Andrews", icon: "rocket-outline", condition: "distance", target: 400, reward: { coins: 600, xp: 300, gems: 8 } },
+  { id: "standrews_wind", venueId: "standrews_17", name: "Links Master", description: "Hit 300+ into Scottish headwinds at St Andrews", icon: "flag-outline", condition: "headwind", target: 300, reward: { coins: 400, xp: 200, gems: 5 } },
+  { id: "kiawah_350", venueId: "kiawah_17", name: "War by the Shore", description: "Hit 350+ at Kiawah Island", icon: "skull-outline", condition: "distance", target: 350, reward: { coins: 500, xp: 250, gems: 6 } },
+  { id: "pinehurst_power", venueId: "pinehurst_2", name: "Sandhills Slugger", description: "Hit 95%+ power at Pinehurst", icon: "flash-outline", condition: "power", target: 95, reward: { coins: 200, xp: 100, gems: 2 } },
+  { id: "whistling_330", venueId: "whistling_straits", name: "Straits Destroyer", description: "Hit 330+ at Whistling Straits", icon: "boat-outline", condition: "distance", target: 330, reward: { coins: 350, xp: 175, gems: 4 } },
+  { id: "bethpage_night", venueId: "bethpage_black", name: "Black at Night", description: "Hit 350+ at Bethpage Black at night", icon: "skull-outline", condition: "night", target: 350, reward: { coins: 500, xp: 250, gems: 6 } },
+  { id: "bandon_400", venueId: "bandon_dunes", name: "Pacific Powerhouse", description: "Hit 400+ at Bandon Dunes", icon: "bonfire-outline", condition: "distance", target: 400, reward: { coins: 800, xp: 400, gems: 12 } },
+  { id: "bandon_wind", venueId: "bandon_dunes", name: "Oregon Wind Walker", description: "Hit 320+ into headwind at Bandon Dunes", icon: "leaf-outline", condition: "headwind", target: 320, reward: { coins: 600, xp: 300, gems: 8 } },
+  { id: "harbour_town_acc", venueId: "harbour_town", name: "Lighthouse Sniper", description: "Hit 5 in-bounds drives in a row at Harbour Town", icon: "navigate-outline", condition: "accuracy", target: 5, reward: { coins: 400, xp: 200, gems: 5 } },
+  { id: "torrey_350", venueId: "torrey_south", name: "Tiger's Trail", description: "Hit 350+ at Torrey Pines", icon: "paw-outline", condition: "distance", target: 350, reward: { coins: 400, xp: 200, gems: 5 } },
+  { id: "torrey_night", venueId: "torrey_south", name: "La Jolla Lights", description: "Hit 330+ at Torrey Pines at night", icon: "flashlight-outline", condition: "night", target: 330, reward: { coins: 350, xp: 175, gems: 4 } },
+];
+
+export function getVenueChallenges(venueId: string): VenueChallenge[] {
+  return VENUE_CHALLENGES.filter((c) => c.venueId === venueId);
+}
+
+export function checkVenueChallenge(challenge: VenueChallenge, drive: {
+  distance: number; power: number; inBounds: boolean; nightMode: boolean; wind: number; consecutiveInBounds: number;
+}): boolean {
+  switch (challenge.condition) {
+    case "distance": return drive.inBounds && drive.distance >= challenge.target;
+    case "power": return drive.power >= challenge.target;
+    case "night": return drive.nightMode && drive.inBounds && drive.distance >= challenge.target;
+    case "headwind": return drive.wind < -3 && drive.inBounds && drive.distance >= challenge.target;
+    case "accuracy": return drive.consecutiveInBounds >= challenge.target;
+    default: return false;
+  }
+}
+
 export function getAchievementDef(id: string): AchievementDef | undefined {
   return ACHIEVEMENTS.find((a) => a.id === id);
 }
