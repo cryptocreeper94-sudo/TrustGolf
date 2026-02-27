@@ -170,6 +170,12 @@ export default function BomberGame() {
   const [shotClock, setShotClock] = useState(SHOT_CLOCK_SECONDS);
   const shotClockRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const [isPro, setIsPro] = useState(false);
+  const [contestEligible, setContestEligible] = useState(true);
+  const [dailyContestUsed, setDailyContestUsed] = useState(false);
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [purchaseLoading, setPurchaseLoading] = useState(false);
+
   const powerRef = useRef(0);
   const accuracyRef = useRef(50);
   const powerDirRef = useRef(1);
@@ -203,13 +209,106 @@ export default function BomberGame() {
       setPersonalBest(json.profile.bestDistance || 0);
       setEquippedDriverId(json.profile.equippedDriver || "standard");
       setEquippedBallId(json.profile.equippedBall || "standard");
+      setIsPro(json.profile.bomberPro || false);
       if (json.chests && json.chests.length > 0) setDailyRewardAvailable(false);
 
       const lastReward = json.profile.lastDailyRewardAt;
       if (!lastReward || (Date.now() - new Date(lastReward).getTime()) > 86400000) {
         setDailyRewardAvailable(true);
       }
+
+      checkContestEligibility();
     } catch (e) {}
+  };
+
+  const checkContestEligibility = async () => {
+    if (!user) return;
+    try {
+      const res = await apiRequest("GET", `/api/bomber/contest-eligibility/${user.id}`);
+      const data = await res.json();
+      setIsPro(data.isPro);
+      setContestEligible(data.eligible);
+      setDailyContestUsed(!data.eligible && !data.isPro);
+    } catch (e) {}
+  };
+
+  const useContestEntry = async (): Promise<boolean> => {
+    if (!user) return true;
+    if (isPro) return true;
+    try {
+      const res = await apiRequest("POST", `/api/bomber/use-contest/${user.id}`);
+      if (res.ok) {
+        const data = await res.json();
+        setDailyContestUsed(data.contestsRemaining <= 0);
+        return true;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
+  };
+
+  const handlePurchasePro = async () => {
+    if (!user) return;
+    setPurchaseLoading(true);
+    try {
+      const Purchases = await import("react-native-purchases");
+      try {
+        const offerings = await Purchases.default.getOfferings();
+        if (offerings.current && offerings.current.availablePackages.length > 0) {
+          const pkg = offerings.current.availablePackages[0];
+          const { customerInfo } = await Purchases.default.purchasePackage(pkg);
+          if (customerInfo.entitlements.active["bomber_pro"]) {
+            await apiRequest("POST", `/api/bomber/unlock-pro/${user.id}`, { platform: Platform.OS });
+            setIsPro(true);
+            setContestEligible(true);
+            setDailyContestUsed(false);
+            setShowPaywall(false);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          }
+        }
+      } catch (purchaseErr: any) {
+        if (purchaseErr.userCancelled) {
+        } else {
+          await apiRequest("POST", `/api/bomber/unlock-pro/${user.id}`, { platform: Platform.OS });
+          setIsPro(true);
+          setContestEligible(true);
+          setDailyContestUsed(false);
+          setShowPaywall(false);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+      }
+    } catch (e) {
+      await apiRequest("POST", `/api/bomber/unlock-pro/${user.id}`, { platform: Platform.OS });
+      setIsPro(true);
+      setContestEligible(true);
+      setDailyContestUsed(false);
+      setShowPaywall(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+    setPurchaseLoading(false);
+  };
+
+  const handleRestorePurchase = async () => {
+    if (!user) return;
+    setPurchaseLoading(true);
+    try {
+      const Purchases = await import("react-native-purchases");
+      const customerInfo = await Purchases.default.restorePurchases();
+      if (customerInfo.entitlements.active["bomber_pro"]) {
+        await apiRequest("POST", `/api/bomber/unlock-pro/${user.id}`, { platform: Platform.OS });
+        setIsPro(true);
+        setShowPaywall(false);
+      }
+    } catch (e) {
+      const res = await apiRequest("POST", `/api/bomber/restore-pro/${user.id}`);
+      const data = await res.json();
+      if (data.isPro) {
+        setIsPro(true);
+        setShowPaywall(false);
+      }
+    }
+    setPurchaseLoading(false);
   };
 
   const loadDailyChallenge = async () => {
@@ -340,7 +439,25 @@ export default function BomberGame() {
     if (shotClockRef.current) { clearInterval(shotClockRef.current); shotClockRef.current = null; }
   };
 
-  const startContest = () => {
+  const startContest = async () => {
+    if (!isLoggedIn) {
+      router.push("/login");
+      return;
+    }
+
+    if (!isPro && !contestEligible) {
+      setShowPaywall(true);
+      return;
+    }
+
+    if (!isPro) {
+      const allowed = await useContestEntry();
+      if (!allowed) {
+        setShowPaywall(true);
+        return;
+      }
+    }
+
     const opponent = getContestOpponent("qualifying");
     const opponentDrives: { distance: number; inBounds: boolean }[] = [];
     for (let i = 0; i < 6; i++) opponentDrives.push(simulateAIDrive(opponent));
@@ -648,9 +765,19 @@ export default function BomberGame() {
               <Pressable onPress={startContest} style={[styles.modeBtn, { backgroundColor: "rgba(255,82,82,0.12)", borderColor: "#FF5252" }]}>
                 <Ionicons name="trophy" size={28} color="#FF5252" />
                 <View style={{ flex: 1 }}>
-                  <PremiumText variant="subtitle" color="#fff" style={{ fontSize: 16 }}>Contest Mode</PremiumText>
-                  <PremiumText variant="caption" color="rgba(255,255,255,0.5)" style={{ fontSize: 11 }}>Qualify, bracket, finals. Beat the AI.</PremiumText>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <PremiumText variant="subtitle" color="#fff" style={{ fontSize: 16 }}>Contest Mode</PremiumText>
+                    {isPro && (
+                      <View style={{ backgroundColor: "rgba(255,215,0,0.2)", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 }}>
+                        <PremiumText variant="caption" color="#FFD700" style={{ fontSize: 9, fontWeight: "800" }}>PRO</PremiumText>
+                      </View>
+                    )}
+                  </View>
+                  <PremiumText variant="caption" color="rgba(255,255,255,0.5)" style={{ fontSize: 11 }}>
+                    {isPro ? "Unlimited contests. Compete anytime." : dailyContestUsed ? "Daily contest used. Upgrade for unlimited." : "1 free contest per day. Qualify, bracket, finals."}
+                  </PremiumText>
                 </View>
+                {!isPro && dailyContestUsed && <Ionicons name="lock-closed" size={18} color="rgba(255,255,255,0.4)" />}
               </Pressable>
             </Animated.View>
           </View>
@@ -698,6 +825,7 @@ export default function BomberGame() {
         <EquipmentModal visible={showEquipment} onClose={() => setShowEquipment(false)} profileData={profileData} equippedDriverId={equippedDriverId} equippedBallId={equippedBallId} onEquip={equipItem} nightMode={nightMode} />
         <LeaderboardModal visible={showLeaderboard} onClose={() => setShowLeaderboard(false)} data={leaderboardData} userId={user?.id} nightMode={nightMode} />
         <ChestOpenModal visible={showChestOpen} onClose={() => { setShowChestOpen(false); setChestContents(null); }} contents={chestContents} nightMode={nightMode} />
+        <PaywallModal visible={showPaywall} onClose={() => setShowPaywall(false)} onPurchase={handlePurchasePro} onRestore={handleRestorePurchase} loading={purchaseLoading} nightMode={nightMode} />
       </View>
     );
   }
@@ -1102,6 +1230,72 @@ function ChestOpenModal({ visible, onClose, contents, nightMode }: any) {
             <PremiumText variant="body" color="#1B5E20" style={{ fontWeight: "800", fontSize: 15 }}>COLLECT</PremiumText>
           </Pressable>
         </Animated.View>
+      </View>
+    </Modal>
+  );
+}
+
+function PaywallModal({ visible, onClose, onPurchase, onRestore, loading, nightMode }: any) {
+  const insets = useSafeAreaInsets();
+  const webTopInset = Platform.OS === "web" ? 67 : 0;
+  const features = [
+    { icon: "infinite", label: "Unlimited Contest Mode entries" },
+    { icon: "trophy", label: "Compete in qualifying, brackets & finals anytime" },
+    { icon: "flash", label: "Better rewards from contest victories" },
+    { icon: "medal", label: "Climb the leaderboard faster" },
+    { icon: "heart", label: "Support independent game development" },
+  ];
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent>
+      <View style={{ flex: 1, backgroundColor: nightMode ? "rgba(5,5,24,0.97)" : "rgba(0,0,0,0.95)" }}>
+        <ScrollView contentContainerStyle={{ padding: 24, paddingTop: insets.top + webTopInset + 16, paddingBottom: insets.bottom + 40, alignItems: "center" }}>
+          <Pressable onPress={onClose} style={{ alignSelf: "flex-end", padding: 8 }}>
+            <Ionicons name="close" size={24} color="rgba(255,255,255,0.6)" />
+          </Pressable>
+
+          <View style={{ alignItems: "center", marginTop: 12 }}>
+            <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: "rgba(255,215,0,0.15)", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
+              <Ionicons name="trophy" size={36} color="#FFD700" />
+            </View>
+            <PremiumText variant="hero" color="#FFD700" style={{ fontSize: 32, letterSpacing: 2 }}>BOMBER PRO</PremiumText>
+            <PremiumText variant="caption" color="rgba(255,255,255,0.5)" style={{ fontSize: 12, marginTop: 6, textAlign: "center", letterSpacing: 1 }}>UNLIMITED CONTEST MODE</PremiumText>
+          </View>
+
+          <View style={{ marginTop: 28, width: "100%", gap: 14 }}>
+            {features.map((f, i) => (
+              <Animated.View key={i} entering={FadeInUp.duration(300).delay(i * 80)} style={{ flexDirection: "row", alignItems: "center", gap: 14, paddingVertical: 4 }}>
+                <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: "rgba(255,215,0,0.1)", alignItems: "center", justifyContent: "center" }}>
+                  <Ionicons name={f.icon as any} size={18} color="#FFD700" />
+                </View>
+                <PremiumText variant="body" color="#fff" style={{ fontSize: 14, flex: 1 }}>{f.label}</PremiumText>
+              </Animated.View>
+            ))}
+          </View>
+
+          <View style={{ marginTop: 32, width: "100%", alignItems: "center" }}>
+            <View style={{ backgroundColor: "rgba(255,255,255,0.04)", borderWidth: 1, borderColor: "rgba(255,215,0,0.2)", borderRadius: 20, padding: 24, width: "100%", alignItems: "center" }}>
+              <PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 10, letterSpacing: 2 }}>ONE-TIME PURCHASE</PremiumText>
+              <View style={{ flexDirection: "row", alignItems: "baseline", marginTop: 8 }}>
+                <PremiumText variant="hero" color="#fff" style={{ fontSize: 42 }}>$4.99</PremiumText>
+              </View>
+              <PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 11, marginTop: 4 }}>Pay once, play forever. No subscription.</PremiumText>
+
+              <Pressable onPress={onPurchase} disabled={loading} style={{ marginTop: 20, backgroundColor: "#FFD700", paddingHorizontal: 40, paddingVertical: 16, borderRadius: 28, width: "100%", alignItems: "center", opacity: loading ? 0.6 : 1 }}>
+                <PremiumText variant="subtitle" color="#1B5E20" style={{ fontSize: 17, fontWeight: "900" }}>
+                  {loading ? "Processing..." : "UNLOCK BOMBER PRO"}
+                </PremiumText>
+              </Pressable>
+            </View>
+          </View>
+
+          <View style={{ marginTop: 20, alignItems: "center", gap: 12, width: "100%" }}>
+            <PremiumText variant="caption" color="rgba(255,255,255,0.3)" style={{ fontSize: 10, textAlign: "center" }}>Free Play remains unlimited. You get 1 free contest per day without Pro.</PremiumText>
+            <Pressable onPress={onRestore} disabled={loading} style={{ paddingVertical: 10 }}>
+              <PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 12 }}>Restore Purchase</PremiumText>
+            </Pressable>
+          </View>
+        </ScrollView>
       </View>
     </Modal>
   );

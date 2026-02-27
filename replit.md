@@ -139,6 +139,16 @@ Phase 2 of the Bomber long drive contest game is now fully implemented with serv
   - Equipment bonuses modify ball physics (speed, accuracy, distance, roll)
   - XP/coins/gems rewards after each drive
   - Daily challenge card on menu
+- **Payment Gating** (Bomber Pro — $4.99 one-time):
+  - Free Play: always unlimited, no payment required
+  - Contest Mode: 1 free entry per day for all users
+  - Bomber Pro unlock: unlimited Contest Mode entries
+  - RevenueCat integration (`react-native-purchases`) for in-app purchase flow
+  - Server-side tracking: `bomberPro`, `dailyContestDate`, `dailyContestCount` fields on bomber_profiles
+  - API routes: `GET /api/bomber/contest-eligibility/:userId`, `POST /api/bomber/use-contest/:userId`, `POST /api/bomber/unlock-pro/:userId`, `POST /api/bomber/restore-pro/:userId`
+  - Paywall modal with feature list, price display, purchase button, and restore purchase option
+  - Graceful fallback: if RevenueCat not configured, purchase still unlocks server-side (for testing)
+  - Note: RevenueCat API key needs to be configured when products are set up in App Store Connect / Google Play Console
 
 ## External Dependencies
 -   **OpenAI**: Used for AI capabilities, specifically the vision model for swing analysis.

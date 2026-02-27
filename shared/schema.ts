@@ -267,6 +267,9 @@ export const bomberProfiles = pgTable("bomber_profiles", {
   equippedDriver: varchar("equipped_driver").notNull().default("standard"),
   equippedBall: varchar("equipped_ball").notNull().default("standard"),
   division: varchar("division").notNull().default("bronze"),
+  bomberPro: boolean("bomber_pro").notNull().default(false),
+  dailyContestDate: varchar("daily_contest_date"),
+  dailyContestCount: integer("daily_contest_count").notNull().default(0),
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
