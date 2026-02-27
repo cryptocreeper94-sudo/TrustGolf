@@ -894,9 +894,11 @@ export default function BomberGame() {
 
   const venueSky = selectedVenue.skyTheme;
   const venueGround = selectedVenue.groundTheme;
-  const dayBg = { sky1: venueSky.sky1, sky2: venueSky.sky2, ground: venueGround.ground, groundDark: venueGround.groundDark, gridLine: "rgba(255,255,255,0.5)", text: "rgba(255,255,255,0.7)", tracer: "#FFD700", tracerGlow: "rgba(255,215,0,0.3)", ball: "#fff" };
-  const nightBg = { sky1: "#0a0a2e", sky2: "#050518", ground: "#1a3a1a", groundDark: "#0d260d", gridLine: "rgba(255,255,255,0.25)", text: "rgba(255,255,255,0.45)", tracer: "#00FF88", tracerGlow: "rgba(0,255,136,0.25)", ball: "#00FF88" };
+  const dayBg = { sky1: "#55BFEF", sky2: "#3A9AD9", ground: "#5CBF60", groundDark: "#3DA142", rough: "#4AAF4E", roughDark: "#3B9A3F", gridLine: "rgba(255,255,255,0.5)", text: "rgba(255,255,255,0.9)", tracer: "#FFD700", tracerGlow: "rgba(255,215,0,0.4)", ball: "#fff" };
+  const nightBg = { sky1: "#0a0a2e", sky2: "#050518", ground: "#1a4a25", groundDark: "#0d260d", rough: "#0d3318", roughDark: "#1a4a25", gridLine: "rgba(255,255,255,0.25)", text: "rgba(255,255,255,0.45)", tracer: "#00FF88", tracerGlow: "rgba(0,255,136,0.25)", ball: "#00FF88" };
   const theme = nightMode ? nightBg : dayBg;
+  const ballOnTeeY = golferBaseY + 8;
+  const ballRadius = isMobile ? 22 : 18;
 
 
   const windLabel = wind > 0 ? `${Math.abs(wind)} mph tailwind` : wind < 0 ? `${Math.abs(wind)} mph headwind` : "No wind";
