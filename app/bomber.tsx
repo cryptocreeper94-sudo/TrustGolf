@@ -563,10 +563,12 @@ export default function BomberGame() {
 
   const svgWidth = screenWidth;
   const svgHeight = screenHeight;
-  const horizonY = svgHeight * 0.30;
-  const golferBaseY = svgHeight * 0.78;
+  const isSmallScreen = svgHeight < 700;
+  const isMobile = Platform.OS !== "web" || svgWidth < 500;
+  const horizonY = svgHeight * (isSmallScreen ? 0.25 : 0.30);
+  const golferBaseY = svgHeight * (isSmallScreen ? 0.72 : 0.78);
   const centerX = svgWidth / 2;
-  const fairwayBottomW = svgWidth * 0.78;
+  const fairwayBottomW = svgWidth * (isMobile ? 0.88 : 0.78);
   const groundY = golferBaseY;
 
   const perspProject = useCallback((yardDist: number, heightM: number, maxH: number, lateralPct: number = 0) => {
@@ -1577,7 +1579,7 @@ export default function BomberGame() {
                       <Line x1={centerX + fwHW - 2} y1={y} x2={centerX + fwHW - 2} y2={y - 16 * scl} stroke={nightMode ? "#4CAF50" : "#fff"} strokeWidth={1} opacity={0.6} />
                       <Polygon points={`${centerX + fwHW - 2},${y - 16 * scl} ${centerX + fwHW + 8 * scl},${y - 12 * scl} ${centerX + fwHW - 2},${y - 8 * scl}`}
                         fill={yard === 300 ? "#FFD700" : yard === 400 ? "#FF5252" : nightMode ? "#00FF88" : "#fff"} opacity={0.7} />
-                      <SvgText x={centerX + fwHW + 12 * scl} y={y + 3} textAnchor="start" fill={nightMode ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.6)"} fontSize={Math.max(7, 11 * scl)} fontWeight="700">{yard}</SvgText>
+                      <SvgText x={centerX + fwHW + 12 * scl} y={y + 3} textAnchor="start" fill={nightMode ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.6)"} fontSize={Math.max(isMobile ? 9 : 7, (isMobile ? 13 : 11) * scl)} fontWeight="700">{yard}</SvgText>
                     </G>
                   )}
                 </G>
@@ -1662,7 +1664,7 @@ export default function BomberGame() {
 
             {/* GOLFER — behind view */}
             <G opacity={gameState === "flying" ? 0.6 : 0.9}>
-              <Ellipse cx={centerX} cy={golferBaseY + 24} rx={16} ry={4} fill="rgba(0,0,0,0.15)" />
+              <Ellipse cx={centerX} cy={golferBaseY + 24} rx={isMobile ? 20 : 16} ry={isMobile ? 5 : 4} fill="rgba(0,0,0,0.15)" />
               <Ellipse cx={centerX - 5} cy={golferBaseY + 21} rx={4} ry={2.5} fill="#333" />
               <Ellipse cx={centerX + 5} cy={golferBaseY + 21} rx={4} ry={2.5} fill="#333" />
               <Path d={`M${centerX - 3},${golferBaseY + 18} L${centerX - 6},${golferBaseY - 5} L${centerX - 1},${golferBaseY - 5} L${centerX - 1},${golferBaseY + 18} Z`} fill="#B8945C" />
@@ -1709,9 +1711,10 @@ export default function BomberGame() {
 
             {/* ARC SWING GAUGE */}
             {(gameState === "powering" || gameState === "aiming") && (() => {
-              const gaugeR = Math.min(svgWidth * 0.28, 130);
+              const gaugeR = Math.min(svgWidth * (isMobile ? 0.32 : 0.28), isMobile ? 110 : 130);
               const gaugeCx = centerX;
-              const gaugeCy = svgHeight - 55;
+              const bottomSafe = Platform.OS === "web" ? 34 : insets.bottom;
+              const gaugeCy = svgHeight - bottomSafe - (isMobile ? 35 : 45);
               const meterValue = gameState === "powering" ? power : accuracy;
               const needleAngle = Math.PI - (meterValue / 100) * Math.PI;
               const needleX = gaugeCx + Math.cos(needleAngle) * gaugeR;
@@ -1741,7 +1744,7 @@ export default function BomberGame() {
                     const a1 = Math.PI - (i / arcSegs) * Math.PI;
                     const a2 = Math.PI - ((i + 1) / arcSegs) * Math.PI;
                     const oR = gaugeR;
-                    const iR = gaugeR - 14;
+                    const iR = gaugeR - (isMobile ? 18 : 14);
                     const x1o = gaugeCx + Math.cos(a1) * oR;
                     const y1o = gaugeCy - Math.sin(a1) * oR;
                     const x2o = gaugeCx + Math.cos(a2) * oR;
@@ -1761,13 +1764,13 @@ export default function BomberGame() {
                   })}
                   <Circle cx={gaugeCx} cy={gaugeCy} r={6} fill="rgba(255,255,255,0.9)" />
                   <Line x1={needleMidX} y1={needleMidY} x2={needleX} y2={needleY} stroke="#fff" strokeWidth={3} strokeLinecap="round" />
-                  <Circle cx={needleX} cy={needleY} r={5} fill="#fff" />
-                  <Circle cx={needleX} cy={needleY} r={8} fill="#fff" opacity={0.2} />
+                  <Circle cx={needleX} cy={needleY} r={isMobile ? 6 : 5} fill="#fff" />
+                  <Circle cx={needleX} cy={needleY} r={isMobile ? 10 : 8} fill="#fff" opacity={0.2} />
                   {gameState === "aiming" && (
                     <Line x1={gaugeCx} y1={gaugeCy - gaugeR - 4} x2={gaugeCx} y2={gaugeCy - gaugeR + 18} stroke="#4CAF50" strokeWidth={2.5} opacity={0.8} />
                   )}
-                  <SvgText x={gaugeCx} y={gaugeCy - 20} textAnchor="middle" fill="#fff" fontSize={22} fontWeight="900">{meterValue}%</SvgText>
-                  <SvgText x={gaugeCx} y={gaugeCy - 5} textAnchor="middle" fill="rgba(255,255,255,0.5)" fontSize={10} fontWeight="700">
+                  <SvgText x={gaugeCx} y={gaugeCy - (isMobile ? 16 : 20)} textAnchor="middle" fill="#fff" fontSize={isMobile ? 26 : 22} fontWeight="900">{meterValue}%</SvgText>
+                  <SvgText x={gaugeCx} y={gaugeCy - (isMobile ? 2 : 5)} textAnchor="middle" fill="rgba(255,255,255,0.5)" fontSize={isMobile ? 11 : 10} fontWeight="700">
                     {gameState === "powering" ? "POWER" : "ACCURACY"}
                   </SvgText>
                   {gameState === "aiming" && (
@@ -1776,7 +1779,7 @@ export default function BomberGame() {
                       <SvgText x={gaugeCx + gaugeR + 5} y={gaugeCy + 4} textAnchor="start" fill="rgba(255,255,255,0.4)" fontSize={8}>SLICE</SvgText>
                     </G>
                   )}
-                  <SvgText x={gaugeCx} y={gaugeCy + 20} textAnchor="middle" fill="rgba(255,255,255,0.5)" fontSize={11} fontWeight="600">TAP</SvgText>
+                  <SvgText x={gaugeCx} y={gaugeCy + (isMobile ? 16 : 20)} textAnchor="middle" fill="rgba(255,255,255,0.6)" fontSize={isMobile ? 13 : 11} fontWeight="700">TAP</SvgText>
                 </G>
               );
             })()}
@@ -1899,7 +1902,7 @@ export default function BomberGame() {
                     <PremiumText variant="caption" color="#FFD700" style={{ fontWeight: "800", fontSize: 12 }}>NEW BEST!</PremiumText>
                   </Animated.View>
                 )}
-                <PremiumText variant="hero" color={nightMode ? "#00FF88" : "#FFD700"} style={{ textAlign: "center", fontSize: 52, fontWeight: "900" }}>{currentResult.total}</PremiumText>
+                <PremiumText variant="hero" color={nightMode ? "#00FF88" : "#FFD700"} style={{ textAlign: "center", fontSize: isMobile ? 44 : 52, fontWeight: "900" }}>{currentResult.total}</PremiumText>
                 <PremiumText variant="caption" color="rgba(255,255,255,0.5)" style={{ textAlign: "center", fontSize: 13, letterSpacing: 2 }}>TOTAL YARDS</PremiumText>
                 <View style={styles.carryRollRow}>
                   <View style={styles.statBox}><PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 9 }}>CARRY</PremiumText><PremiumText variant="title" color="#fff" style={{ fontSize: 20 }}>{currentResult.carry}</PremiumText></View>
@@ -2537,11 +2540,11 @@ const styles = StyleSheet.create({
   ballCounter: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 6 },
   ballDot: { width: 8, height: 8, borderRadius: 4 },
   shotClockBadge: { position: "absolute", right: 0, top: 0, flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10 },
-  startPrompt: { position: "absolute", bottom: "15%", left: 0, right: 0, alignItems: "center", zIndex: 10 },
+  startPrompt: { position: "absolute", bottom: "22%", left: 0, right: 0, alignItems: "center", zIndex: 10 },
   equippedTag: { flexDirection: "row", alignItems: "center", gap: 4, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, marginBottom: 8 },
   driveButton: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 36, paddingVertical: 16, borderRadius: 30 },
   resultsOverlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, justifyContent: "center", alignItems: "center", zIndex: 20, paddingHorizontal: 20 },
-  resultsPanel: { width: "100%", maxWidth: 380, borderRadius: 24, borderWidth: 1, padding: 28, alignItems: "center" },
+  resultsPanel: { width: "100%", maxWidth: 380, borderRadius: 24, borderWidth: 1, padding: 24, alignItems: "center" },
   newBestBadge: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(255,215,0,0.15)", paddingHorizontal: 14, paddingVertical: 6, borderRadius: 12, marginBottom: 8, alignSelf: "center" },
   carryRollRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 20, marginTop: 16 },
   statBox: { alignItems: "center", gap: 2 },
