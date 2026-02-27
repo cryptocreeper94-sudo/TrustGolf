@@ -668,14 +668,6 @@ export default function ExploreScreen() {
             </Pressable>
 
             <Pressable
-              onPress={() => { setMenuOpen(false); router.push("/bomber" as any); }}
-              style={[styles.menuItem, { backgroundColor: colors.accent + "12" }]}
-            >
-              <Ionicons name="game-controller-outline" size={20} color={colors.accent} />
-              <PremiumText variant="body" color={colors.accent}>Bomber Long Drive</PremiumText>
-            </Pressable>
-
-            <Pressable
               onPress={() => { setMenuOpen(false); router.push("/about"); }}
               style={styles.menuItem}
             >
