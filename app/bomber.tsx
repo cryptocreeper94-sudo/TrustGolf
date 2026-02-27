@@ -245,10 +245,18 @@ export default function BomberGame() {
   useEffect(() => {
     AsyncStorage.getItem("bomber_completed_challenges").then((val) => {
       if (val) setCompletedChallengeIds(JSON.parse(val));
-    });
+    }).catch(() => {});
     AsyncStorage.getItem("bomber_sound_enabled").then((val) => {
       if (val === "false") setSoundEnabled(false);
-    });
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (powerIntervalRef.current) clearInterval(powerIntervalRef.current);
+      if (accuracyIntervalRef.current) clearInterval(accuracyIntervalRef.current);
+      if (shotClockRef.current) clearInterval(shotClockRef.current);
+    };
   }, []);
 
   useEffect(() => {

@@ -173,6 +173,18 @@ Phase 3 adds venues, achievements, and tournament infrastructure:
 - **API Routes** (in `server/routes.ts`): 9 new endpoints for venues, tournaments, and achievements
 - **Shared Data** (`shared/bomber-data.ts`): VENUE_DEFS (12 venues), ACHIEVEMENTS (25 defs), getVenueDef, getVenueWeather, checkAchievements helper
 
+## Bomber — Mobile-First Optimization
+- `isSmallScreen` (height < 700px) and `isMobile` (native or width < 500px) detection
+- Horizon pushes higher on small screens (25% vs 30%), golfer moves up (72% vs 78%)
+- Fairway widens on mobile (88% vs 78%) for immersive feel
+- Arc gauge: larger radius on mobile (32% / max 110px), thicker band (18px), safe-area-aware bottom positioning
+- Gauge text/needle/labels scale up on mobile for touch clarity
+- Distance marker text scales larger on mobile
+- Drive button positioned at 22% from bottom (above gauge)
+- Results panel total yards font scales to 44px on mobile (52px desktop)
+- Interval cleanup on component unmount (power, accuracy, shot clock)
+- AsyncStorage reads wrapped with .catch() for error resilience
+
 ## Bomber Phase 4 — Polish & Game Feel
 Phase 4 adds audio, visual effects, and venue-specific challenges:
 - **Sound Effects** (`lib/bomber-sounds.ts`): Web Audio API synthesized sounds — swing whoosh, impact crack, crowd reaction (300+), chest open/reveal, level up fanfare, achievement unlock, OB miss, shot clock countdown, menu tap. Toggle on/off in menu header, persisted via AsyncStorage
