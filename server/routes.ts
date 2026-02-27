@@ -2269,6 +2269,271 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
     res.json({ message: addedCourses > 0 ? `Added ${addedCourses} new courses` : "All courses present", courses: totalCourses, deals: sampleDeals.length });
   });
 
+  // ===== BOMBER GAME API =====
+
+  app.get("/api/bomber/profile/:userId", async (req: Request, res: Response) => {
+    try {
+      const { userId } = req.params;
+      let profile = await storage.getBomberProfile(userId);
+      if (!profile) {
+        profile = await storage.createBomberProfile(userId);
+        await storage.addBomberEquipment(userId, "standard", "driver");
+        await storage.addBomberEquipment(userId, "standard", "ball");
+      }
+      const equipment = await storage.getBomberEquipment(userId);
+      const chests = await storage.getBomberChestQueue(userId);
+      const { getLevelFromXp, getDivision } = await import("@shared/bomber-data");
+      const levelInfo = getLevelFromXp(profile.xp);
+      const division = getDivision(profile.xp);
+      res.json({ profile, equipment, chests, levelInfo, division });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/bomber/drive", async (req: Request, res: Response) => {
+    try {
+      const { userId, distance, carry, roll, ballSpeed, launchAngle, wind, nightMode, inBounds, equippedDriver, equippedBall, username } = req.body;
+      if (!userId) return res.status(400).json({ error: "userId required" });
+
+      let profile = await storage.getBomberProfile(userId);
+      if (!profile) profile = await storage.createBomberProfile(userId);
+
+      const xpBase = 10;
+      const xpBonus = inBounds ? Math.max(0, Math.floor((distance - 200) / 10)) : 0;
+      const xpEarned = xpBase + xpBonus;
+
+      const coinsBase = 5;
+      const coinsBonus = inBounds && distance > 250 ? Math.floor((distance - 250) / 10) : 0;
+      const coinsEarned = coinsBase + coinsBonus;
+
+      const newXp = profile.xp + xpEarned;
+      const newCoins = profile.coins + coinsEarned;
+      const newTotalDrives = profile.totalDrives + 1;
+      const newBest = inBounds && distance > profile.bestDistance ? distance : profile.bestDistance;
+
+      const { getDivision, getChestTypeForDistance } = await import("@shared/bomber-data");
+      const division = getDivision(newXp);
+
+      const updateData: any = {
+        xp: newXp,
+        coins: newCoins,
+        totalDrives: newTotalDrives,
+        bestDistance: newBest,
+        division: division.id,
+      };
+
+      const updated = await storage.updateBomberProfile(userId, updateData);
+
+      if (inBounds && distance > 0) {
+        await storage.addBomberLeaderboardEntry({
+          userId,
+          username: username || "Anonymous",
+          distance,
+          ballSpeed,
+          launchAngle,
+          wind,
+          nightMode,
+          equippedDriver,
+          equippedBall,
+        });
+      }
+
+      let chestEarned = null;
+      if (newTotalDrives % 5 === 0 && inBounds) {
+        const chestType = getChestTypeForDistance(distance);
+        chestEarned = await storage.addBomberChest(userId, chestType);
+      }
+
+      const { getLevelFromXp } = await import("@shared/bomber-data");
+      const levelInfo = getLevelFromXp(newXp);
+
+      res.json({
+        profile: updated,
+        xpEarned,
+        coinsEarned,
+        chestEarned,
+        levelInfo,
+        division,
+        newBest: distance === newBest && inBounds,
+      });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.get("/api/bomber/leaderboard", async (_req: Request, res: Response) => {
+    try {
+      const entries = await storage.getBomberLeaderboard(50);
+      res.json(entries);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/bomber/daily-reward/:userId", async (req: Request, res: Response) => {
+    try {
+      const { userId } = req.params;
+      let profile = await storage.getBomberProfile(userId);
+      if (!profile) profile = await storage.createBomberProfile(userId);
+
+      const now = new Date();
+      const lastReward = profile.lastDailyRewardAt ? new Date(profile.lastDailyRewardAt) : null;
+      const hoursSince = lastReward ? (now.getTime() - lastReward.getTime()) / 3600000 : 999;
+
+      if (hoursSince < 24) {
+        return res.json({ available: false, hoursUntilNext: Math.ceil(24 - hoursSince) });
+      }
+
+      let newStreak = profile.currentStreak;
+      if (hoursSince > 48) {
+        newStreak = 1;
+      } else {
+        newStreak += 1;
+      }
+
+      let chestType = "daily";
+      if (newStreak >= 30) chestType = "diamond";
+      else if (newStreak >= 7) chestType = "gold";
+      else if (newStreak >= 3) chestType = "silver";
+
+      const { generateChestContents } = await import("@shared/bomber-data");
+      const contents = generateChestContents(chestType);
+
+      const chest = await storage.addBomberChest(userId, chestType);
+      await storage.openBomberChest(chest.id, contents);
+
+      const newCoins = profile.coins + contents.coins;
+      const newXp = profile.xp + contents.xp;
+      const newGems = profile.gems + contents.gems;
+
+      if (contents.equipment) {
+        await storage.addBomberEquipmentDuplicate(userId, contents.equipment.id, contents.equipment.type);
+      }
+
+      const longestStreak = Math.max(profile.longestStreak, newStreak);
+      await storage.updateBomberProfile(userId, {
+        lastDailyRewardAt: now,
+        currentStreak: newStreak,
+        longestStreak,
+        coins: newCoins,
+        xp: newXp,
+        gems: newGems,
+      });
+
+      res.json({ available: true, claimed: true, chest: { ...chest, contents }, streak: newStreak, contents });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/bomber/chest/:id/open", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { userId } = req.body;
+      if (!userId) return res.status(400).json({ error: "userId required" });
+
+      const chests = await storage.getBomberChestQueue(userId);
+      const chest = chests.find(c => c.id === id);
+      if (!chest) return res.status(404).json({ error: "Chest not found" });
+
+      const { generateChestContents } = await import("@shared/bomber-data");
+      const contents = generateChestContents(chest.chestType);
+
+      const opened = await storage.openBomberChest(id, contents);
+
+      let profile = await storage.getBomberProfile(userId);
+      if (profile) {
+        const newCoins = profile.coins + contents.coins;
+        const newXp = profile.xp + contents.xp;
+        const newGems = profile.gems + contents.gems;
+        await storage.updateBomberProfile(userId, { coins: newCoins, xp: newXp, gems: newGems });
+      }
+
+      if (contents.equipment) {
+        await storage.addBomberEquipmentDuplicate(userId, contents.equipment.id, contents.equipment.type);
+      }
+
+      res.json({ chest: opened, contents });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.get("/api/bomber/challenges/today", async (_req: Request, res: Response) => {
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      let challenge = await storage.getDailyChallenge(today);
+      if (!challenge) {
+        const { DAILY_CHALLENGE_TEMPLATES } = await import("@shared/bomber-data");
+        const template = DAILY_CHALLENGE_TEMPLATES[Math.floor(Math.random() * DAILY_CHALLENGE_TEMPLATES.length)];
+        challenge = await storage.createDailyChallenge({
+          challengeId: `challenge_${today}`,
+          title: template.title,
+          description: template.description,
+          targetDistance: template.targetDistance,
+          condition: template.condition,
+          reward: template.reward,
+          activeDate: today,
+        });
+      }
+      res.json(challenge);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.get("/api/bomber/equipment/:userId", async (req: Request, res: Response) => {
+    try {
+      const equipment = await storage.getBomberEquipment(req.params.userId);
+      res.json(equipment);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/bomber/equipment/:id/upgrade", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const equipment = await storage.getBomberEquipment(req.body.userId);
+      const item = equipment.find(e => e.id === id);
+      if (!item) return res.status(404).json({ error: "Equipment not found" });
+
+      const { getEquipmentDef } = await import("@shared/bomber-data");
+      const def = getEquipmentDef(item.equipmentId, item.type as "driver" | "ball");
+      if (!def) return res.status(400).json({ error: "Unknown equipment" });
+
+      if (item.duplicates < def.dupesToUpgrade) {
+        return res.status(400).json({ error: `Need ${def.dupesToUpgrade} duplicates to upgrade, have ${item.duplicates}` });
+      }
+
+      const upgraded = await storage.upgradeBomberEquipment(id);
+      res.json(upgraded);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/bomber/equip", async (req: Request, res: Response) => {
+    try {
+      const { userId, equipmentId, type } = req.body;
+      if (!userId || !equipmentId || !type) return res.status(400).json({ error: "Missing fields" });
+
+      const equipment = await storage.getBomberEquipment(userId);
+      const owned = equipment.find(e => e.equipmentId === equipmentId && e.type === type);
+      if (!owned) return res.status(400).json({ error: "Equipment not owned" });
+
+      const updateData: any = {};
+      if (type === "driver") updateData.equippedDriver = equipmentId;
+      if (type === "ball") updateData.equippedBall = equipmentId;
+
+      const updated = await storage.updateBomberProfile(userId, updateData);
+      res.json(updated);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

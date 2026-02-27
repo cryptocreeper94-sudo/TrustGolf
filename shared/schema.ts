@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, real, timestamp, boolean, serial, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, real, timestamp, boolean, serial, jsonb, date } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -251,3 +251,78 @@ export type BlogPost = typeof blogPosts.$inferSelect;
 export type InsertBlogPost = z.infer<typeof insertBlogPostSchema>;
 export type WhitelistedUser = typeof whitelistedUsers.$inferSelect;
 export type InsertWhitelistedUser = z.infer<typeof insertWhitelistedUserSchema>;
+
+export const bomberProfiles = pgTable("bomber_profiles", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id).unique(),
+  level: integer("level").notNull().default(1),
+  xp: integer("xp").notNull().default(0),
+  coins: integer("coins").notNull().default(500),
+  gems: integer("gems").notNull().default(10),
+  totalDrives: integer("total_drives").notNull().default(0),
+  bestDistance: integer("best_distance").notNull().default(0),
+  currentStreak: integer("current_streak").notNull().default(0),
+  longestStreak: integer("longest_streak").notNull().default(0),
+  lastDailyRewardAt: timestamp("last_daily_reward_at"),
+  equippedDriver: varchar("equipped_driver").notNull().default("standard"),
+  equippedBall: varchar("equipped_ball").notNull().default("standard"),
+  division: varchar("division").notNull().default("bronze"),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+export const bomberEquipment = pgTable("bomber_equipment", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  equipmentId: varchar("equipment_id").notNull(),
+  type: varchar("type").notNull(),
+  level: integer("level").notNull().default(1),
+  duplicates: integer("duplicates").notNull().default(0),
+  unlockedAt: timestamp("unlocked_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+export const bomberLeaderboard = pgTable("bomber_leaderboard", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  username: text("username").notNull(),
+  distance: integer("distance").notNull(),
+  ballSpeed: integer("ball_speed"),
+  launchAngle: real("launch_angle"),
+  wind: real("wind"),
+  nightMode: boolean("night_mode").default(false),
+  equippedDriver: varchar("equipped_driver"),
+  equippedBall: varchar("equipped_ball"),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+export const bomberChestQueue = pgTable("bomber_chest_queue", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  chestType: varchar("chest_type").notNull(),
+  earnedAt: timestamp("earned_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+  openedAt: timestamp("opened_at"),
+  contents: jsonb("contents"),
+});
+
+export const bomberDailyChallenges = pgTable("bomber_daily_challenges", {
+  id: serial("id").primaryKey(),
+  challengeId: varchar("challenge_id").notNull(),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  targetDistance: integer("target_distance").notNull(),
+  condition: varchar("condition").notNull(),
+  reward: jsonb("reward").notNull(),
+  activeDate: date("active_date").notNull(),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+export const insertBomberProfileSchema = createInsertSchema(bomberProfiles).omit({ id: true, createdAt: true });
+export const insertBomberEquipmentSchema = createInsertSchema(bomberEquipment).omit({ id: true, unlockedAt: true });
+export const insertBomberLeaderboardSchema = createInsertSchema(bomberLeaderboard).omit({ id: true, createdAt: true });
+export const insertBomberChestSchema = createInsertSchema(bomberChestQueue).omit({ id: true, earnedAt: true, openedAt: true, contents: true });
+
+export type BomberProfile = typeof bomberProfiles.$inferSelect;
+export type InsertBomberProfile = z.infer<typeof insertBomberProfileSchema>;
+export type BomberEquipmentItem = typeof bomberEquipment.$inferSelect;
+export type BomberLeaderboardEntry = typeof bomberLeaderboard.$inferSelect;
+export type BomberChest = typeof bomberChestQueue.$inferSelect;
+export type BomberDailyChallenge = typeof bomberDailyChallenges.$inferSelect;

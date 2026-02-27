@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
-  View, StyleSheet, Pressable, Platform, useWindowDimensions,
+  View, StyleSheet, Pressable, Platform, useWindowDimensions, ScrollView, Modal,
 } from "react-native";
 import Svg, {
   Rect, Circle, Line, Text as SvgText, Defs, LinearGradient as SvgLinearGradient,
@@ -8,7 +8,7 @@ import Svg, {
 } from "react-native-svg";
 import Animated, {
   useSharedValue, useAnimatedStyle, withSpring,
-  FadeIn, FadeInUp, ZoomIn,
+  FadeIn, FadeInUp, FadeInDown, ZoomIn,
 } from "react-native-reanimated";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -16,9 +16,19 @@ import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { PremiumText } from "@/components/PremiumText";
+import { apiRequest } from "@/lib/query-client";
+import {
+  DRIVERS, BALLS, ALL_EQUIPMENT, getEquipmentDef, RARITY_COLORS, CHEST_TYPES,
+  getDivision, getLevelFromXp, AI_OPPONENTS, simulateAIDrive, getContestOpponent,
+  getRandomWeather, generateWindForWeather,
+  type EquipmentDef, type AIOpponent, type WeatherCondition, type DailyChallenge, type ChestTypeDef,
+} from "@shared/bomber-data";
 
 type GameState = "idle" | "powering" | "aiming" | "flying" | "landed";
+type GameMode = "menu" | "freeplay" | "contest";
+type ContestRound = "qualifying" | "bracket" | "finals";
 
 interface DriveResult {
   carry: number;
@@ -33,46 +43,63 @@ interface DriveResult {
   nightMode: boolean;
 }
 
+interface BomberProfileData {
+  profile: any;
+  equipment: any[];
+  chests: any[];
+  levelInfo: { level: number; currentXp: number; nextLevelXp: number };
+  division: { id: string; name: string; color: string; icon: string };
+}
+
+interface ContestState {
+  round: ContestRound;
+  ballsRemaining: number;
+  totalBalls: number;
+  playerBest: number;
+  opponent: AIOpponent;
+  opponentBest: number;
+  opponentDrives: { distance: number; inBounds: boolean }[];
+  playerDrives: { distance: number; inBounds: boolean }[];
+  result: "pending" | "win" | "lose";
+}
+
 const GRID_START_YARD = 150;
 const GRID_END_YARD = 475;
-const GRID_WIDTH_YARDS = 50;
 const MARKER_INTERVAL = 25;
 const GRAVITY = 9.81;
 const DRAG = 0.9965;
 const MPH_TO_MS = 0.44704;
 const YARD_TO_M = 0.9144;
 const PHYSICS_DT = 0.016;
-
-function generateWind(): number {
-  return Math.round((Math.random() * 40 - 20) * 10) / 10;
-}
+const SHOT_CLOCK_SECONDS = 30;
 
 function generateStars(count: number, w: number, h: number) {
   const stars = [];
   for (let i = 0; i < count; i++) {
-    stars.push({
-      x: Math.random() * w,
-      y: Math.random() * h * 0.55,
-      r: Math.random() * 1.2 + 0.3,
-      opacity: Math.random() * 0.6 + 0.3,
-    });
+    stars.push({ x: Math.random() * w, y: Math.random() * h * 0.55, r: Math.random() * 1.2 + 0.3, opacity: Math.random() * 0.6 + 0.3 });
   }
   return stars;
 }
 
-function simulateDrive(power: number, accuracyPct: number, wind: number) {
-  const ballSpeedMph = power * 1.9;
+function simulateDrive(power: number, accuracyPct: number, wind: number, driverDef?: EquipmentDef, ballDef?: EquipmentDef, weather?: WeatherCondition) {
+  const speedBonus = (driverDef?.speedBonus || 0) + (ballDef?.speedBonus || 0);
+  const accuracyBonus = (driverDef?.accuracyBonus || 0) + (ballDef?.accuracyBonus || 0);
+  const distBonus = 1 + ((driverDef?.distanceBonus || 0) + (ballDef?.distanceBonus || 0)) / 100;
+  const rollBonus = 1 + ((driverDef?.rollBonus || 0) + (ballDef?.rollBonus || 0)) / 100;
+  const weatherDist = weather?.distanceModifier || 1;
+  const weatherRoll = weather?.rollModifier || 1;
+
+  const ballSpeedMph = power * 1.9 + speedBonus;
   const ballSpeedMs = ballSpeedMph * MPH_TO_MS;
 
-  const angleDev = (accuracyPct - 50) / 50 * 3;
+  const accAdjusted = 50 + (accuracyPct - 50) * (1 - accuracyBonus / 100);
+  const angleDev = (accAdjusted - 50) / 50 * 3;
   const launchAngleDeg = 12 + angleDev;
   const launchAngleRad = (launchAngleDeg * Math.PI) / 180;
 
   let vx = ballSpeedMs * Math.cos(launchAngleRad);
   let vy = ballSpeedMs * Math.sin(launchAngleRad);
-  let x = 0;
-  let y = 0;
-
+  let x = 0, y = 0;
   const windMs = wind * MPH_TO_MS * 0.3;
   const points: { x: number; y: number }[] = [{ x: 0, y: 0 }];
   let maxSteps = 2000;
@@ -83,49 +110,38 @@ function simulateDrive(power: number, accuracyPct: number, wind: number) {
     vy = (vy - GRAVITY * PHYSICS_DT) * DRAG;
     x += vx * PHYSICS_DT;
     y += vy * PHYSICS_DT;
-
-    if (y < 0 && points.length > 5) {
-      y = 0;
-      landed = true;
-      points.push({ x, y });
-      break;
-    }
+    if (y < 0 && points.length > 5) { y = 0; landed = true; points.push({ x, y }); break; }
     points.push({ x, y });
   }
+  if (!landed) points.push({ x, y: 0 });
 
-  if (!landed) {
-    points.push({ x, y: 0 });
-  }
-
-  const carryYards = Math.max(0, x / YARD_TO_M);
+  const carryYards = Math.max(0, x / YARD_TO_M) * distBonus * weatherDist;
   const rollFactor = 0.08 + Math.random() * 0.07;
   const angleFactor = Math.max(0, 1 - Math.abs(launchAngleDeg - 12) * 0.05);
-  const rollYards = carryYards * rollFactor * angleFactor;
+  const rollYards = carryYards * rollFactor * angleFactor * rollBonus * weatherRoll;
   const totalYards = carryYards + rollYards;
-
-  const lateralCenter = Math.abs(accuracyPct - 50);
+  const lateralCenter = Math.abs(accAdjusted - 50);
   const inBounds = lateralCenter < 30;
 
   return {
-    carry: Math.round(carryYards),
-    roll: Math.round(rollYards),
-    total: Math.round(totalYards),
-    ballSpeed: Math.round(ballSpeedMph),
-    launchAngle: Math.round(launchAngleDeg * 10) / 10,
-    inBounds,
-    points,
+    carry: Math.round(carryYards), roll: Math.round(rollYards), total: Math.round(totalYards),
+    ballSpeed: Math.round(ballSpeedMph), launchAngle: Math.round(launchAngleDeg * 10) / 10,
+    inBounds, points,
   };
 }
 
 export default function BomberGame() {
   const { colors } = useTheme();
+  const { user, isLoggedIn } = useAuth();
   const insets = useSafeAreaInsets();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const webTopInset = Platform.OS === "web" ? 20 : 0;
+  const webTopInset = Platform.OS === "web" ? 67 : 0;
 
+  const [gameMode, setGameMode] = useState<GameMode>("menu");
   const [gameState, setGameState] = useState<GameState>("idle");
   const [nightMode, setNightMode] = useState(false);
-  const [wind, setWind] = useState(() => generateWind());
+  const [weather, setWeather] = useState<WeatherCondition>(() => getRandomWeather());
+  const [wind, setWind] = useState(() => generateWindForWeather(weather));
   const [power, setPower] = useState(0);
   const [accuracy, setAccuracy] = useState(50);
   const [personalBest, setPersonalBest] = useState(0);
@@ -134,9 +150,25 @@ export default function BomberGame() {
   const [trajectoryPoints, setTrajectoryPoints] = useState<string>("");
   const [ballPos, setBallPos] = useState({ x: 0, y: 0 });
   const [showBall, setShowBall] = useState(false);
-  const [animatingTracer, setAnimatingTracer] = useState(false);
-  const [tracerEndIndex, setTracerEndIndex] = useState(0);
   const [stars] = useState(() => generateStars(40, screenWidth, screenHeight));
+
+  const [profileData, setProfileData] = useState<BomberProfileData | null>(null);
+  const [equippedDriverId, setEquippedDriverId] = useState("standard");
+  const [equippedBallId, setEquippedBallId] = useState("standard");
+  const [showEquipment, setShowEquipment] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [showChestOpen, setShowChestOpen] = useState(false);
+  const [chestContents, setChestContents] = useState<any>(null);
+  const [chestToOpen, setChestToOpen] = useState<any>(null);
+  const [dailyRewardAvailable, setDailyRewardAvailable] = useState(false);
+  const [dailyChallenge, setDailyChallenge] = useState<DailyChallenge | null>(null);
+  const [leaderboardData, setLeaderboardData] = useState<any[]>([]);
+  const [xpGained, setXpGained] = useState(0);
+  const [coinsGained, setCoinsGained] = useState(0);
+
+  const [contest, setContest] = useState<ContestState | null>(null);
+  const [shotClock, setShotClock] = useState(SHOT_CLOCK_SECONDS);
+  const shotClockRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const powerRef = useRef(0);
   const accuracyRef = useRef(50);
@@ -144,20 +176,117 @@ export default function BomberGame() {
   const accuracyDirRef = useRef(1);
   const powerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const accuracyIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const flightPointsRef = useRef<{ x: number; y: number }[]>([]);
 
   const resultScale = useSharedValue(0);
+  const resultStyle = useAnimatedStyle(() => ({ transform: [{ scale: resultScale.value }], opacity: resultScale.value }));
 
-  const resultStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: resultScale.value }],
-    opacity: resultScale.value,
-  }));
+  const driverDef = getEquipmentDef(equippedDriverId, "driver");
+  const ballDef = getEquipmentDef(equippedBallId, "ball");
 
   useEffect(() => {
-    AsyncStorage.getItem("bomber_personal_best").then((val) => {
-      if (val) setPersonalBest(parseInt(val));
-    });
-  }, []);
+    if (isLoggedIn && user) {
+      loadProfile();
+      loadDailyChallenge();
+    } else {
+      AsyncStorage.getItem("bomber_personal_best").then((val) => {
+        if (val) setPersonalBest(parseInt(val));
+      });
+    }
+  }, [isLoggedIn, user]);
+
+  const loadProfile = async () => {
+    if (!user) return;
+    try {
+      const data = await apiRequest("GET", `/api/bomber/profile/${user.id}`);
+      const json = await data.json();
+      setProfileData(json);
+      setPersonalBest(json.profile.bestDistance || 0);
+      setEquippedDriverId(json.profile.equippedDriver || "standard");
+      setEquippedBallId(json.profile.equippedBall || "standard");
+      if (json.chests && json.chests.length > 0) setDailyRewardAvailable(false);
+
+      const lastReward = json.profile.lastDailyRewardAt;
+      if (!lastReward || (Date.now() - new Date(lastReward).getTime()) > 86400000) {
+        setDailyRewardAvailable(true);
+      }
+    } catch (e) {}
+  };
+
+  const loadDailyChallenge = async () => {
+    try {
+      const res = await apiRequest("GET", "/api/bomber/challenges/today");
+      const data = await res.json();
+      setDailyChallenge(data);
+    } catch (e) {}
+  };
+
+  const loadLeaderboard = async () => {
+    try {
+      const res = await apiRequest("GET", "/api/bomber/leaderboard");
+      const data = await res.json();
+      setLeaderboardData(data);
+    } catch (e) {}
+  };
+
+  const recordDrive = async (result: DriveResult) => {
+    if (!isLoggedIn || !user) return;
+    try {
+      const res = await apiRequest("POST", "/api/bomber/drive", {
+        userId: user.id, username: user.username,
+        distance: result.total, carry: result.carry, roll: result.roll,
+        ballSpeed: result.ballSpeed, launchAngle: result.launchAngle,
+        wind: result.wind, nightMode: result.nightMode, inBounds: result.inBounds,
+        equippedDriver: equippedDriverId, equippedBall: equippedBallId,
+      });
+      const data = await res.json();
+      if (data.profile) {
+        setProfileData((prev) => prev ? { ...prev, profile: data.profile, levelInfo: data.levelInfo, division: data.division } : prev);
+      }
+      setXpGained(data.xpEarned || 0);
+      setCoinsGained(data.coinsEarned || 0);
+      if (data.chestEarned) {
+        setProfileData((prev) => prev ? { ...prev, chests: [...prev.chests, data.chestEarned] } : prev);
+      }
+    } catch (e) {}
+  };
+
+  const claimDailyReward = async () => {
+    if (!isLoggedIn || !user) return;
+    try {
+      const res = await apiRequest("POST", `/api/bomber/daily-reward/${user.id}`);
+      const data = await res.json();
+      if (data.claimed) {
+        setDailyRewardAvailable(false);
+        setChestContents(data.contents);
+        setShowChestOpen(true);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        loadProfile();
+      }
+    } catch (e) {}
+  };
+
+  const openChest = async (chest: any) => {
+    if (!isLoggedIn || !user) return;
+    try {
+      const res = await apiRequest("POST", `/api/bomber/chest/${chest.id}/open`, { userId: user.id });
+      const data = await res.json();
+      setChestContents(data.contents);
+      setShowChestOpen(true);
+      setChestToOpen(null);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      loadProfile();
+    } catch (e) {}
+  };
+
+  const equipItem = async (equipmentId: string, type: "driver" | "ball") => {
+    if (type === "driver") setEquippedDriverId(equipmentId);
+    else setEquippedBallId(equipmentId);
+    if (!isLoggedIn || !user) return;
+    try {
+      await apiRequest("POST", "/api/bomber/equip", { userId: user.id, equipmentId, type });
+      loadProfile();
+    } catch (e) {}
+  };
 
   const svgWidth = screenWidth;
   const svgHeight = screenHeight;
@@ -165,15 +294,106 @@ export default function BomberGame() {
   const teeX = svgWidth * 0.08;
   const landingAreaWidth = svgWidth * 0.85;
 
-  const yardToScreenX = (yard: number) => {
+  const yardToScreenX = useCallback((yard: number) => {
     const fraction = (yard - GRID_START_YARD) / (GRID_END_YARD - GRID_START_YARD);
     return teeX + fraction * landingAreaWidth;
+  }, [teeX, landingAreaWidth]);
+
+  const heightToScreenY = useCallback((heightM: number, maxHeight: number) => {
+    const maxVisualHeight = groundY * 0.7;
+    return groundY - (heightM / Math.max(maxHeight, 1)) * maxVisualHeight;
+  }, [groundY]);
+
+  const startShotClock = () => {
+    setShotClock(SHOT_CLOCK_SECONDS);
+    if (shotClockRef.current) clearInterval(shotClockRef.current);
+    shotClockRef.current = setInterval(() => {
+      setShotClock((prev) => {
+        if (prev <= 1) {
+          if (shotClockRef.current) clearInterval(shotClockRef.current);
+          handleShotClockExpired();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
   };
 
-  const heightToScreenY = (heightM: number, maxHeight: number) => {
-    const maxVisualHeight = groundY * 0.7;
-    const fraction = heightM / Math.max(maxHeight, 1);
-    return groundY - fraction * maxVisualHeight;
+  const handleShotClockExpired = () => {
+    if (powerIntervalRef.current) clearInterval(powerIntervalRef.current);
+    if (accuracyIntervalRef.current) clearInterval(accuracyIntervalRef.current);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+
+    const missResult: DriveResult = {
+      carry: 0, roll: 0, total: 0, ballSpeed: 0, launchAngle: 0,
+      wind, power: 0, accuracy: 0, inBounds: false, nightMode,
+    };
+    setCurrentResult(missResult);
+    setGameState("landed");
+    setDriveHistory((prev) => [missResult, ...prev].slice(0, 10));
+    if (contest) advanceContest(missResult);
+    resultScale.value = 0;
+    resultScale.value = withSpring(1, { damping: 12, stiffness: 200 });
+  };
+
+  const stopShotClock = () => {
+    if (shotClockRef.current) { clearInterval(shotClockRef.current); shotClockRef.current = null; }
+  };
+
+  const startContest = () => {
+    const opponent = getContestOpponent("qualifying");
+    const opponentDrives: { distance: number; inBounds: boolean }[] = [];
+    for (let i = 0; i < 6; i++) opponentDrives.push(simulateAIDrive(opponent));
+    const validDrives = opponentDrives.filter(d => d.inBounds);
+    const opponentBest = validDrives.length > 0 ? Math.max(...validDrives.map(d => d.distance)) : 0;
+
+    setContest({
+      round: "qualifying",
+      ballsRemaining: 6,
+      totalBalls: 6,
+      playerBest: 0,
+      opponent,
+      opponentBest,
+      opponentDrives,
+      playerDrives: [],
+      result: "pending",
+    });
+    setGameMode("contest");
+    setGameState("idle");
+    const w = getRandomWeather();
+    setWeather(w);
+    setWind(generateWindForWeather(w));
+  };
+
+  const advanceContest = (driveResult: DriveResult) => {
+    if (!contest) return;
+    const newPlayerDrives = [...contest.playerDrives, { distance: driveResult.total, inBounds: driveResult.inBounds }];
+    const validPlayerDrives = newPlayerDrives.filter(d => d.inBounds);
+    const playerBest = validPlayerDrives.length > 0 ? Math.max(...validPlayerDrives.map(d => d.distance)) : 0;
+    const newBallsRemaining = contest.ballsRemaining - 1;
+
+    if (newBallsRemaining <= 0) {
+      const won = playerBest > contest.opponentBest;
+      if (won && contest.round !== "finals") {
+        const nextRound: ContestRound = contest.round === "qualifying" ? "bracket" : "finals";
+        const nextBalls = nextRound === "bracket" ? 3 : 2;
+        const nextOpponent = getContestOpponent(nextRound);
+        const nextOpponentDrives: { distance: number; inBounds: boolean }[] = [];
+        for (let i = 0; i < nextBalls; i++) nextOpponentDrives.push(simulateAIDrive(nextOpponent));
+        const validNext = nextOpponentDrives.filter(d => d.inBounds);
+        const nextOpponentBest = validNext.length > 0 ? Math.max(...validNext.map(d => d.distance)) : 0;
+
+        setContest({
+          round: nextRound, ballsRemaining: nextBalls, totalBalls: nextBalls,
+          playerBest: 0, opponent: nextOpponent, opponentBest: nextOpponentBest,
+          opponentDrives: nextOpponentDrives, playerDrives: [], result: "pending",
+        });
+      } else {
+        setContest({ ...contest, ballsRemaining: 0, playerBest, playerDrives: newPlayerDrives, result: won ? "win" : "lose" });
+      }
+    } else {
+      setContest({ ...contest, ballsRemaining: newBallsRemaining, playerBest, playerDrives: newPlayerDrives });
+    }
   };
 
   const startPowerMeter = useCallback(() => {
@@ -181,7 +401,7 @@ export default function BomberGame() {
     powerRef.current = 0;
     powerDirRef.current = 1;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
+    if (gameMode === "contest") startShotClock();
     const speed = 1.8;
     powerIntervalRef.current = setInterval(() => {
       powerRef.current += powerDirRef.current * speed;
@@ -189,16 +409,14 @@ export default function BomberGame() {
       if (powerRef.current <= 0) { powerRef.current = 0; powerDirRef.current = 1; }
       setPower(Math.round(powerRef.current));
     }, 16);
-  }, []);
+  }, [gameMode]);
 
   const lockPower = useCallback(() => {
     if (powerIntervalRef.current) clearInterval(powerIntervalRef.current);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-
     setGameState("aiming");
     accuracyRef.current = 0;
     accuracyDirRef.current = 1;
-
     const speed = 2.2;
     accuracyIntervalRef.current = setInterval(() => {
       accuracyRef.current += accuracyDirRef.current * speed;
@@ -210,22 +428,17 @@ export default function BomberGame() {
 
   const lockAccuracyAndFire = useCallback(() => {
     if (accuracyIntervalRef.current) clearInterval(accuracyIntervalRef.current);
+    stopShotClock();
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
     const p = powerRef.current;
     const a = accuracyRef.current;
-    const result = simulateDrive(p, a, wind);
+    const result = simulateDrive(p, a, wind, driverDef, ballDef, weather);
 
-    flightPointsRef.current = result.points;
     setGameState("flying");
     setShowBall(true);
-    setAnimatingTracer(true);
-    setTracerEndIndex(0);
 
     const maxH = Math.max(...result.points.map((pt) => pt.y), 1);
-    const maxX = Math.max(...result.points.map((pt) => pt.x), 1);
-    const totalYards = result.total;
-
     let frameIndex = 0;
     const totalFrames = result.points.length;
     const frameSkip = Math.max(1, Math.floor(totalFrames / 120));
@@ -237,64 +450,54 @@ export default function BomberGame() {
         clearInterval(animInterval);
 
         const driveResult: DriveResult = {
-          carry: result.carry,
-          roll: result.roll,
-          total: result.total,
-          ballSpeed: result.ballSpeed,
-          launchAngle: result.launchAngle,
-          wind,
-          power: Math.round(p),
-          accuracy: Math.round(a),
-          inBounds: result.inBounds,
-          nightMode,
+          carry: result.carry, roll: result.roll, total: result.total,
+          ballSpeed: result.ballSpeed, launchAngle: result.launchAngle,
+          wind, power: Math.round(p), accuracy: Math.round(a),
+          inBounds: result.inBounds, nightMode,
         };
 
         setCurrentResult(driveResult);
         setGameState("landed");
         setShowBall(false);
-        setAnimatingTracer(false);
 
         if (result.inBounds && result.total > personalBest) {
           setPersonalBest(result.total);
           AsyncStorage.setItem("bomber_personal_best", String(result.total));
         }
-
         setDriveHistory((prev) => [driveResult, ...prev].slice(0, 10));
+        recordDrive(driveResult);
+
+        if (gameMode === "contest") advanceContest(driveResult);
 
         resultScale.value = 0;
         resultScale.value = withSpring(1, { damping: 12, stiffness: 200 });
-        Haptics.notificationAsync(
-          result.inBounds ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Error
-        );
+        Haptics.notificationAsync(result.inBounds ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Error);
       }
 
       const pt = result.points[frameIndex];
-      const sx = yardToScreenX(pt.x / YARD_TO_M);
-      const sy = heightToScreenY(pt.y, maxH);
-      setBallPos({ x: sx, y: sy });
-      setTracerEndIndex(frameIndex);
-
+      setBallPos({ x: yardToScreenX(pt.x / YARD_TO_M), y: heightToScreenY(pt.y, maxH) });
       const tracerPts = result.points.slice(0, frameIndex + 1);
-      const polyStr = tracerPts
-        .map((p) => `${yardToScreenX(p.x / YARD_TO_M)},${heightToScreenY(p.y, maxH)}`)
-        .join(" ");
-      setTrajectoryPoints(polyStr);
+      setTrajectoryPoints(tracerPts.map((p) => `${yardToScreenX(p.x / YARD_TO_M)},${heightToScreenY(p.y, maxH)}`).join(" "));
     }, 14);
-  }, [wind, nightMode, personalBest, groundY, teeX, landingAreaWidth]);
+  }, [wind, nightMode, personalBest, driverDef, ballDef, weather, gameMode, contest, yardToScreenX, heightToScreenY]);
 
   const resetDrive = useCallback(() => {
     setGameState("idle");
     setPower(0);
     setAccuracy(50);
-    setWind(generateWind());
     setCurrentResult(null);
     setTrajectoryPoints("");
     setBallPos({ x: 0, y: 0 });
     setShowBall(false);
-    setAnimatingTracer(false);
-    setTracerEndIndex(0);
+    setXpGained(0);
+    setCoinsGained(0);
     resultScale.value = 0;
-  }, []);
+    if (gameMode === "freeplay") {
+      const w = getRandomWeather();
+      setWeather(w);
+      setWind(generateWindForWeather(w));
+    }
+  }, [gameMode]);
 
   const handleTap = useCallback(() => {
     if (gameState === "idle") startPowerMeter();
@@ -302,25 +505,202 @@ export default function BomberGame() {
     else if (gameState === "aiming") lockAccuracyAndFire();
   }, [gameState, startPowerMeter, lockPower, lockAccuracyAndFire]);
 
+  const goToMenu = () => {
+    setGameMode("menu");
+    setGameState("idle");
+    setContest(null);
+    setCurrentResult(null);
+    setTrajectoryPoints("");
+    stopShotClock();
+  };
+
   const dayBg = { sky1: "#87CEEB", sky2: "#4A90D9", ground: "#2E7D32", groundDark: "#1B5E20", gridLine: "rgba(255,255,255,0.5)", text: "rgba(255,255,255,0.7)", tracer: "#FFD700", tracerGlow: "rgba(255,215,0,0.3)", ball: "#fff" };
   const nightBg = { sky1: "#0a0a2e", sky2: "#050518", ground: "#1a3a1a", groundDark: "#0d260d", gridLine: "rgba(255,255,255,0.25)", text: "rgba(255,255,255,0.45)", tracer: "#00FF88", tracerGlow: "rgba(0,255,136,0.25)", ball: "#00FF88" };
   const theme = nightMode ? nightBg : dayBg;
 
-  const gridMarkers = [];
-  for (let y = GRID_START_YARD + MARKER_INTERVAL; y <= GRID_END_YARD; y += MARKER_INTERVAL) {
-    gridMarkers.push(y);
-  }
+  const gridMarkers: number[] = [];
+  for (let y = GRID_START_YARD + MARKER_INTERVAL; y <= GRID_END_YARD; y += MARKER_INTERVAL) gridMarkers.push(y);
 
   const stadiumLights = [
-    { x: svgWidth * 0.15, y: 20 },
-    { x: svgWidth * 0.35, y: 15 },
-    { x: svgWidth * 0.55, y: 15 },
-    { x: svgWidth * 0.75, y: 20 },
-    { x: svgWidth * 0.9, y: 18 },
+    { x: svgWidth * 0.15, y: 20 }, { x: svgWidth * 0.35, y: 15 },
+    { x: svgWidth * 0.55, y: 15 }, { x: svgWidth * 0.75, y: 20 }, { x: svgWidth * 0.9, y: 18 },
   ];
 
   const windLabel = wind > 0 ? `${Math.abs(wind)} mph tailwind` : wind < 0 ? `${Math.abs(wind)} mph headwind` : "No wind";
-  const windIcon = wind > 0 ? "arrow-forward" : wind < 0 ? "arrow-back" : "remove";
+  const windIcon: any = wind > 0 ? "arrow-forward" : wind < 0 ? "arrow-back" : "remove";
+  const levelInfo = profileData?.levelInfo || { level: 1, currentXp: 0, nextLevelXp: 150 };
+  const division = profileData?.division || { id: "bronze", name: "Bronze", color: "#CD7F32", icon: "shield-outline" };
+
+  if (gameMode === "menu") {
+    return (
+      <View style={[styles.screen, { backgroundColor: nightMode ? "#050518" : "#1a3a5c" }]}>
+        <Svg width={svgWidth} height={svgHeight} viewBox={`0 0 ${svgWidth} ${svgHeight}`} style={StyleSheet.absoluteFill}>
+          <Defs>
+            <SvgLinearGradient id="menuSky" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor={nightMode ? "#0a0a2e" : "#1a3a5c"} />
+              <Stop offset="1" stopColor={nightMode ? "#050518" : "#0d2137"} />
+            </SvgLinearGradient>
+          </Defs>
+          <Rect x="0" y="0" width={svgWidth} height={svgHeight} fill="url(#menuSky)" />
+          {nightMode && stars.map((s, i) => <Circle key={i} cx={s.x} cy={s.y} r={s.r} fill="white" opacity={s.opacity} />)}
+        </Svg>
+
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={[styles.menuContent, { paddingTop: insets.top + webTopInset + 16, paddingBottom: insets.bottom + 40 }]}>
+          <View style={styles.menuHeader}>
+            <Pressable onPress={() => router.back()} style={styles.topBtn}>
+              <Ionicons name="close" size={22} color="#fff" />
+            </Pressable>
+            <View style={{ flex: 1 }} />
+            <Pressable onPress={() => { setNightMode(!nightMode); Haptics.selectionAsync(); }} style={styles.topBtn}>
+              <Ionicons name={nightMode ? "sunny" : "moon"} size={20} color="#fff" />
+            </Pressable>
+          </View>
+
+          <Animated.View entering={FadeInUp.duration(500)} style={styles.menuTitleArea}>
+            <PremiumText variant="hero" color={nightMode ? "#00FF88" : "#FFD700"} style={{ fontSize: 42, letterSpacing: 4 }}>BOMBER</PremiumText>
+            <PremiumText variant="caption" color="rgba(255,255,255,0.5)" style={{ fontSize: 12, letterSpacing: 3, marginTop: 4 }}>LONG DRIVE CONTEST</PremiumText>
+          </Animated.View>
+
+          {isLoggedIn && profileData && (
+            <Animated.View entering={FadeIn.duration(400).delay(200)} style={styles.profileBar}>
+              <View style={styles.profileRow}>
+                <View style={[styles.divisionBadge, { borderColor: division.color }]}>
+                  <Ionicons name={division.icon as any} size={16} color={division.color} />
+                  <PremiumText variant="caption" color={division.color} style={{ fontSize: 10, fontWeight: "700" }}>{division.name}</PremiumText>
+                </View>
+                <View style={styles.profileStats}>
+                  <View style={styles.profileStatItem}>
+                    <PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 9 }}>LEVEL</PremiumText>
+                    <PremiumText variant="title" color="#fff" style={{ fontSize: 18 }}>{levelInfo.level}</PremiumText>
+                  </View>
+                  <View style={styles.profileStatItem}>
+                    <PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 9 }}>BEST</PremiumText>
+                    <PremiumText variant="title" color="#fff" style={{ fontSize: 18 }}>{personalBest || "—"}</PremiumText>
+                  </View>
+                  <View style={styles.profileStatItem}>
+                    <PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 9 }}>DRIVES</PremiumText>
+                    <PremiumText variant="title" color="#fff" style={{ fontSize: 18 }}>{profileData.profile.totalDrives}</PremiumText>
+                  </View>
+                </View>
+              </View>
+              <View style={styles.xpBar}>
+                <View style={[styles.xpFill, { width: `${(levelInfo.currentXp / levelInfo.nextLevelXp) * 100}%`, backgroundColor: division.color }]} />
+              </View>
+              <View style={styles.currencyRow}>
+                <View style={styles.currencyItem}>
+                  <Ionicons name="logo-bitcoin" size={14} color="#FFD700" />
+                  <PremiumText variant="caption" color="#FFD700" style={{ fontSize: 12, fontWeight: "700" }}>{profileData.profile.coins}</PremiumText>
+                </View>
+                <View style={styles.currencyItem}>
+                  <Ionicons name="diamond" size={14} color="#B9F2FF" />
+                  <PremiumText variant="caption" color="#B9F2FF" style={{ fontSize: 12, fontWeight: "700" }}>{profileData.profile.gems}</PremiumText>
+                </View>
+                <View style={styles.currencyItem}>
+                  <Ionicons name="flame" size={14} color="#FF9800" />
+                  <PremiumText variant="caption" color="#FF9800" style={{ fontSize: 12, fontWeight: "700" }}>{profileData.profile.currentStreak}d</PremiumText>
+                </View>
+              </View>
+            </Animated.View>
+          )}
+
+          {dailyRewardAvailable && isLoggedIn && (
+            <Animated.View entering={FadeIn.duration(400).delay(300)}>
+              <Pressable onPress={claimDailyReward} style={[styles.dailyRewardBanner, { borderColor: "#FF9800" }]}>
+                <Ionicons name="gift" size={24} color="#FF9800" />
+                <View style={{ flex: 1 }}>
+                  <PremiumText variant="body" color="#FF9800" style={{ fontWeight: "700" }}>Daily Reward Available!</PremiumText>
+                  <PremiumText variant="caption" color="rgba(255,255,255,0.5)" style={{ fontSize: 10 }}>Tap to claim your chest</PremiumText>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color="#FF9800" />
+              </Pressable>
+            </Animated.View>
+          )}
+
+          {profileData && profileData.chests.length > 0 && (
+            <Animated.View entering={FadeIn.duration(400).delay(350)}>
+              <PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 10, marginBottom: 8, marginLeft: 4 }}>UNOPENED CHESTS</PremiumText>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
+                {profileData.chests.map((chest: any) => {
+                  const ct = CHEST_TYPES[chest.chestType] || CHEST_TYPES.bronze;
+                  return (
+                    <Pressable key={chest.id} onPress={() => openChest(chest)} style={[styles.chestCard, { borderColor: ct.color + "40" }]}>
+                      <Ionicons name={ct.icon as any} size={28} color={ct.color} />
+                      <PremiumText variant="caption" color={ct.color} style={{ fontSize: 10, fontWeight: "700" }}>{ct.name}</PremiumText>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </Animated.View>
+          )}
+
+          <View style={styles.modeButtons}>
+            <Animated.View entering={FadeInUp.duration(400).delay(400)}>
+              <Pressable onPress={() => { setGameMode("freeplay"); setGameState("idle"); const w = getRandomWeather(); setWeather(w); setWind(generateWindForWeather(w)); }} style={[styles.modeBtn, { backgroundColor: nightMode ? "rgba(0,255,136,0.15)" : "rgba(255,215,0,0.15)", borderColor: nightMode ? "#00FF88" : "#FFD700" }]}>
+                <Ionicons name="flash" size={28} color={nightMode ? "#00FF88" : "#FFD700"} />
+                <View style={{ flex: 1 }}>
+                  <PremiumText variant="subtitle" color="#fff" style={{ fontSize: 16 }}>Free Play</PremiumText>
+                  <PremiumText variant="caption" color="rgba(255,255,255,0.5)" style={{ fontSize: 11 }}>Unlimited drives. Chase your longest.</PremiumText>
+                </View>
+              </Pressable>
+            </Animated.View>
+
+            <Animated.View entering={FadeInUp.duration(400).delay(500)}>
+              <Pressable onPress={startContest} style={[styles.modeBtn, { backgroundColor: "rgba(255,82,82,0.12)", borderColor: "#FF5252" }]}>
+                <Ionicons name="trophy" size={28} color="#FF5252" />
+                <View style={{ flex: 1 }}>
+                  <PremiumText variant="subtitle" color="#fff" style={{ fontSize: 16 }}>Contest Mode</PremiumText>
+                  <PremiumText variant="caption" color="rgba(255,255,255,0.5)" style={{ fontSize: 11 }}>Qualify, bracket, finals. Beat the AI.</PremiumText>
+                </View>
+              </Pressable>
+            </Animated.View>
+          </View>
+
+          <View style={styles.menuActions}>
+            <Pressable onPress={() => { setShowEquipment(true); }} style={[styles.menuActionBtn, { borderColor: "rgba(255,255,255,0.15)" }]}>
+              <Ionicons name="construct-outline" size={18} color="#fff" />
+              <PremiumText variant="caption" color="#fff" style={{ fontSize: 12 }}>Equipment</PremiumText>
+            </Pressable>
+            <Pressable onPress={() => { loadLeaderboard(); setShowLeaderboard(true); }} style={[styles.menuActionBtn, { borderColor: "rgba(255,255,255,0.15)" }]}>
+              <Ionicons name="podium-outline" size={18} color="#fff" />
+              <PremiumText variant="caption" color="#fff" style={{ fontSize: 12 }}>Leaderboard</PremiumText>
+            </Pressable>
+          </View>
+
+          {dailyChallenge && (
+            <Animated.View entering={FadeInUp.duration(400).delay(600)} style={[styles.challengeCard, { borderColor: "rgba(255,255,255,0.1)" }]}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <Ionicons name="flag" size={16} color="#FF9800" />
+                <PremiumText variant="body" color="#fff" style={{ fontWeight: "700", fontSize: 14 }}>{dailyChallenge.title}</PremiumText>
+              </View>
+              <PremiumText variant="caption" color="rgba(255,255,255,0.5)" style={{ fontSize: 11, marginTop: 4 }}>{dailyChallenge.description}</PremiumText>
+              <View style={{ flexDirection: "row", gap: 12, marginTop: 8 }}>
+                <View style={styles.challengeReward}>
+                  <Ionicons name="logo-bitcoin" size={12} color="#FFD700" />
+                  <PremiumText variant="caption" color="#FFD700" style={{ fontSize: 11 }}>{(dailyChallenge.reward as any)?.coins || 0}</PremiumText>
+                </View>
+                <View style={styles.challengeReward}>
+                  <PremiumText variant="caption" color="#B9F2FF" style={{ fontSize: 11 }}>+{(dailyChallenge.reward as any)?.xp || 0} XP</PremiumText>
+                </View>
+              </View>
+            </Animated.View>
+          )}
+
+          {!isLoggedIn && (
+            <Animated.View entering={FadeIn.duration(400).delay(700)} style={styles.signInPrompt}>
+              <PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 11, textAlign: "center" }}>Sign in to save progress, earn rewards, and compete on the leaderboard</PremiumText>
+              <Pressable onPress={() => router.push("/login")} style={[styles.signInBtn, { borderColor: colors.primary }]}>
+                <PremiumText variant="caption" color={colors.primary} style={{ fontSize: 12, fontWeight: "700" }}>Sign In</PremiumText>
+              </Pressable>
+            </Animated.View>
+          )}
+        </ScrollView>
+
+        <EquipmentModal visible={showEquipment} onClose={() => setShowEquipment(false)} profileData={profileData} equippedDriverId={equippedDriverId} equippedBallId={equippedBallId} onEquip={equipItem} nightMode={nightMode} />
+        <LeaderboardModal visible={showLeaderboard} onClose={() => setShowLeaderboard(false)} data={leaderboardData} userId={user?.id} nightMode={nightMode} />
+        <ChestOpenModal visible={showChestOpen} onClose={() => { setShowChestOpen(false); setChestContents(null); }} contents={chestContents} nightMode={nightMode} />
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.screen, { backgroundColor: nightMode ? "#050518" : "#4A90D9" }]}>
@@ -332,42 +712,29 @@ export default function BomberGame() {
         <Svg width={svgWidth} height={svgHeight} viewBox={`0 0 ${svgWidth} ${svgHeight}`}>
           <Defs>
             <SvgLinearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0" stopColor={theme.sky1} />
-              <Stop offset="1" stopColor={theme.sky2} />
+              <Stop offset="0" stopColor={theme.sky1} /><Stop offset="1" stopColor={theme.sky2} />
             </SvgLinearGradient>
             <SvgLinearGradient id="groundGrad" x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0" stopColor={theme.ground} />
-              <Stop offset="1" stopColor={theme.groundDark} />
+              <Stop offset="0" stopColor={theme.ground} /><Stop offset="1" stopColor={theme.groundDark} />
             </SvgLinearGradient>
           </Defs>
-
           <Rect x="0" y="0" width={svgWidth} height={groundY} fill="url(#skyGrad)" />
           <Rect x="0" y={groundY} width={svgWidth} height={svgHeight - groundY} fill="url(#groundGrad)" />
-
-          {nightMode && stars.map((s, i) => (
-            <Circle key={i} cx={s.x} cy={s.y} r={s.r} fill="white" opacity={s.opacity} />
-          ))}
-
+          {nightMode && stars.map((s, i) => <Circle key={i} cx={s.x} cy={s.y} r={s.r} fill="white" opacity={s.opacity} />)}
           {!nightMode && (
             <>
               <Circle cx={svgWidth * 0.88} cy={svgHeight * 0.08} r={28} fill="#FFF176" opacity={0.9} />
               <Circle cx={svgWidth * 0.88} cy={svgHeight * 0.08} r={40} fill="#FFF176" opacity={0.15} />
             </>
           )}
-
           {nightMode && stadiumLights.map((l, i) => (
             <G key={i}>
-              <Ellipse cx={l.x} cy={l.y + 8} rx={30} ry={6} fill="rgba(255,255,200,0.05)" />
               <Circle cx={l.x} cy={l.y} r={8} fill="#FFF9C4" opacity={0.9} />
               <Circle cx={l.x} cy={l.y} r={20} fill="#FFF9C4" opacity={0.12} />
               <Circle cx={l.x} cy={l.y} r={40} fill="#FFF9C4" opacity={0.04} />
-              <Line x1={l.x} y1={l.y + 8} x2={l.x - 25} y2={groundY} stroke="rgba(255,255,200,0.03)" strokeWidth="50" />
-              <Line x1={l.x} y1={l.y + 8} x2={l.x + 25} y2={groundY} stroke="rgba(255,255,200,0.03)" strokeWidth="50" />
             </G>
           ))}
-
           <Line x1={teeX} y1={groundY} x2={teeX + landingAreaWidth} y2={groundY} stroke={theme.gridLine} strokeWidth={1} />
-
           {gridMarkers.map((yard) => {
             const x = yardToScreenX(yard);
             return (
@@ -376,169 +743,146 @@ export default function BomberGame() {
                 {yard % 50 === 0 && (
                   <>
                     <Line x1={x} y1={groundY - 14} x2={x} y2={groundY + 14} stroke={theme.gridLine} strokeWidth={1.5} />
-                    <SvgText
-                      x={x}
-                      y={groundY + 28}
-                      textAnchor="middle"
-                      fill={theme.text}
-                      fontSize={11}
-                      fontWeight="600"
-                    >
-                      {yard}
-                    </SvgText>
+                    <SvgText x={x} y={groundY + 28} textAnchor="middle" fill={theme.text} fontSize={11} fontWeight="600">{yard}</SvgText>
                   </>
                 )}
               </G>
             );
           })}
-
           <Rect x={teeX - 6} y={groundY - 4} width={12} height={8} rx={2} fill={nightMode ? "#4CAF50" : "#fff"} opacity={0.7} />
-
           {trajectoryPoints.length > 0 && (
             <>
-              <Polyline
-                points={trajectoryPoints}
-                fill="none"
-                stroke={theme.tracerGlow}
-                strokeWidth={nightMode ? 8 : 5}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <Polyline
-                points={trajectoryPoints}
-                fill="none"
-                stroke={theme.tracer}
-                strokeWidth={nightMode ? 3 : 2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
+              <Polyline points={trajectoryPoints} fill="none" stroke={theme.tracerGlow} strokeWidth={nightMode ? 8 : 5} strokeLinecap="round" strokeLinejoin="round" />
+              <Polyline points={trajectoryPoints} fill="none" stroke={theme.tracer} strokeWidth={nightMode ? 3 : 2} strokeLinecap="round" strokeLinejoin="round" />
             </>
           )}
-
           {showBall && (
             <>
               {nightMode && <Circle cx={ballPos.x} cy={ballPos.y} r={8} fill={theme.ball} opacity={0.15} />}
               <Circle cx={ballPos.x} cy={ballPos.y} r={4} fill={theme.ball} />
             </>
           )}
-
           {gameState === "landed" && currentResult && (
-            <G>
-              <Circle
-                cx={yardToScreenX(currentResult.carry + currentResult.roll)}
-                cy={groundY}
-                r={6}
-                fill={currentResult.inBounds ? theme.tracer : "#FF5252"}
-                opacity={0.8}
-              />
-              {currentResult.inBounds && (
-                <Circle
-                  cx={yardToScreenX(currentResult.carry + currentResult.roll)}
-                  cy={groundY}
-                  r={14}
-                  fill={theme.tracer}
-                  opacity={0.15}
-                />
-              )}
-            </G>
+            <Circle cx={yardToScreenX(currentResult.carry + currentResult.roll)} cy={groundY} r={6} fill={currentResult.inBounds ? theme.tracer : "#FF5252"} opacity={0.8} />
           )}
         </Svg>
       </Pressable>
 
       <View style={[styles.topBar, { paddingTop: insets.top + webTopInset }]} pointerEvents="box-none">
-        <Pressable onPress={() => router.back()} style={styles.topBtn}>
-          <Ionicons name="close" size={22} color="#fff" />
+        <Pressable onPress={goToMenu} style={styles.topBtn}>
+          <Ionicons name="arrow-back" size={22} color="#fff" />
         </Pressable>
-
         <View style={styles.titleArea}>
-          <PremiumText variant="label" color="#fff" style={{ fontSize: 13, letterSpacing: 3 }}>BOMBER</PremiumText>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <PremiumText variant="label" color="#fff" style={{ fontSize: 13, letterSpacing: 3 }}>BOMBER</PremiumText>
+            {gameMode === "contest" && contest && (
+              <View style={[styles.roundBadge, { backgroundColor: "rgba(255,82,82,0.2)" }]}>
+                <PremiumText variant="caption" color="#FF5252" style={{ fontSize: 9, fontWeight: "800" }}>{contest.round.toUpperCase()}</PremiumText>
+              </View>
+            )}
+          </View>
           <View style={styles.windRow}>
-            <Ionicons name={windIcon as any} size={14} color="rgba(255,255,255,0.8)" />
+            <Ionicons name={weather.icon as any} size={12} color="rgba(255,255,255,0.6)" />
+            <Ionicons name={windIcon} size={14} color="rgba(255,255,255,0.8)" />
             <PremiumText variant="caption" color="rgba(255,255,255,0.8)" style={{ fontSize: 11 }}>{windLabel}</PremiumText>
           </View>
         </View>
-
-        <Pressable
-          onPress={() => { setNightMode(!nightMode); Haptics.selectionAsync(); }}
-          style={styles.topBtn}
-        >
+        <Pressable onPress={() => { setNightMode(!nightMode); Haptics.selectionAsync(); }} style={styles.topBtn}>
           <Ionicons name={nightMode ? "sunny" : "moon"} size={20} color="#fff" />
         </Pressable>
       </View>
 
+      {isLoggedIn && profileData && gameState === "idle" && (
+        <View style={[styles.statsBar, { top: insets.top + webTopInset + 52 }]}>
+          <View style={styles.miniCurrency}>
+            <Ionicons name="logo-bitcoin" size={11} color="#FFD700" />
+            <PremiumText variant="caption" color="#FFD700" style={{ fontSize: 10 }}>{profileData.profile.coins}</PremiumText>
+          </View>
+          <View style={[styles.xpBarSmall]}>
+            <View style={[styles.xpFillSmall, { width: `${(levelInfo.currentXp / levelInfo.nextLevelXp) * 100}%`, backgroundColor: division.color }]} />
+          </View>
+          <PremiumText variant="caption" color={division.color} style={{ fontSize: 10, fontWeight: "700" }}>Lv{levelInfo.level}</PremiumText>
+        </View>
+      )}
+
       {personalBest > 0 && gameState !== "landed" && (
-        <View style={[styles.bestBadge, { top: insets.top + webTopInset + 52 }]}>
+        <View style={[styles.bestBadge, { top: insets.top + webTopInset + (isLoggedIn ? 74 : 52) }]}>
           <Ionicons name="trophy" size={12} color="#FFD700" />
           <PremiumText variant="caption" color="#FFD700" style={{ fontSize: 11, fontWeight: "700" }}>{personalBest} YDS</PremiumText>
+        </View>
+      )}
+
+      {gameMode === "contest" && contest && (gameState === "idle" || gameState === "powering" || gameState === "aiming") && (
+        <View style={[styles.contestBar, { top: insets.top + webTopInset + 90 }]}>
+          <View style={styles.contestInfo}>
+            <View style={styles.contestPlayer}>
+              <Ionicons name="person" size={14} color="#fff" />
+              <PremiumText variant="caption" color="#fff" style={{ fontSize: 11 }}>You: {contest.playerBest > 0 ? `${contest.playerBest}` : "—"}</PremiumText>
+            </View>
+            <PremiumText variant="caption" color="rgba(255,255,255,0.3)" style={{ fontSize: 10 }}>VS</PremiumText>
+            <View style={styles.contestPlayer}>
+              <Ionicons name={contest.opponent.avatar as any} size={14} color="#FF5252" />
+              <PremiumText variant="caption" color="#FF5252" style={{ fontSize: 11 }}>{contest.opponent.name}: {contest.opponentBest > 0 ? `${contest.opponentBest}` : "—"}</PremiumText>
+            </View>
+          </View>
+          <View style={styles.ballCounter}>
+            {Array.from({ length: contest.totalBalls }).map((_, i) => (
+              <View key={i} style={[styles.ballDot, { backgroundColor: i < contest.totalBalls - contest.ballsRemaining ? "rgba(255,255,255,0.3)" : "#fff" }]} />
+            ))}
+          </View>
+          {(gameState === "powering" || gameState === "aiming") && (
+            <View style={[styles.shotClockBadge, { backgroundColor: shotClock <= 10 ? "rgba(255,82,82,0.3)" : "rgba(0,0,0,0.3)" }]}>
+              <Ionicons name="timer-outline" size={12} color={shotClock <= 10 ? "#FF5252" : "#fff"} />
+              <PremiumText variant="caption" color={shotClock <= 10 ? "#FF5252" : "#fff"} style={{ fontSize: 14, fontWeight: "800" }}>{shotClock}</PremiumText>
+            </View>
+          )}
         </View>
       )}
 
       {(gameState === "powering" || gameState === "aiming") && (
         <View style={[styles.powerMeterContainer, { top: svgHeight * 0.2, left: 16 }]} pointerEvents="none">
           <View style={[styles.powerMeterTrack, { height: svgHeight * 0.4, borderColor: "rgba(255,255,255,0.3)" }]}>
-            <View
-              style={[
-                styles.powerMeterFill,
-                {
-                  height: `${power}%`,
-                  backgroundColor:
-                    power < 40 ? "#4CAF50" : power < 70 ? "#FFC107" : power < 90 ? "#FF9800" : "#F44336",
-                },
-              ]}
-            />
+            <View style={[styles.powerMeterFill, { height: `${power}%`, backgroundColor: power < 40 ? "#4CAF50" : power < 70 ? "#FFC107" : power < 90 ? "#FF9800" : "#F44336" }]} />
             {gameState === "powering" && (
               <View style={[styles.powerMeterIndicator, { bottom: `${power}%` }]}>
                 <View style={styles.powerMeterArrow} />
               </View>
             )}
           </View>
-          <PremiumText variant="caption" color="#fff" style={{ fontSize: 12, marginTop: 6, fontWeight: "700" }}>
-            {power}%
-          </PremiumText>
-          {gameState === "powering" && (
-            <PremiumText variant="caption" color="rgba(255,255,255,0.6)" style={{ fontSize: 9, marginTop: 2 }}>
-              TAP
-            </PremiumText>
-          )}
+          <PremiumText variant="caption" color="#fff" style={{ fontSize: 12, marginTop: 6, fontWeight: "700" }}>{power}%</PremiumText>
+          {gameState === "powering" && <PremiumText variant="caption" color="rgba(255,255,255,0.6)" style={{ fontSize: 9, marginTop: 2 }}>TAP</PremiumText>}
         </View>
       )}
 
       {gameState === "aiming" && (
         <View style={[styles.accuracyMeterContainer, { bottom: svgHeight * 0.12 }]} pointerEvents="none">
           <View style={[styles.accuracyMeterTrack, { width: svgWidth * 0.6, borderColor: "rgba(255,255,255,0.3)" }]}>
-            <View style={[styles.accuracyCenterLine]} />
-            <View
-              style={[
-                styles.accuracyIndicator,
-                { left: `${accuracy}%`, backgroundColor: Math.abs(accuracy - 50) < 15 ? "#4CAF50" : Math.abs(accuracy - 50) < 30 ? "#FFC107" : "#F44336" },
-              ]}
-            />
+            <View style={styles.accuracyCenterLine} />
+            <View style={[styles.accuracyIndicator, { left: `${accuracy}%`, backgroundColor: Math.abs(accuracy - 50) < 15 ? "#4CAF50" : Math.abs(accuracy - 50) < 30 ? "#FFC107" : "#F44336" }]} />
           </View>
           <View style={styles.accuracyLabels}>
             <PremiumText variant="caption" color="rgba(255,255,255,0.5)" style={{ fontSize: 9 }}>HOOK</PremiumText>
             <PremiumText variant="caption" color="#fff" style={{ fontSize: 10, fontWeight: "700" }}>ACCURACY</PremiumText>
             <PremiumText variant="caption" color="rgba(255,255,255,0.5)" style={{ fontSize: 9 }}>SLICE</PremiumText>
           </View>
-          <PremiumText variant="caption" color="rgba(255,255,255,0.6)" style={{ fontSize: 9, marginTop: 4 }}>
-            TAP TO LOCK
-          </PremiumText>
         </View>
       )}
 
       {gameState === "idle" && (
         <Animated.View entering={FadeIn.duration(400)} style={styles.startPrompt}>
-          <Pressable
-            onPress={handleTap}
-            style={[styles.driveButton, { backgroundColor: nightMode ? "#00FF88" : "#FFD700" }]}
-          >
+          {driverDef && driverDef.id !== "standard" && (
+            <View style={[styles.equippedTag, { borderColor: RARITY_COLORS[driverDef.rarity] + "60" }]}>
+              <Ionicons name="construct" size={10} color={RARITY_COLORS[driverDef.rarity]} />
+              <PremiumText variant="caption" color={RARITY_COLORS[driverDef.rarity]} style={{ fontSize: 9 }}>{driverDef.name}</PremiumText>
+            </View>
+          )}
+          <Pressable onPress={handleTap} style={[styles.driveButton, { backgroundColor: nightMode ? "#00FF88" : "#FFD700" }]}>
             <Ionicons name="flash" size={24} color={nightMode ? "#0a0a2e" : "#1B5E20"} />
             <PremiumText variant="subtitle" color={nightMode ? "#0a0a2e" : "#1B5E20"} style={{ fontSize: 18 }}>
-              DRIVE
+              {gameMode === "contest" && contest ? `DRIVE (${contest.ballsRemaining} left)` : "DRIVE"}
             </PremiumText>
           </Pressable>
-          <PremiumText variant="caption" color="rgba(255,255,255,0.5)" style={{ fontSize: 10, marginTop: 8 }}>
-            Tap to start swing
-          </PremiumText>
+          <PremiumText variant="caption" color="rgba(255,255,255,0.5)" style={{ fontSize: 10, marginTop: 8 }}>Tap to start swing</PremiumText>
         </Animated.View>
       )}
 
@@ -547,75 +891,70 @@ export default function BomberGame() {
           <View style={[styles.resultsPanel, { backgroundColor: nightMode ? "rgba(10,10,46,0.92)" : "rgba(0,0,0,0.85)", borderColor: currentResult.inBounds ? (nightMode ? "rgba(0,255,136,0.3)" : "rgba(255,215,0,0.3)") : "rgba(255,82,82,0.3)" }]}>
             {!currentResult.inBounds ? (
               <Animated.View entering={ZoomIn.duration(300)}>
-                <PremiumText variant="hero" color="#FF5252" style={{ textAlign: "center", fontSize: 28 }}>
-                  OUT OF BOUNDS
-                </PremiumText>
-                <PremiumText variant="title" color="rgba(255,82,82,0.5)" style={{ textAlign: "center", fontSize: 22, marginTop: 4 }}>
-                  {currentResult.total} yds
-                </PremiumText>
+                <PremiumText variant="hero" color="#FF5252" style={{ textAlign: "center", fontSize: 28 }}>OUT OF BOUNDS</PremiumText>
+                <PremiumText variant="title" color="rgba(255,82,82,0.5)" style={{ textAlign: "center", fontSize: 22, marginTop: 4 }}>{currentResult.total} yds</PremiumText>
               </Animated.View>
             ) : (
               <Animated.View entering={ZoomIn.duration(400)}>
-                {currentResult.total > personalBest - 1 && currentResult.total >= personalBest && (
+                {currentResult.total >= personalBest && personalBest > 0 && (
                   <Animated.View entering={FadeInUp.duration(500).delay(300)} style={styles.newBestBadge}>
                     <Ionicons name="trophy" size={14} color="#FFD700" />
                     <PremiumText variant="caption" color="#FFD700" style={{ fontWeight: "800", fontSize: 12 }}>NEW BEST!</PremiumText>
                   </Animated.View>
                 )}
-                <PremiumText
-                  variant="hero"
-                  color={nightMode ? "#00FF88" : "#FFD700"}
-                  style={{ textAlign: "center", fontSize: 52, fontWeight: "900" }}
-                >
-                  {currentResult.total}
-                </PremiumText>
-                <PremiumText variant="caption" color="rgba(255,255,255,0.5)" style={{ textAlign: "center", fontSize: 13, letterSpacing: 2 }}>
-                  TOTAL YARDS
-                </PremiumText>
+                <PremiumText variant="hero" color={nightMode ? "#00FF88" : "#FFD700"} style={{ textAlign: "center", fontSize: 52, fontWeight: "900" }}>{currentResult.total}</PremiumText>
+                <PremiumText variant="caption" color="rgba(255,255,255,0.5)" style={{ textAlign: "center", fontSize: 13, letterSpacing: 2 }}>TOTAL YARDS</PremiumText>
                 <View style={styles.carryRollRow}>
-                  <View style={styles.statBox}>
-                    <PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 9 }}>CARRY</PremiumText>
-                    <PremiumText variant="title" color="#fff" style={{ fontSize: 20 }}>{currentResult.carry}</PremiumText>
-                  </View>
+                  <View style={styles.statBox}><PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 9 }}>CARRY</PremiumText><PremiumText variant="title" color="#fff" style={{ fontSize: 20 }}>{currentResult.carry}</PremiumText></View>
                   <View style={[styles.statDivider, { backgroundColor: "rgba(255,255,255,0.15)" }]} />
-                  <View style={styles.statBox}>
-                    <PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 9 }}>ROLL</PremiumText>
-                    <PremiumText variant="title" color="#fff" style={{ fontSize: 20 }}>{currentResult.roll}</PremiumText>
-                  </View>
+                  <View style={styles.statBox}><PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 9 }}>ROLL</PremiumText><PremiumText variant="title" color="#fff" style={{ fontSize: 20 }}>{currentResult.roll}</PremiumText></View>
                 </View>
               </Animated.View>
             )}
 
             <View style={styles.statsRow}>
-              <View style={styles.miniStat}>
-                <PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 8 }}>BALL SPEED</PremiumText>
-                <PremiumText variant="caption" color="#fff" style={{ fontSize: 13, fontWeight: "700" }}>{currentResult.ballSpeed} mph</PremiumText>
-              </View>
-              <View style={styles.miniStat}>
-                <PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 8 }}>LAUNCH</PremiumText>
-                <PremiumText variant="caption" color="#fff" style={{ fontSize: 13, fontWeight: "700" }}>{currentResult.launchAngle}°</PremiumText>
-              </View>
-              <View style={styles.miniStat}>
-                <PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 8 }}>POWER</PremiumText>
-                <PremiumText variant="caption" color="#fff" style={{ fontSize: 13, fontWeight: "700" }}>{currentResult.power}%</PremiumText>
-              </View>
-              <View style={styles.miniStat}>
-                <PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 8 }}>WIND</PremiumText>
-                <PremiumText variant="caption" color="#fff" style={{ fontSize: 13, fontWeight: "700" }}>{currentResult.wind > 0 ? "+" : ""}{currentResult.wind}</PremiumText>
-              </View>
+              <View style={styles.miniStat}><PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 8 }}>BALL SPEED</PremiumText><PremiumText variant="caption" color="#fff" style={{ fontSize: 13, fontWeight: "700" }}>{currentResult.ballSpeed} mph</PremiumText></View>
+              <View style={styles.miniStat}><PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 8 }}>LAUNCH</PremiumText><PremiumText variant="caption" color="#fff" style={{ fontSize: 13, fontWeight: "700" }}>{currentResult.launchAngle}°</PremiumText></View>
+              <View style={styles.miniStat}><PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 8 }}>POWER</PremiumText><PremiumText variant="caption" color="#fff" style={{ fontSize: 13, fontWeight: "700" }}>{currentResult.power}%</PremiumText></View>
+              <View style={styles.miniStat}><PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 8 }}>WIND</PremiumText><PremiumText variant="caption" color="#fff" style={{ fontSize: 13, fontWeight: "700" }}>{currentResult.wind > 0 ? "+" : ""}{currentResult.wind}</PremiumText></View>
             </View>
 
-            <Pressable
-              onPress={resetDrive}
-              style={[styles.driveAgainBtn, { backgroundColor: nightMode ? "#00FF88" : "#FFD700" }]}
-            >
-              <Ionicons name="refresh" size={18} color={nightMode ? "#0a0a2e" : "#1B5E20"} />
+            {isLoggedIn && (xpGained > 0 || coinsGained > 0) && (
+              <Animated.View entering={FadeIn.duration(300).delay(400)} style={styles.rewardsRow}>
+                {xpGained > 0 && <View style={styles.rewardChip}><PremiumText variant="caption" color="#B9F2FF" style={{ fontSize: 11, fontWeight: "700" }}>+{xpGained} XP</PremiumText></View>}
+                {coinsGained > 0 && <View style={styles.rewardChip}><Ionicons name="logo-bitcoin" size={10} color="#FFD700" /><PremiumText variant="caption" color="#FFD700" style={{ fontSize: 11, fontWeight: "700" }}>+{coinsGained}</PremiumText></View>}
+              </Animated.View>
+            )}
+
+            {gameMode === "contest" && contest && contest.ballsRemaining <= 0 && (
+              <Animated.View entering={FadeInUp.duration(400).delay(500)} style={[styles.contestResult, { borderColor: contest.result === "win" ? "#00FF88" : "#FF5252" }]}>
+                <PremiumText variant="title" color={contest.result === "win" ? "#00FF88" : "#FF5252"} style={{ fontSize: 20 }}>
+                  {contest.result === "win" ? (contest.round === "finals" ? "CHAMPION!" : "YOU ADVANCE!") : "ELIMINATED"}
+                </PremiumText>
+                <PremiumText variant="caption" color="rgba(255,255,255,0.5)" style={{ fontSize: 11 }}>
+                  You: {contest.playerBest} vs {contest.opponent.name}: {contest.opponentBest}
+                </PremiumText>
+              </Animated.View>
+            )}
+
+            <Pressable onPress={
+              gameMode === "contest" && contest && contest.ballsRemaining <= 0
+                ? (contest.result === "win" && contest.round !== "finals" ? () => { resetDrive(); } : goToMenu)
+                : gameMode === "contest" && contest && contest.ballsRemaining > 0
+                  ? resetDrive
+                  : resetDrive
+            } style={[styles.driveAgainBtn, { backgroundColor: nightMode ? "#00FF88" : "#FFD700" }]}>
+              <Ionicons name={gameMode === "contest" && contest?.ballsRemaining === 0 ? (contest?.result === "win" && contest?.round !== "finals" ? "play-forward" : "home") : "refresh"} size={18} color={nightMode ? "#0a0a2e" : "#1B5E20"} />
               <PremiumText variant="body" color={nightMode ? "#0a0a2e" : "#1B5E20"} style={{ fontWeight: "800", fontSize: 15 }}>
-                DRIVE AGAIN
+                {gameMode === "contest" && contest?.ballsRemaining === 0
+                  ? (contest.result === "win" && contest.round !== "finals" ? "NEXT ROUND" : "BACK TO MENU")
+                  : gameMode === "contest" && contest?.ballsRemaining
+                    ? `NEXT BALL (${contest.ballsRemaining} left)`
+                    : "DRIVE AGAIN"}
               </PremiumText>
             </Pressable>
 
-            {driveHistory.length > 1 && (
+            {driveHistory.length > 1 && gameMode === "freeplay" && (
               <View style={styles.historySection}>
                 <PremiumText variant="caption" color="rgba(255,255,255,0.3)" style={{ fontSize: 9, marginBottom: 6 }}>RECENT DRIVES</PremiumText>
                 {driveHistory.slice(1, 6).map((d, i) => (
@@ -623,9 +962,7 @@ export default function BomberGame() {
                     <PremiumText variant="caption" color={d.inBounds ? "rgba(255,255,255,0.6)" : "rgba(255,82,82,0.6)"} style={{ fontSize: 11 }}>
                       {d.inBounds ? `${d.total} yds` : `OB (${d.total})`}
                     </PremiumText>
-                    <PremiumText variant="caption" color="rgba(255,255,255,0.3)" style={{ fontSize: 10 }}>
-                      {d.ballSpeed}mph • {d.wind > 0 ? "+" : ""}{d.wind}w
-                    </PremiumText>
+                    <PremiumText variant="caption" color="rgba(255,255,255,0.3)" style={{ fontSize: 10 }}>{d.ballSpeed}mph • {d.wind > 0 ? "+" : ""}{d.wind}w</PremiumText>
                   </View>
                 ))}
               </View>
@@ -637,214 +974,219 @@ export default function BomberGame() {
   );
 }
 
+function EquipmentModal({ visible, onClose, profileData, equippedDriverId, equippedBallId, onEquip, nightMode }: any) {
+  const insets = useSafeAreaInsets();
+  const webTopInset = Platform.OS === "web" ? 67 : 0;
+  const ownedIds = (profileData?.equipment || []).map((e: any) => `${e.type}_${e.equipmentId}`);
+  const ownedMap = new Map((profileData?.equipment || []).map((e: any) => [`${e.type}_${e.equipmentId}`, e]));
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent>
+      <View style={[eqStyles.overlay, { backgroundColor: nightMode ? "rgba(5,5,24,0.97)" : "rgba(0,0,0,0.95)" }]}>
+        <View style={[eqStyles.header, { paddingTop: insets.top + webTopInset + 8 }]}>
+          <PremiumText variant="subtitle" color="#fff" style={{ fontSize: 18 }}>Equipment</PremiumText>
+          <Pressable onPress={onClose} style={{ padding: 8 }}>
+            <Ionicons name="close" size={24} color="#fff" />
+          </Pressable>
+        </View>
+        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 40 }}>
+          <PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 10, marginBottom: 12, letterSpacing: 2 }}>DRIVERS</PremiumText>
+          {DRIVERS.map((d) => {
+            const owned = ownedMap.get(`driver_${d.id}`);
+            const isEquipped = equippedDriverId === d.id;
+            return (
+              <Pressable key={d.id} onPress={() => owned ? onEquip(d.id, "driver") : null} style={[eqStyles.eqCard, { borderColor: isEquipped ? RARITY_COLORS[d.rarity] : "rgba(255,255,255,0.1)", opacity: owned ? 1 : 0.4 }]}>
+                <View style={[eqStyles.rarityDot, { backgroundColor: RARITY_COLORS[d.rarity] }]} />
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <PremiumText variant="body" color="#fff" style={{ fontWeight: "700", fontSize: 14 }}>{d.name}</PremiumText>
+                    {owned && <PremiumText variant="caption" color="rgba(255,255,255,0.3)" style={{ fontSize: 9 }}>Lv{owned.level}</PremiumText>}
+                  </View>
+                  <PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 10 }}>{d.description}</PremiumText>
+                  <View style={{ flexDirection: "row", gap: 8, marginTop: 4 }}>
+                    {d.speedBonus !== 0 && <PremiumText variant="caption" color={d.speedBonus > 0 ? "#4CAF50" : "#FF5252"} style={{ fontSize: 9 }}>SPD {d.speedBonus > 0 ? "+" : ""}{d.speedBonus}</PremiumText>}
+                    {d.accuracyBonus !== 0 && <PremiumText variant="caption" color={d.accuracyBonus > 0 ? "#4CAF50" : "#FF5252"} style={{ fontSize: 9 }}>ACC {d.accuracyBonus > 0 ? "+" : ""}{d.accuracyBonus}</PremiumText>}
+                    {d.distanceBonus !== 0 && <PremiumText variant="caption" color={d.distanceBonus > 0 ? "#4CAF50" : "#FF5252"} style={{ fontSize: 9 }}>DIST {d.distanceBonus > 0 ? "+" : ""}{d.distanceBonus}%</PremiumText>}
+                  </View>
+                </View>
+                {isEquipped && <View style={[eqStyles.equippedBadge, { backgroundColor: RARITY_COLORS[d.rarity] + "20" }]}><PremiumText variant="caption" color={RARITY_COLORS[d.rarity]} style={{ fontSize: 9, fontWeight: "800" }}>EQUIPPED</PremiumText></View>}
+                {!owned && <Ionicons name="lock-closed" size={16} color="rgba(255,255,255,0.3)" />}
+              </Pressable>
+            );
+          })}
+
+          <PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 10, marginTop: 20, marginBottom: 12, letterSpacing: 2 }}>BALLS</PremiumText>
+          {BALLS.map((b) => {
+            const owned = ownedMap.get(`ball_${b.id}`);
+            const isEquipped = equippedBallId === b.id;
+            return (
+              <Pressable key={b.id} onPress={() => owned ? onEquip(b.id, "ball") : null} style={[eqStyles.eqCard, { borderColor: isEquipped ? RARITY_COLORS[b.rarity] : "rgba(255,255,255,0.1)", opacity: owned ? 1 : 0.4 }]}>
+                <View style={[eqStyles.rarityDot, { backgroundColor: RARITY_COLORS[b.rarity] }]} />
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <PremiumText variant="body" color="#fff" style={{ fontWeight: "700", fontSize: 14 }}>{b.name}</PremiumText>
+                    {owned && <PremiumText variant="caption" color="rgba(255,255,255,0.3)" style={{ fontSize: 9 }}>Lv{owned.level}</PremiumText>}
+                  </View>
+                  <PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 10 }}>{b.description}</PremiumText>
+                  <View style={{ flexDirection: "row", gap: 8, marginTop: 4 }}>
+                    {b.distanceBonus !== 0 && <PremiumText variant="caption" color={b.distanceBonus > 0 ? "#4CAF50" : "#FF5252"} style={{ fontSize: 9 }}>DIST {b.distanceBonus > 0 ? "+" : ""}{b.distanceBonus}%</PremiumText>}
+                    {b.rollBonus !== 0 && <PremiumText variant="caption" color={b.rollBonus > 0 ? "#4CAF50" : "#FF5252"} style={{ fontSize: 9 }}>ROLL {b.rollBonus > 0 ? "+" : ""}{b.rollBonus}%</PremiumText>}
+                    {b.accuracyBonus !== 0 && <PremiumText variant="caption" color={b.accuracyBonus > 0 ? "#4CAF50" : "#FF5252"} style={{ fontSize: 9 }}>ACC {b.accuracyBonus > 0 ? "+" : ""}{b.accuracyBonus}</PremiumText>}
+                  </View>
+                </View>
+                {isEquipped && <View style={[eqStyles.equippedBadge, { backgroundColor: RARITY_COLORS[b.rarity] + "20" }]}><PremiumText variant="caption" color={RARITY_COLORS[b.rarity]} style={{ fontSize: 9, fontWeight: "800" }}>EQUIPPED</PremiumText></View>}
+                {!owned && <Ionicons name="lock-closed" size={16} color="rgba(255,255,255,0.3)" />}
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </View>
+    </Modal>
+  );
+}
+
+function LeaderboardModal({ visible, onClose, data, userId, nightMode }: any) {
+  const insets = useSafeAreaInsets();
+  const webTopInset = Platform.OS === "web" ? 67 : 0;
+  return (
+    <Modal visible={visible} animationType="slide" transparent>
+      <View style={[eqStyles.overlay, { backgroundColor: nightMode ? "rgba(5,5,24,0.97)" : "rgba(0,0,0,0.95)" }]}>
+        <View style={[eqStyles.header, { paddingTop: insets.top + webTopInset + 8 }]}>
+          <PremiumText variant="subtitle" color="#fff" style={{ fontSize: 18 }}>Leaderboard</PremiumText>
+          <Pressable onPress={onClose} style={{ padding: 8 }}><Ionicons name="close" size={24} color="#fff" /></Pressable>
+        </View>
+        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 40 }}>
+          {(!data || data.length === 0) ? (
+            <PremiumText variant="body" color="rgba(255,255,255,0.4)" style={{ textAlign: "center", marginTop: 40 }}>No drives yet. Be the first!</PremiumText>
+          ) : data.map((entry: any, i: number) => (
+            <View key={entry.id || i} style={[eqStyles.lbRow, { backgroundColor: entry.userId === userId ? "rgba(255,215,0,0.08)" : "transparent", borderColor: entry.userId === userId ? "rgba(255,215,0,0.2)" : "rgba(255,255,255,0.06)" }]}>
+              <PremiumText variant="title" color={i === 0 ? "#FFD700" : i === 1 ? "#C0C0C0" : i === 2 ? "#CD7F32" : "rgba(255,255,255,0.5)"} style={{ fontSize: 16, width: 30 }}>{i + 1}</PremiumText>
+              <View style={{ flex: 1 }}>
+                <PremiumText variant="body" color="#fff" style={{ fontWeight: "700", fontSize: 14 }}>{entry.username}</PremiumText>
+                <PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 10 }}>{entry.ballSpeed}mph • {entry.nightMode ? "Night" : "Day"}</PremiumText>
+              </View>
+              <PremiumText variant="title" color={nightMode ? "#00FF88" : "#FFD700"} style={{ fontSize: 20 }}>{entry.distance}</PremiumText>
+            </View>
+          ))}
+        </ScrollView>
+      </View>
+    </Modal>
+  );
+}
+
+function ChestOpenModal({ visible, onClose, contents, nightMode }: any) {
+  if (!contents) return null;
+  return (
+    <Modal visible={visible} animationType="fade" transparent>
+      <View style={eqStyles.chestOverlay}>
+        <Animated.View entering={ZoomIn.duration(500)} style={[eqStyles.chestPanel, { backgroundColor: nightMode ? "rgba(10,10,46,0.95)" : "rgba(0,0,0,0.92)" }]}>
+          <Ionicons name="gift" size={48} color="#FFD700" />
+          <PremiumText variant="title" color="#fff" style={{ fontSize: 22, marginTop: 12 }}>Chest Opened!</PremiumText>
+          <View style={eqStyles.chestContents}>
+            <View style={eqStyles.chestItem}><Ionicons name="logo-bitcoin" size={20} color="#FFD700" /><PremiumText variant="title" color="#FFD700" style={{ fontSize: 22 }}>{contents.coins}</PremiumText><PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 9 }}>COINS</PremiumText></View>
+            <View style={eqStyles.chestItem}><Ionicons name="star" size={20} color="#B9F2FF" /><PremiumText variant="title" color="#B9F2FF" style={{ fontSize: 22 }}>{contents.xp}</PremiumText><PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 9 }}>XP</PremiumText></View>
+            {contents.gems > 0 && <View style={eqStyles.chestItem}><Ionicons name="diamond" size={20} color="#B9F2FF" /><PremiumText variant="title" color="#B9F2FF" style={{ fontSize: 22 }}>{contents.gems}</PremiumText><PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 9 }}>GEMS</PremiumText></View>}
+          </View>
+          {contents.equipment && (
+            <View style={[eqStyles.eqReward, { borderColor: RARITY_COLORS[getEquipmentDef(contents.equipment.id, contents.equipment.type)?.rarity || "common"] + "40" }]}>
+              <Ionicons name="construct" size={16} color={RARITY_COLORS[getEquipmentDef(contents.equipment.id, contents.equipment.type)?.rarity || "common"]} />
+              <PremiumText variant="body" color="#fff" style={{ fontWeight: "700" }}>
+                {getEquipmentDef(contents.equipment.id, contents.equipment.type)?.name || contents.equipment.id}
+              </PremiumText>
+              <PremiumText variant="caption" color={RARITY_COLORS[getEquipmentDef(contents.equipment.id, contents.equipment.type)?.rarity || "common"]} style={{ fontSize: 10, textTransform: "uppercase" }}>
+                {getEquipmentDef(contents.equipment.id, contents.equipment.type)?.rarity}
+              </PremiumText>
+            </View>
+          )}
+          <Pressable onPress={onClose} style={eqStyles.chestCloseBtn}>
+            <PremiumText variant="body" color="#1B5E20" style={{ fontWeight: "800", fontSize: 15 }}>COLLECT</PremiumText>
+          </Pressable>
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+}
+
+const eqStyles = StyleSheet.create({
+  overlay: { flex: 1 },
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "rgba(255,255,255,0.1)" },
+  eqCard: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: 12, borderWidth: 1, marginBottom: 8 },
+  rarityDot: { width: 8, height: 8, borderRadius: 4 },
+  equippedBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+  lbRow: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: 12, borderWidth: 1, marginBottom: 6 },
+  chestOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.7)", justifyContent: "center", alignItems: "center", padding: 24 },
+  chestPanel: { width: "100%", maxWidth: 340, borderRadius: 24, padding: 32, alignItems: "center", borderWidth: 1, borderColor: "rgba(255,215,0,0.2)" },
+  chestContents: { flexDirection: "row", gap: 24, marginTop: 20 },
+  chestItem: { alignItems: "center", gap: 4 },
+  eqReward: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 16, padding: 12, borderRadius: 12, borderWidth: 1, width: "100%" },
+  chestCloseBtn: { marginTop: 24, backgroundColor: "#FFD700", paddingHorizontal: 32, paddingVertical: 14, borderRadius: 24 },
+});
+
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  topBar: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 12,
-    zIndex: 10,
-  },
-  topBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(0,0,0,0.3)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  titleArea: {
-    alignItems: "center",
-    gap: 2,
-  },
-  windRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  bestBadge: {
-    position: "absolute",
-    right: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
-    zIndex: 10,
-  },
-  powerMeterContainer: {
-    position: "absolute",
-    alignItems: "center",
-    zIndex: 5,
-  },
-  powerMeterTrack: {
-    width: 28,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    overflow: "hidden",
-    justifyContent: "flex-end",
-    backgroundColor: "rgba(0,0,0,0.3)",
-  },
-  powerMeterFill: {
-    width: "100%",
-    borderRadius: 12,
-  },
-  powerMeterIndicator: {
-    position: "absolute",
-    left: -8,
-    width: 44,
-    height: 3,
-    alignItems: "flex-end",
-  },
-  powerMeterArrow: {
-    width: 0,
-    height: 0,
-    borderTopWidth: 5,
-    borderBottomWidth: 5,
-    borderRightWidth: 8,
-    borderTopColor: "transparent",
-    borderBottomColor: "transparent",
-    borderRightColor: "#fff",
-  },
-  accuracyMeterContainer: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    alignItems: "center",
-    zIndex: 5,
-  },
-  accuracyMeterTrack: {
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    backgroundColor: "rgba(0,0,0,0.3)",
-    position: "relative",
-  },
-  accuracyCenterLine: {
-    position: "absolute",
-    left: "50%",
-    top: 2,
-    bottom: 2,
-    width: 2,
-    backgroundColor: "rgba(255,255,255,0.4)",
-    marginLeft: -1,
-  },
-  accuracyIndicator: {
-    position: "absolute",
-    top: 2,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    marginLeft: -8,
-  },
-  accuracyLabels: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    width: "60%",
-    marginTop: 4,
-  },
-  startPrompt: {
-    position: "absolute",
-    bottom: "15%",
-    left: 0,
-    right: 0,
-    alignItems: "center",
-    zIndex: 10,
-  },
-  driveButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    paddingHorizontal: 36,
-    paddingVertical: 16,
-    borderRadius: 30,
-  },
-  resultsOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 20,
-    paddingHorizontal: 20,
-  },
-  resultsPanel: {
-    width: "100%",
-    maxWidth: 380,
-    borderRadius: 24,
-    borderWidth: 1,
-    padding: 28,
-    alignItems: "center",
-  },
-  newBestBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: "rgba(255,215,0,0.15)",
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 12,
-    marginBottom: 8,
-    alignSelf: "center",
-  },
-  carryRollRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 20,
-    marginTop: 16,
-  },
-  statBox: {
-    alignItems: "center",
-    gap: 2,
-  },
-  statDivider: {
-    width: 1,
-    height: 30,
-  },
-  statsRow: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    width: "100%",
-    marginTop: 20,
-    paddingTop: 16,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "rgba(255,255,255,0.1)",
-  },
-  miniStat: {
-    alignItems: "center",
-    gap: 2,
-  },
-  driveAgainBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingHorizontal: 28,
-    paddingVertical: 14,
-    borderRadius: 24,
-    marginTop: 20,
-    width: "100%",
-  },
-  historySection: {
-    marginTop: 16,
-    width: "100%",
-    paddingTop: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "rgba(255,255,255,0.08)",
-  },
-  historyRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 3,
-  },
+  menuContent: { paddingHorizontal: 20 },
+  menuHeader: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
+  menuTitleArea: { alignItems: "center", marginBottom: 24 },
+  profileBar: { backgroundColor: "rgba(255,255,255,0.06)", borderRadius: 16, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
+  profileRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  divisionBadge: { flexDirection: "row", alignItems: "center", gap: 4, borderWidth: 1.5, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 },
+  profileStats: { flexDirection: "row", flex: 1, justifyContent: "space-around" },
+  profileStatItem: { alignItems: "center" },
+  xpBar: { height: 4, backgroundColor: "rgba(255,255,255,0.1)", borderRadius: 2, marginTop: 12, overflow: "hidden" },
+  xpFill: { height: "100%", borderRadius: 2 },
+  currencyRow: { flexDirection: "row", gap: 16, marginTop: 10, justifyContent: "center" },
+  currencyItem: { flexDirection: "row", alignItems: "center", gap: 4 },
+  dailyRewardBanner: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "rgba(255,152,0,0.1)", borderWidth: 1, borderRadius: 14, padding: 14, marginBottom: 16 },
+  chestCard: { width: 80, height: 80, borderRadius: 12, borderWidth: 1, alignItems: "center", justifyContent: "center", gap: 4, marginRight: 10, backgroundColor: "rgba(255,255,255,0.04)" },
+  modeButtons: { gap: 12, marginBottom: 16 },
+  modeBtn: { flexDirection: "row", alignItems: "center", gap: 14, padding: 18, borderRadius: 16, borderWidth: 1 },
+  menuActions: { flexDirection: "row", gap: 10, marginBottom: 16 },
+  menuActionBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 14, borderRadius: 12, borderWidth: 1, backgroundColor: "rgba(255,255,255,0.04)" },
+  challengeCard: { padding: 14, borderRadius: 14, borderWidth: 1, backgroundColor: "rgba(255,255,255,0.04)", marginBottom: 16 },
+  challengeReward: { flexDirection: "row", alignItems: "center", gap: 4 },
+  signInPrompt: { alignItems: "center", gap: 10, marginTop: 8, paddingTop: 16, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "rgba(255,255,255,0.08)" },
+  signInBtn: { paddingHorizontal: 24, paddingVertical: 10, borderRadius: 20, borderWidth: 1 },
+  topBar: { position: "absolute", top: 0, left: 0, right: 0, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 12, zIndex: 10 },
+  topBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(0,0,0,0.3)", alignItems: "center", justifyContent: "center" },
+  titleArea: { alignItems: "center", gap: 2 },
+  windRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  roundBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
+  statsBar: { position: "absolute", left: 12, right: 12, flexDirection: "row", alignItems: "center", gap: 8, zIndex: 10 },
+  miniCurrency: { flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: "rgba(0,0,0,0.3)", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10 },
+  xpBarSmall: { flex: 1, height: 3, backgroundColor: "rgba(255,255,255,0.1)", borderRadius: 2, overflow: "hidden" },
+  xpFillSmall: { height: "100%", borderRadius: 2 },
+  bestBadge: { position: "absolute", right: 12, flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "rgba(0,0,0,0.4)", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12, zIndex: 10 },
+  contestBar: { position: "absolute", left: 12, right: 12, zIndex: 10 },
+  contestInfo: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 12, backgroundColor: "rgba(0,0,0,0.4)", padding: 10, borderRadius: 12 },
+  contestPlayer: { flexDirection: "row", alignItems: "center", gap: 4 },
+  ballCounter: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 6 },
+  ballDot: { width: 8, height: 8, borderRadius: 4 },
+  shotClockBadge: { position: "absolute", right: 0, top: 0, flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10 },
+  powerMeterContainer: { position: "absolute", alignItems: "center", zIndex: 5 },
+  powerMeterTrack: { width: 28, borderRadius: 14, borderWidth: 1.5, overflow: "hidden", justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.3)" },
+  powerMeterFill: { width: "100%", borderRadius: 12 },
+  powerMeterIndicator: { position: "absolute", left: -8, width: 44, height: 3, alignItems: "flex-end" },
+  powerMeterArrow: { width: 0, height: 0, borderTopWidth: 5, borderBottomWidth: 5, borderRightWidth: 8, borderTopColor: "transparent", borderBottomColor: "transparent", borderRightColor: "#fff" },
+  accuracyMeterContainer: { position: "absolute", left: 0, right: 0, alignItems: "center", zIndex: 5 },
+  accuracyMeterTrack: { height: 20, borderRadius: 10, borderWidth: 1.5, backgroundColor: "rgba(0,0,0,0.3)", position: "relative" },
+  accuracyCenterLine: { position: "absolute", left: "50%", top: 2, bottom: 2, width: 2, backgroundColor: "rgba(255,255,255,0.4)", marginLeft: -1 },
+  accuracyIndicator: { position: "absolute", top: 2, width: 16, height: 16, borderRadius: 8, marginLeft: -8 },
+  accuracyLabels: { flexDirection: "row", justifyContent: "space-between", width: "60%", marginTop: 4 },
+  startPrompt: { position: "absolute", bottom: "15%", left: 0, right: 0, alignItems: "center", zIndex: 10 },
+  equippedTag: { flexDirection: "row", alignItems: "center", gap: 4, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, marginBottom: 8 },
+  driveButton: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 36, paddingVertical: 16, borderRadius: 30 },
+  resultsOverlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, justifyContent: "center", alignItems: "center", zIndex: 20, paddingHorizontal: 20 },
+  resultsPanel: { width: "100%", maxWidth: 380, borderRadius: 24, borderWidth: 1, padding: 28, alignItems: "center" },
+  newBestBadge: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(255,215,0,0.15)", paddingHorizontal: 14, paddingVertical: 6, borderRadius: 12, marginBottom: 8, alignSelf: "center" },
+  carryRollRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 20, marginTop: 16 },
+  statBox: { alignItems: "center", gap: 2 },
+  statDivider: { width: 1, height: 30 },
+  statsRow: { flexDirection: "row", justifyContent: "space-around", width: "100%", marginTop: 20, paddingTop: 16, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "rgba(255,255,255,0.1)" },
+  miniStat: { alignItems: "center", gap: 2 },
+  rewardsRow: { flexDirection: "row", gap: 10, marginTop: 12 },
+  rewardChip: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "rgba(255,255,255,0.06)", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
+  contestResult: { marginTop: 16, padding: 14, borderRadius: 14, borderWidth: 1, alignItems: "center", width: "100%", backgroundColor: "rgba(255,255,255,0.04)" },
+  driveAgainBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingHorizontal: 28, paddingVertical: 14, borderRadius: 24, marginTop: 20, width: "100%" },
+  historySection: { marginTop: 16, width: "100%", paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "rgba(255,255,255,0.08)" },
+  historyRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 3 },
 });

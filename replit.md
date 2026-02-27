@@ -111,6 +111,35 @@ Trust Golf is built on a modern full-stack architecture:
 
 **Design Philosophy**: Premium, clean aesthetic consistent with Trust Golf brand. Not cartoony — stylized and satisfying. Day mode feels like a sunny Saturday at a pro long drive event. Night mode feels electric — stadium lights, glowing tracers, darkness beyond the grid. The feeling of a 350-yard bomb should look and feel as good in the game as it does in real life. The economy is generous but strategic — players always feel like they're progressing, but mastery takes time and skill, not just spending.
 
+## Bomber Phase 2 — Implemented
+Phase 2 of the Bomber long drive contest game is now fully implemented with server-side persistence:
+- **Database Tables**: `bomber_profiles`, `bomber_equipment`, `bomber_leaderboard`, `bomber_chest_queue`, `bomber_daily_challenges` — all defined in `shared/schema.ts` and pushed to the database
+- **Shared Game Data**: `shared/bomber-data.ts` contains all equipment definitions (5 drivers, 5 balls with rarity tiers), division progression, chest drop tables, AI opponent profiles, weather conditions, daily challenge templates, and helper functions
+- **Storage Layer**: Full CRUD methods in `server/storage.ts` for all Bomber tables
+- **API Routes** (in `server/routes.ts`):
+  - `GET /api/bomber/profile/:userId` — profile with auto-creation
+  - `POST /api/bomber/drive` — records drive, awards XP/coins, generates chests every 5 drives
+  - `GET /api/bomber/leaderboard` — top 50 scores
+  - `POST /api/bomber/daily-reward/:userId` — claim daily chest with streak tracking
+  - `POST /api/bomber/chest/:id/open` — open chest with randomized contents
+  - `GET /api/bomber/challenges/today` — daily challenge (auto-generated)
+  - `GET /api/bomber/equipment/:userId` — user equipment inventory
+  - `POST /api/bomber/equipment/:id/upgrade` — upgrade with duplicates
+  - `POST /api/bomber/equip` — equip driver or ball
+- **Frontend** (`app/bomber.tsx`):
+  - Menu screen with profile stats, division badge, XP bar, currency display
+  - Free Play mode with unlimited drives
+  - Contest Mode: qualifying (6 balls) → bracket (3 balls) → finals (2 balls) vs AI opponents
+  - 30-second shot clock with auto-miss on expiry
+  - Equipment selection modal with rarity colors and stat display
+  - Leaderboard modal
+  - Daily reward banner with chest opening animation
+  - Unopened chest queue on menu screen
+  - Weather system affecting physics (rain, hot, cold conditions)
+  - Equipment bonuses modify ball physics (speed, accuracy, distance, roll)
+  - XP/coins/gems rewards after each drive
+  - Daily challenge card on menu
+
 ## External Dependencies
 -   **OpenAI**: Used for AI capabilities, specifically the vision model for swing analysis.
 -   **PostgreSQL**: The primary database for all application data.

@@ -1,16 +1,18 @@
 import { 
   users, courses, rounds, swingAnalyses, deals, vendorApplications, whitelistedUsers, conversations, messages,
   analyticsSessions, analyticsPageViews, analyticsEvents, blogPosts,
+  bomberProfiles, bomberEquipment, bomberLeaderboard, bomberChestQueue, bomberDailyChallenges,
   type User, type InsertUser, type Course, type InsertCourse, 
   type Round, type InsertRound, type SwingAnalysis, type Deal, type InsertDeal,
   type VendorApplication, type InsertVendorApplication,
   type WhitelistedUser, type InsertWhitelistedUser,
   type Conversation, type Message,
   type AnalyticsSession, type AnalyticsPageView, type AnalyticsEvent,
-  type BlogPost, type InsertBlogPost
+  type BlogPost, type InsertBlogPost,
+  type BomberProfile, type BomberEquipmentItem, type BomberLeaderboardEntry, type BomberChest, type BomberDailyChallenge
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, sql, gte, and, count } from "drizzle-orm";
+import { eq, desc, sql, gte, and, count, isNull } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -62,6 +64,21 @@ export interface IStorage {
   createWhitelistedUser(data: InsertWhitelistedUser): Promise<WhitelistedUser>;
   updateWhitelistedUser(id: number, data: Partial<WhitelistedUser>): Promise<WhitelistedUser>;
   deleteWhitelistedUser(id: number): Promise<void>;
+  getBomberProfile(userId: string): Promise<BomberProfile | undefined>;
+  createBomberProfile(userId: string): Promise<BomberProfile>;
+  updateBomberProfile(userId: string, data: Partial<BomberProfile>): Promise<BomberProfile>;
+  addBomberLeaderboardEntry(entry: Partial<BomberLeaderboardEntry>): Promise<BomberLeaderboardEntry>;
+  getBomberLeaderboard(limit?: number): Promise<BomberLeaderboardEntry[]>;
+  getBomberUserBest(userId: string): Promise<BomberLeaderboardEntry | undefined>;
+  addBomberEquipment(userId: string, equipmentId: string, type: string): Promise<BomberEquipmentItem>;
+  getBomberEquipment(userId: string): Promise<BomberEquipmentItem[]>;
+  upgradeBomberEquipment(id: number): Promise<BomberEquipmentItem>;
+  addBomberEquipmentDuplicate(userId: string, equipmentId: string, type: string): Promise<BomberEquipmentItem>;
+  addBomberChest(userId: string, chestType: string): Promise<BomberChest>;
+  getBomberChestQueue(userId: string): Promise<BomberChest[]>;
+  openBomberChest(id: number, contents: any): Promise<BomberChest>;
+  getDailyChallenge(dateStr: string): Promise<BomberDailyChallenge | undefined>;
+  createDailyChallenge(challenge: Partial<BomberDailyChallenge>): Promise<BomberDailyChallenge>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -400,6 +417,98 @@ export class DatabaseStorage implements IStorage {
 
   async deleteWhitelistedUser(id: number): Promise<void> {
     await db.delete(whitelistedUsers).where(eq(whitelistedUsers.id, id));
+  }
+
+  async getBomberProfile(userId: string): Promise<BomberProfile | undefined> {
+    const [profile] = await db.select().from(bomberProfiles).where(eq(bomberProfiles.userId, userId));
+    return profile || undefined;
+  }
+
+  async createBomberProfile(userId: string): Promise<BomberProfile> {
+    const [profile] = await db.insert(bomberProfiles).values({ userId } as any).returning();
+    return profile;
+  }
+
+  async updateBomberProfile(userId: string, data: Partial<BomberProfile>): Promise<BomberProfile> {
+    const [updated] = await db.update(bomberProfiles).set(data as any).where(eq(bomberProfiles.userId, userId)).returning();
+    return updated;
+  }
+
+  async addBomberLeaderboardEntry(entry: Partial<BomberLeaderboardEntry>): Promise<BomberLeaderboardEntry> {
+    const [row] = await db.insert(bomberLeaderboard).values(entry as any).returning();
+    return row;
+  }
+
+  async getBomberLeaderboard(limit = 50): Promise<BomberLeaderboardEntry[]> {
+    return db.select().from(bomberLeaderboard).orderBy(desc(bomberLeaderboard.distance)).limit(limit);
+  }
+
+  async getBomberUserBest(userId: string): Promise<BomberLeaderboardEntry | undefined> {
+    const [entry] = await db.select().from(bomberLeaderboard)
+      .where(eq(bomberLeaderboard.userId, userId))
+      .orderBy(desc(bomberLeaderboard.distance))
+      .limit(1);
+    return entry || undefined;
+  }
+
+  async addBomberEquipment(userId: string, equipmentId: string, type: string): Promise<BomberEquipmentItem> {
+    const [item] = await db.insert(bomberEquipment).values({ userId, equipmentId, type } as any).returning();
+    return item;
+  }
+
+  async getBomberEquipment(userId: string): Promise<BomberEquipmentItem[]> {
+    return db.select().from(bomberEquipment).where(eq(bomberEquipment.userId, userId)).orderBy(bomberEquipment.unlockedAt);
+  }
+
+  async upgradeBomberEquipment(id: number): Promise<BomberEquipmentItem> {
+    const [updated] = await db.update(bomberEquipment)
+      .set({ level: sql`${bomberEquipment.level} + 1`, duplicates: 0 })
+      .where(eq(bomberEquipment.id, id))
+      .returning();
+    return updated;
+  }
+
+  async addBomberEquipmentDuplicate(userId: string, equipmentId: string, type: string): Promise<BomberEquipmentItem> {
+    const existing = await db.select().from(bomberEquipment)
+      .where(and(eq(bomberEquipment.userId, userId), eq(bomberEquipment.equipmentId, equipmentId), eq(bomberEquipment.type, type)));
+    if (existing.length > 0) {
+      const [updated] = await db.update(bomberEquipment)
+        .set({ duplicates: sql`${bomberEquipment.duplicates} + 1` })
+        .where(eq(bomberEquipment.id, existing[0].id))
+        .returning();
+      return updated;
+    }
+    return this.addBomberEquipment(userId, equipmentId, type);
+  }
+
+  async addBomberChest(userId: string, chestType: string): Promise<BomberChest> {
+    const [chest] = await db.insert(bomberChestQueue).values({ userId, chestType } as any).returning();
+    return chest;
+  }
+
+  async getBomberChestQueue(userId: string): Promise<BomberChest[]> {
+    return db.select().from(bomberChestQueue)
+      .where(and(eq(bomberChestQueue.userId, userId), isNull(bomberChestQueue.openedAt)))
+      .orderBy(desc(bomberChestQueue.earnedAt));
+  }
+
+  async openBomberChest(id: number, contents: any): Promise<BomberChest> {
+    const [chest] = await db.update(bomberChestQueue)
+      .set({ openedAt: new Date(), contents })
+      .where(eq(bomberChestQueue.id, id))
+      .returning();
+    return chest;
+  }
+
+  async getDailyChallenge(dateStr: string): Promise<BomberDailyChallenge | undefined> {
+    const [challenge] = await db.select().from(bomberDailyChallenges)
+      .where(eq(bomberDailyChallenges.activeDate, dateStr));
+    return challenge || undefined;
+  }
+
+  async createDailyChallenge(challenge: Partial<BomberDailyChallenge>): Promise<BomberDailyChallenge> {
+    const [row] = await db.insert(bomberDailyChallenges).values(challenge as any).returning();
+    return row;
   }
 }
 
