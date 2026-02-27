@@ -31,41 +31,56 @@ Trust Golf is built on a modern full-stack architecture:
     *   **TrustVault Integration**: Enables media storage, editing, and video processing with webhook callbacks for rendering status.
     *   **Trust Layer Ecosystem Page**: A dedicated `/ecosystem` page displaying the DarkWave Studios ecosystem directory widget (from dwsc.io), SSO/Blockchain/API feature cards, linked from the footer.
 
-## Roadmap: "Bomber" — Long Drive Game
+## Roadmap: "Bomber" — Long Drive Contest Game
 
-**Concept**: A long drive mini-game built into the Trust Golf app. Not a full course simulator — this is the one perfect shot that keeps golfers coming back. Pure power, instant gratification, big numbers.
+**Concept**: A long drive contest game built into the Trust Golf app. Modeled after real professional long drive competitions — the grid, the pressure, the crowd, day sessions and night sessions under the lights. Not a full course simulator. This is the one perfect shot that keeps golfers coming back. Pure power, instant gratification, big numbers.
+
+**Contest Format (mirrors real long drive events)**:
+- **The Grid**: A marked driving grid with distance markers every 25 yards, boundary lines (must land in-bounds to count), and a landing zone camera
+- **Rounds & Elimination**: Qualifying round (6 balls), bracket rounds (3 balls each), finals (2 balls, best single drive wins)
+- **Shot Clock**: 30-second timer per ball — step up, set up, swing. Pressure builds.
+- **Day Mode**: Bright sun, blue sky, green fairway. Shadows shift with time of day. Heat shimmer on long drives. Clean, crisp visibility — you see the ball all the way out.
+- **Night Mode**: Stadium lights illuminating the grid. The ball launches into darkness — all you see is the tracer arc glowing against a black sky. Spotlight tracks the landing. Dramatic, electric atmosphere. The crowd reacts to the sound before they see where it lands.
+- **Ball Tracer**: Glowing flight path that lingers — white/gold in day, neon in night mode. Shows apex, carry, and total distance.
+- **Crowd & Atmosphere**: Animated spectators behind the tee box. Reactions scale with distance — polite claps at 280, roaring at 350+, absolute pandemonium at 400+. Night sessions are louder, rowdier.
 
 **Technical Stack**:
-- **Rendering**: @shopify/react-native-skia (bundled in Expo Go, web via CanvasKit) for 2D/2.5D ball flight visualization
+- **Rendering**: @shopify/react-native-skia (bundled in Expo Go, web via CanvasKit) for 2D/2.5D ball flight visualization, tracer effects, lighting
 - **Game Loop**: react-native-game-engine for entity management and physics tick
-- **Physics**: Custom ballistic flight model (launch angle, spin, wind resistance, altitude)
+- **Physics**: Custom ballistic flight model (launch angle, spin, wind resistance, altitude, temperature effects)
 - **Platform**: Runs on web, iOS, and Android inside the existing Expo app — no native build required
 
 **Phase 1 — Playable MVP**:
-- Swing mechanic: Timing-based power meter with angle control
-- Ball flight physics: realistic trajectory with carry + roll
-- Side-view or 3/4 view rendering of the drive with distance markers
-- Big dramatic distance display on landing
+- Swing mechanic: Timing-based power meter with angle control (two-tap: power then accuracy)
+- Ball flight physics: realistic trajectory with carry + roll, must land in-bounds
+- Side-view or 3/4 view rendering of the drive with grid markers
+- Day and night mode toggle (different sky, lighting, tracer colors)
+- Ball tracer effect on every shot
+- Big dramatic distance display on landing (carry + roll breakdown)
+- Grid boundary — out-of-bounds drives don't count
 - Personal best tracking (local state)
-- Single venue (open fairway)
+- Free play mode — unlimited swings, chase your longest
 
-**Phase 2 — Engagement Layer**:
-- Leaderboards (server-side, per-user high scores)
-- Daily challenges ("Hit 300+ in 40mph headwind")
-- Multiple venues (desert, links, mountain, stadium)
-- Weather/wind conditions that change per attempt
-- Replay camera showing the ball flight from different angles
-- Sound design (crack of the driver, crowd reactions on monster drives)
+**Phase 2 — Contest Mode**:
+- Full long drive contest format: qualifying (6 balls) -> brackets (3 balls) -> finals (2 balls)
+- AI opponents with different skill profiles ("The Bomber", "The Technician", "The Rookie")
+- Shot clock (30 seconds per ball)
+- Leaderboards (server-side, per-user high scores, separate day/night records)
+- Daily challenges ("Hit 350+ at night in crosswind", "Win a bracket with 3 straight 300+ drives")
+- Weather/wind conditions: headwind, tailwind, crosswind, gusts, temperature (cold = less distance)
+- Sound design: crack of the driver, ball tracer whoosh, crowd reactions, night stadium ambiance
+- Launch monitor readout after each drive (ball speed, launch angle, spin rate, carry, total)
 
-**Phase 3 — Depth & Monetization**:
-- Unlockable equipment (drivers, balls) with different flight characteristics
-- Swing style customization (draw/fade tendency, launch profile)
-- Tournament mode (weekly competitions with prizes/badges)
-- Integration with Trust Golf profile (handicap affects starting conditions)
-- Share replays to social media
-- Stadium mode with animated crowd and announcer reactions
+**Phase 3 — Depth & Prestige**:
+- Unlockable equipment (drivers, shafts, balls) with different flight characteristics
+- Swing style customization (draw/fade tendency, launch profile, swing speed ceiling)
+- Weekly online tournaments with prizes/badges/rankings
+- Integration with Trust Golf profile (handicap, swing speed from profile feed into starting attributes)
+- Multiple venues: open field, desert grid, mountain altitude (ball flies further), links (wind exposed), stadium with full grandstands
+- Replay system: slow-mo camera angles of your best drives, shareable
+- Season progression: earn XP, climb divisions, unlock night mode venues and premium equipment
 
-**Design Philosophy**: Premium, clean aesthetic consistent with Trust Golf brand. Not cartoony — stylized and satisfying. The feeling of a 350-yard bomb should look and feel as good in the game as it does in real life.
+**Design Philosophy**: Premium, clean aesthetic consistent with Trust Golf brand. Not cartoony — stylized and satisfying. Day mode feels like a sunny Saturday at a pro long drive event. Night mode feels electric — stadium lights, glowing tracers, darkness beyond the grid. The feeling of a 350-yard bomb should look and feel as good in the game as it does in real life.
 
 ## External Dependencies
 -   **OpenAI**: Used for AI capabilities, specifically the vision model for swing analysis.
