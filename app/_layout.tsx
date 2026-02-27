@@ -44,6 +44,7 @@ function RootLayoutNav() {
       <Stack.Screen name="partner" options={{ presentation: "modal" }} />
       <Stack.Screen name="ecosystem" options={{ headerShown: false }} />
       <Stack.Screen name="gps-navigator" options={{ headerShown: false }} />
+      <Stack.Screen name="bomber" options={{ headerShown: false }} />
     </Stack>
   );
 }
