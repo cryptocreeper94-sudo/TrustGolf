@@ -61,7 +61,7 @@ Trust Golf is built on a modern full-stack architecture:
 - Personal best tracking (local state)
 - Free play mode — unlimited swings, chase your longest
 
-**Phase 2 — Contest Mode**:
+**Phase 2 — Contest Mode & Economy Foundation**:
 - Full long drive contest format: qualifying (6 balls) -> brackets (3 balls) -> finals (2 balls)
 - AI opponents with different skill profiles ("The Bomber", "The Technician", "The Rookie")
 - Shot clock (30 seconds per ball)
@@ -70,17 +70,46 @@ Trust Golf is built on a modern full-stack architecture:
 - Weather/wind conditions: headwind, tailwind, crosswind, gusts, temperature (cold = less distance)
 - Sound design: crack of the driver, ball tracer whoosh, crowd reactions, night stadium ambiance
 - Launch monitor readout after each drive (ball speed, launch angle, spin rate, carry, total)
+- **Daily Rewards System**:
+  - Daily Chest: free chest every 24 hours for logging in (coins, XP, occasional equipment cards)
+  - Drive Chests: earn a chest every 5-10 drives, better performance = better tier (Bronze, Silver, Gold, Diamond)
+  - Streak Bonus: 3-day streak = upgraded daily chest, 7-day = guaranteed rare, 30-day = legendary
+  - Chest opening animation with reveal suspense
+- **Currency & Economy (foundation)**:
+  - Coins: earned from drives, chests, daily rewards. Buy common/uncommon equipment
+  - Gems: premium currency, earned slowly through achievements. Buy Gold/Diamond chests, instant unlocks, premium venues
+  - XP: every drive earns XP. Leveling up unlocks new content (venues, equipment slots, cosmetics)
+- **Equipment System (initial)**:
+  - Drivers: 3-4 base models with trade-offs (distance vs accuracy vs forgiveness)
+  - Balls: distance, control, all-rounder types
+  - Equipment cards drop from chests — collect duplicates to upgrade (Clash Royale style card fusion)
+  - Equipment affects physics: driver changes ball speed ceiling, ball changes spin/roll characteristics
 
-**Phase 3 — Depth & Prestige**:
-- Unlockable equipment (drivers, shafts, balls) with different flight characteristics
-- Swing style customization (draw/fade tendency, launch profile, swing speed ceiling)
-- Weekly online tournaments with prizes/badges/rankings
-- Integration with Trust Golf profile (handicap, swing speed from profile feed into starting attributes)
-- Multiple venues: open field, desert grid, mountain altitude (ball flies further), links (wind exposed), stadium with full grandstands
-- Replay system: slow-mo camera angles of your best drives, shareable
-- Season progression: earn XP, climb divisions, unlock night mode venues and premium equipment
+**Phase 3 — Venues, Seasons & Live Game**:
+- **Real Course Venues** (the killer feature):
+  - Tee off on iconic holes from the 55-course catalog: 7th at Pebble Beach (ocean), 12th at Augusta (Amen Corner), 18th at TPC Sawgrass (island green), 17th at St Andrews (Road Hole)
+  - Each venue has unique visual backdrop, wind patterns, elevation, and conditions
+  - Venues unlock through leveling or purchased with coins/gems
+  - Legendary venues: only available on certain days or through special events
+  - Venue-specific leaderboards — who holds the record at Pebble?
+- **Full Equipment Depth**:
+  - Shafts: affect launch angle and spin independently
+  - Swing style customization: draw/fade tendency, launch profile, swing speed ceiling
+  - Dozens of equipment cards across Common, Uncommon, Rare, Epic, Legendary tiers
+  - Equipment loadouts — save your favorite setups for different conditions
+- **Seasons & Live Events**:
+  - Monthly season with reward tiers (free track + premium track, like Fortnite battle pass)
+  - Weekly online tournaments on specific venues with specific conditions — top finishers get exclusive rewards
+  - Limited-time events: "Night at Augusta", "Storm Drive Challenge", "Altitude Bomber" (mountain venue, thin air, ball flies further)
+  - Season-exclusive cosmetics (tracer colors, ball skins, celebration animations)
+- **Progression & Prestige**:
+  - Divisions: Bronze → Silver → Gold → Platinum → Diamond → Legend
+  - Achievements: "Hit 400+", "Win 10 brackets", "Play every venue", "30-day streak" — each with unique badges
+  - Integration with Trust Golf profile (handicap, swing speed feed into starting attributes)
+  - Replay system: slow-mo camera angles of best drives, shareable to social media
+  - Animated crowd and announcer reactions that scale with division (Legend division = stadium packed, pyrotechnics on 400+ bombs)
 
-**Design Philosophy**: Premium, clean aesthetic consistent with Trust Golf brand. Not cartoony — stylized and satisfying. Day mode feels like a sunny Saturday at a pro long drive event. Night mode feels electric — stadium lights, glowing tracers, darkness beyond the grid. The feeling of a 350-yard bomb should look and feel as good in the game as it does in real life.
+**Design Philosophy**: Premium, clean aesthetic consistent with Trust Golf brand. Not cartoony — stylized and satisfying. Day mode feels like a sunny Saturday at a pro long drive event. Night mode feels electric — stadium lights, glowing tracers, darkness beyond the grid. The feeling of a 350-yard bomb should look and feel as good in the game as it does in real life. The economy is generous but strategic — players always feel like they're progressing, but mastery takes time and skill, not just spending.
 
 ## External Dependencies
 -   **OpenAI**: Used for AI capabilities, specifically the vision model for swing analysis.
