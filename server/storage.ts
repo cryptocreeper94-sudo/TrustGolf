@@ -2,6 +2,7 @@ import {
   users, courses, rounds, swingAnalyses, deals, vendorApplications, whitelistedUsers, conversations, messages,
   analyticsSessions, analyticsPageViews, analyticsEvents, blogPosts,
   bomberProfiles, bomberEquipment, bomberLeaderboard, bomberChestQueue, bomberDailyChallenges,
+  bomberVenues, bomberVenueUnlocks, bomberTournaments, bomberTournamentEntries, bomberAchievements,
   type User, type InsertUser, type Course, type InsertCourse, 
   type Round, type InsertRound, type SwingAnalysis, type Deal, type InsertDeal,
   type VendorApplication, type InsertVendorApplication,
@@ -9,7 +10,8 @@ import {
   type Conversation, type Message,
   type AnalyticsSession, type AnalyticsPageView, type AnalyticsEvent,
   type BlogPost, type InsertBlogPost,
-  type BomberProfile, type BomberEquipmentItem, type BomberLeaderboardEntry, type BomberChest, type BomberDailyChallenge
+  type BomberProfile, type BomberEquipmentItem, type BomberLeaderboardEntry, type BomberChest, type BomberDailyChallenge,
+  type BomberVenue, type BomberVenueUnlock, type BomberTournament, type BomberTournamentEntry, type BomberAchievement
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, gte, and, count, isNull } from "drizzle-orm";
@@ -79,6 +81,23 @@ export interface IStorage {
   openBomberChest(id: number, contents: any): Promise<BomberChest>;
   getDailyChallenge(dateStr: string): Promise<BomberDailyChallenge | undefined>;
   createDailyChallenge(challenge: Partial<BomberDailyChallenge>): Promise<BomberDailyChallenge>;
+  getVenues(): Promise<BomberVenue[]>;
+  getVenue(venueId: string): Promise<BomberVenue | undefined>;
+  createVenue(venue: Partial<BomberVenue>): Promise<BomberVenue>;
+  getUserVenueUnlocks(userId: string): Promise<BomberVenueUnlock[]>;
+  unlockVenue(userId: string, venueId: string): Promise<BomberVenueUnlock>;
+  isVenueUnlocked(userId: string, venueId: string): Promise<boolean>;
+  getVenueLeaderboard(venueId: string, limit?: number): Promise<BomberLeaderboardEntry[]>;
+  getTournaments(activeOnly?: boolean): Promise<BomberTournament[]>;
+  getTournament(tournamentId: string): Promise<BomberTournament | undefined>;
+  createTournament(tournament: Partial<BomberTournament>): Promise<BomberTournament>;
+  getTournamentEntries(tournamentId: string): Promise<BomberTournamentEntry[]>;
+  getTournamentEntry(tournamentId: string, userId: string): Promise<BomberTournamentEntry | undefined>;
+  enterTournament(entry: Partial<BomberTournamentEntry>): Promise<BomberTournamentEntry>;
+  updateTournamentEntry(id: number, data: Partial<BomberTournamentEntry>): Promise<BomberTournamentEntry>;
+  getUserAchievements(userId: string): Promise<BomberAchievement[]>;
+  addAchievement(userId: string, achievementId: string): Promise<BomberAchievement>;
+  hasAchievement(userId: string, achievementId: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -509,6 +528,99 @@ export class DatabaseStorage implements IStorage {
   async createDailyChallenge(challenge: Partial<BomberDailyChallenge>): Promise<BomberDailyChallenge> {
     const [row] = await db.insert(bomberDailyChallenges).values(challenge as any).returning();
     return row;
+  }
+
+  async getVenues(): Promise<BomberVenue[]> {
+    return db.select().from(bomberVenues).orderBy(bomberVenues.unlockLevel);
+  }
+
+  async getVenue(venueId: string): Promise<BomberVenue | undefined> {
+    const [venue] = await db.select().from(bomberVenues).where(eq(bomberVenues.venueId, venueId));
+    return venue || undefined;
+  }
+
+  async createVenue(venue: Partial<BomberVenue>): Promise<BomberVenue> {
+    const [row] = await db.insert(bomberVenues).values(venue as any).returning();
+    return row;
+  }
+
+  async getUserVenueUnlocks(userId: string): Promise<BomberVenueUnlock[]> {
+    return db.select().from(bomberVenueUnlocks).where(eq(bomberVenueUnlocks.userId, userId));
+  }
+
+  async unlockVenue(userId: string, venueId: string): Promise<BomberVenueUnlock> {
+    const [unlock] = await db.insert(bomberVenueUnlocks).values({ userId, venueId } as any).returning();
+    return unlock;
+  }
+
+  async isVenueUnlocked(userId: string, venueId: string): Promise<boolean> {
+    const [unlock] = await db.select().from(bomberVenueUnlocks)
+      .where(and(eq(bomberVenueUnlocks.userId, userId), eq(bomberVenueUnlocks.venueId, venueId)));
+    return !!unlock;
+  }
+
+  async getVenueLeaderboard(venueId: string, limit = 50): Promise<BomberLeaderboardEntry[]> {
+    return db.select().from(bomberLeaderboard)
+      .where(eq(bomberLeaderboard.venueId, venueId))
+      .orderBy(desc(bomberLeaderboard.distance))
+      .limit(limit);
+  }
+
+  async getTournaments(activeOnly = false): Promise<BomberTournament[]> {
+    if (activeOnly) {
+      const now = new Date();
+      return db.select().from(bomberTournaments)
+        .where(and(gte(bomberTournaments.endsAt, now)))
+        .orderBy(bomberTournaments.startsAt);
+    }
+    return db.select().from(bomberTournaments).orderBy(desc(bomberTournaments.createdAt));
+  }
+
+  async getTournament(tournamentId: string): Promise<BomberTournament | undefined> {
+    const [t] = await db.select().from(bomberTournaments).where(eq(bomberTournaments.tournamentId, tournamentId));
+    return t || undefined;
+  }
+
+  async createTournament(tournament: Partial<BomberTournament>): Promise<BomberTournament> {
+    const [row] = await db.insert(bomberTournaments).values(tournament as any).returning();
+    return row;
+  }
+
+  async getTournamentEntries(tournamentId: string): Promise<BomberTournamentEntry[]> {
+    return db.select().from(bomberTournamentEntries)
+      .where(eq(bomberTournamentEntries.tournamentId, tournamentId))
+      .orderBy(desc(bomberTournamentEntries.bestDistance));
+  }
+
+  async getTournamentEntry(tournamentId: string, userId: string): Promise<BomberTournamentEntry | undefined> {
+    const [entry] = await db.select().from(bomberTournamentEntries)
+      .where(and(eq(bomberTournamentEntries.tournamentId, tournamentId), eq(bomberTournamentEntries.userId, userId)));
+    return entry || undefined;
+  }
+
+  async enterTournament(entry: Partial<BomberTournamentEntry>): Promise<BomberTournamentEntry> {
+    const [row] = await db.insert(bomberTournamentEntries).values(entry as any).returning();
+    return row;
+  }
+
+  async updateTournamentEntry(id: number, data: Partial<BomberTournamentEntry>): Promise<BomberTournamentEntry> {
+    const [updated] = await db.update(bomberTournamentEntries).set(data as any).where(eq(bomberTournamentEntries.id, id)).returning();
+    return updated;
+  }
+
+  async getUserAchievements(userId: string): Promise<BomberAchievement[]> {
+    return db.select().from(bomberAchievements).where(eq(bomberAchievements.userId, userId));
+  }
+
+  async addAchievement(userId: string, achievementId: string): Promise<BomberAchievement> {
+    const [row] = await db.insert(bomberAchievements).values({ userId, achievementId } as any).returning();
+    return row;
+  }
+
+  async hasAchievement(userId: string, achievementId: string): Promise<boolean> {
+    const [a] = await db.select().from(bomberAchievements)
+      .where(and(eq(bomberAchievements.userId, userId), eq(bomberAchievements.achievementId, achievementId)));
+    return !!a;
   }
 }
 

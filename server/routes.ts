@@ -2293,7 +2293,7 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
 
   app.post("/api/bomber/drive", async (req: Request, res: Response) => {
     try {
-      const { userId, distance, carry, roll, ballSpeed, launchAngle, wind, nightMode, inBounds, equippedDriver, equippedBall, username } = req.body;
+      const { userId, distance, carry, roll, ballSpeed, launchAngle, wind, nightMode, inBounds, equippedDriver, equippedBall, username, venueId } = req.body;
       if (!userId) return res.status(400).json({ error: "userId required" });
 
       let profile = await storage.getBomberProfile(userId);
@@ -2336,6 +2336,7 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
           nightMode,
           equippedDriver,
           equippedBall,
+          venueId: venueId || "driving_range",
         });
       }
 
@@ -2609,6 +2610,208 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
       let profile = await storage.getBomberProfile(userId);
       if (!profile) profile = await storage.createBomberProfile(userId);
       res.json({ isPro: profile.bomberPro });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.get("/api/bomber/venues", async (_req: Request, res: Response) => {
+    try {
+      const venues = await storage.getVenues();
+      res.json(venues);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.get("/api/bomber/venues/unlocks/:userId", async (req: Request, res: Response) => {
+    try {
+      const unlocks = await storage.getUserVenueUnlocks(req.params.userId);
+      res.json(unlocks);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/bomber/venues/unlock", async (req: Request, res: Response) => {
+    try {
+      const { userId, venueId } = req.body;
+      const { VENUE_DEFS } = await import("@shared/bomber-data");
+      const venueDef = VENUE_DEFS.find((v: any) => v.venueId === venueId);
+      if (!venueDef) return res.status(404).json({ error: "Venue not found" });
+      if (venueDef.tier === "free") return res.status(400).json({ error: "Venue is already free" });
+
+      const already = await storage.isVenueUnlocked(userId, venueId);
+      if (already) return res.status(400).json({ error: "Already unlocked" });
+
+      let profile = await storage.getBomberProfile(userId);
+      if (!profile) profile = await storage.createBomberProfile(userId);
+
+      const { getLevelFromXp } = await import("@shared/bomber-data");
+      const { level } = getLevelFromXp(profile.xp);
+      if (level < venueDef.unlockLevel) return res.status(400).json({ error: `Requires level ${venueDef.unlockLevel}` });
+
+      if (venueDef.unlockCurrency === "coins") {
+        if (profile.coins < venueDef.unlockCost) return res.status(400).json({ error: "Not enough coins" });
+        profile = await storage.updateBomberProfile(userId, { coins: profile.coins - venueDef.unlockCost });
+      } else {
+        if (profile.gems < venueDef.unlockCost) return res.status(400).json({ error: "Not enough gems" });
+        profile = await storage.updateBomberProfile(userId, { gems: profile.gems - venueDef.unlockCost });
+      }
+
+      const unlock = await storage.unlockVenue(userId, venueId);
+      res.json({ success: true, unlock, profile });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.get("/api/bomber/tournaments", async (req: Request, res: Response) => {
+    try {
+      const activeOnly = req.query.active === "true";
+      const tournaments = await storage.getTournaments(activeOnly);
+      res.json(tournaments);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.get("/api/bomber/tournaments/:tournamentId", async (req: Request, res: Response) => {
+    try {
+      const tournament = await storage.getTournament(req.params.tournamentId);
+      if (!tournament) return res.status(404).json({ error: "Tournament not found" });
+      const entries = await storage.getTournamentEntries(req.params.tournamentId);
+      res.json({ tournament, entries });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/bomber/tournaments/enter", async (req: Request, res: Response) => {
+    try {
+      const { tournamentId, userId, username } = req.body;
+      const tournament = await storage.getTournament(tournamentId);
+      if (!tournament) return res.status(404).json({ error: "Tournament not found" });
+
+      const now = new Date();
+      if (now < tournament.startsAt) return res.status(400).json({ error: "Tournament hasn't started yet" });
+      if (now > tournament.endsAt) return res.status(400).json({ error: "Tournament has ended" });
+
+      const existing = await storage.getTournamentEntry(tournamentId, userId);
+      if (existing) return res.json({ entry: existing, alreadyEntered: true });
+
+      if (tournament.entryFee > 0) {
+        let profile = await storage.getBomberProfile(userId);
+        if (!profile) profile = await storage.createBomberProfile(userId);
+        if (profile.coins < tournament.entryFee) return res.status(400).json({ error: "Not enough coins" });
+        await storage.updateBomberProfile(userId, { coins: profile.coins - tournament.entryFee });
+      }
+
+      const entry = await storage.enterTournament({ tournamentId, userId, username });
+      res.json({ entry, alreadyEntered: false });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/bomber/tournaments/drive", async (req: Request, res: Response) => {
+    try {
+      const { tournamentId, userId, distance } = req.body;
+      const tournament = await storage.getTournament(tournamentId);
+      if (!tournament) return res.status(404).json({ error: "Tournament not found" });
+
+      const now = new Date();
+      if (now > tournament.endsAt) return res.status(400).json({ error: "Tournament has ended" });
+
+      const entry = await storage.getTournamentEntry(tournamentId, userId);
+      if (!entry) return res.status(400).json({ error: "Not entered in tournament" });
+
+      if (entry.ballsUsed >= tournament.maxBalls) return res.status(400).json({ error: "No balls remaining" });
+
+      const drives = Array.isArray(entry.drives) ? entry.drives as number[] : [];
+      drives.push(distance);
+
+      const updated = await storage.updateTournamentEntry(entry.id, {
+        bestDistance: Math.max(entry.bestDistance, distance),
+        totalDrives: entry.totalDrives + 1,
+        ballsUsed: entry.ballsUsed + 1,
+        drives: drives as any,
+      });
+
+      const allEntries = await storage.getTournamentEntries(tournamentId);
+      const rank = allEntries.findIndex((e) => e.userId === userId) + 1;
+
+      res.json({ entry: updated, rank, totalEntries: allEntries.length });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.get("/api/bomber/achievements/:userId", async (req: Request, res: Response) => {
+    try {
+      const achievements = await storage.getUserAchievements(req.params.userId);
+      res.json(achievements);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/bomber/achievements/check", async (req: Request, res: Response) => {
+    try {
+      const { userId, nightMode, wind, contestWins } = req.body;
+      let profile = await storage.getBomberProfile(userId);
+      if (!profile) return res.json({ newAchievements: [] });
+
+      const existing = await storage.getUserAchievements(userId);
+      const existingIds = existing.map((a) => a.achievementId);
+
+      const venueUnlocks = await storage.getUserVenueUnlocks(userId);
+      const equipment = await storage.getBomberEquipment(userId);
+      const { ALL_EQUIPMENT } = await import("@shared/bomber-data");
+      const ownedRarities = [...new Set(equipment.map((e) => {
+        const def = ALL_EQUIPMENT.find((d: any) => d.id === e.equipmentId && d.type === e.type);
+        return def?.rarity || "common";
+      }))];
+
+      const { checkAchievements, VENUE_DEFS, ACHIEVEMENTS } = await import("@shared/bomber-data");
+      const newIds = checkAchievements(
+        {
+          totalDrives: profile.totalDrives,
+          bestDistance: profile.bestDistance,
+          currentStreak: profile.currentStreak,
+          xp: profile.xp,
+          division: profile.division,
+        },
+        existingIds,
+        {
+          nightMode: nightMode || false,
+          wind: wind || 0,
+          contestWins: contestWins || 0,
+          venueUnlocks: venueUnlocks.length,
+          totalVenues: VENUE_DEFS.filter((v: any) => v.tier !== "free").length,
+          ownedRarities,
+        }
+      );
+
+      const newAchievements = [];
+      for (const id of newIds) {
+        const achievement = await storage.addAchievement(userId, id);
+        const def = ACHIEVEMENTS.find((a: any) => a.id === id);
+        if (def) {
+          const updatedProfile = await storage.getBomberProfile(userId);
+          if (updatedProfile) {
+            await storage.updateBomberProfile(userId, {
+              coins: updatedProfile.coins + def.reward.coins,
+              xp: updatedProfile.xp + def.reward.xp,
+              gems: updatedProfile.gems + def.reward.gems,
+            });
+          }
+        }
+        newAchievements.push({ achievement, def });
+      }
+
+      const finalProfile = await storage.getBomberProfile(userId);
+      res.json({ newAchievements, profile: finalProfile });
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }

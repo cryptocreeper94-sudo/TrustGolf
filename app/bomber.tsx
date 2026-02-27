@@ -22,8 +22,10 @@ import { apiRequest } from "@/lib/query-client";
 import {
   DRIVERS, BALLS, ALL_EQUIPMENT, getEquipmentDef, RARITY_COLORS, CHEST_TYPES,
   getDivision, getLevelFromXp, AI_OPPONENTS, simulateAIDrive, getContestOpponent,
-  getRandomWeather, generateWindForWeather,
+  getRandomWeather, generateWindForWeather, VENUE_DEFS, getVenueDef, getVenueWeather,
+  ACHIEVEMENTS, getAchievementDef, checkAchievements,
   type EquipmentDef, type AIOpponent, type WeatherCondition, type DailyChallenge, type ChestTypeDef,
+  type VenueDef, type AchievementDef,
 } from "@shared/bomber-data";
 
 type GameState = "idle" | "powering" | "aiming" | "flying" | "landed";
@@ -81,7 +83,7 @@ function generateStars(count: number, w: number, h: number) {
   return stars;
 }
 
-function simulateDrive(power: number, accuracyPct: number, wind: number, driverDef?: EquipmentDef, ballDef?: EquipmentDef, weather?: WeatherCondition) {
+function simulateDrive(power: number, accuracyPct: number, wind: number, driverDef?: EquipmentDef, ballDef?: EquipmentDef, weather?: WeatherCondition, venueAltBonus?: number) {
   const speedBonus = (driverDef?.speedBonus || 0) + (ballDef?.speedBonus || 0);
   const accuracyBonus = (driverDef?.accuracyBonus || 0) + (ballDef?.accuracyBonus || 0);
   const distBonus = 1 + ((driverDef?.distanceBonus || 0) + (ballDef?.distanceBonus || 0)) / 100;
@@ -115,7 +117,8 @@ function simulateDrive(power: number, accuracyPct: number, wind: number, driverD
   }
   if (!landed) points.push({ x, y: 0 });
 
-  const carryYards = Math.max(0, x / YARD_TO_M) * distBonus * weatherDist;
+  const altBonus = 1 + (venueAltBonus || 0);
+  const carryYards = Math.max(0, x / YARD_TO_M) * distBonus * weatherDist * altBonus;
   const rollFactor = 0.08 + Math.random() * 0.07;
   const angleFactor = Math.max(0, 1 - Math.abs(launchAngleDeg - 12) * 0.05);
   const rollYards = carryYards * rollFactor * angleFactor * rollBonus * weatherRoll;
@@ -176,6 +179,17 @@ export default function BomberGame() {
   const [showPaywall, setShowPaywall] = useState(false);
   const [purchaseLoading, setPurchaseLoading] = useState(false);
 
+  const [selectedVenue, setSelectedVenue] = useState<VenueDef>(VENUE_DEFS[0]);
+  const [showVenues, setShowVenues] = useState(false);
+  const [unlockedVenueIds, setUnlockedVenueIds] = useState<string[]>(["driving_range"]);
+  const [showAchievements, setShowAchievements] = useState(false);
+  const [unlockedAchievementIds, setUnlockedAchievementIds] = useState<string[]>([]);
+  const [newAchievements, setNewAchievements] = useState<AchievementDef[]>([]);
+  const [showTournaments, setShowTournaments] = useState(false);
+  const [tournaments, setTournaments] = useState<any[]>([]);
+  const [activeTournament, setActiveTournament] = useState<any>(null);
+  const [tournamentEntry, setTournamentEntry] = useState<any>(null);
+
   const powerRef = useRef(0);
   const accuracyRef = useRef(50);
   const powerDirRef = useRef(1);
@@ -193,6 +207,9 @@ export default function BomberGame() {
     if (isLoggedIn && user) {
       loadProfile();
       loadDailyChallenge();
+      loadVenueUnlocks();
+      loadAchievements();
+      loadTournaments();
     } else {
       AsyncStorage.getItem("bomber_personal_best").then((val) => {
         if (val) setPersonalBest(parseInt(val));
@@ -327,6 +344,69 @@ export default function BomberGame() {
     } catch (e) {}
   };
 
+  const loadVenueUnlocks = async () => {
+    if (!user) return;
+    try {
+      const res = await apiRequest("GET", `/api/bomber/venues/unlocks/${user.id}`);
+      const data = await res.json();
+      const ids = ["driving_range", ...data.map((u: any) => u.venueId)];
+      setUnlockedVenueIds(ids);
+    } catch (e) {}
+  };
+
+  const unlockVenue = async (venue: VenueDef) => {
+    if (!user) return;
+    try {
+      const res = await apiRequest("POST", "/api/bomber/venues/unlock", { userId: user.id, venueId: venue.venueId });
+      if (res.ok) {
+        const data = await res.json();
+        setUnlockedVenueIds((prev) => prev.includes(venue.venueId) ? prev : [...prev, venue.venueId]);
+        if (data.profile) setProfileData((prev) => prev ? { ...prev, profile: data.profile } : prev);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        checkForNewAchievements();
+      } else {
+        const errData = await res.json();
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
+    } catch (e) {}
+  };
+
+  const loadAchievements = async () => {
+    if (!user) return;
+    try {
+      const res = await apiRequest("GET", `/api/bomber/achievements/${user.id}`);
+      const data = await res.json();
+      setUnlockedAchievementIds(data.map((a: any) => a.achievementId));
+    } catch (e) {}
+  };
+
+  const checkForNewAchievements = async (driveContext?: { nightMode?: boolean; wind?: number; contestWin?: boolean }) => {
+    if (!user) return;
+    try {
+      const res = await apiRequest("POST", "/api/bomber/achievements/check", {
+        userId: user.id,
+        nightMode: driveContext?.nightMode || nightMode,
+        wind: driveContext?.wind || wind,
+        contestWins: driveContext?.contestWin ? 1 : 0,
+      });
+      const data = await res.json();
+      if (data.newAchievements && data.newAchievements.length > 0) {
+        const defs = data.newAchievements.map((a: any) => a.def).filter(Boolean) as AchievementDef[];
+        setNewAchievements(defs);
+        setUnlockedAchievementIds((prev) => [...prev, ...defs.map((d) => d.id)]);
+        if (data.profile) setProfileData((prev) => prev ? { ...prev, profile: data.profile } : prev);
+      }
+    } catch (e) {}
+  };
+
+  const loadTournaments = async () => {
+    try {
+      const res = await apiRequest("GET", "/api/bomber/tournaments?active=true");
+      const data = await res.json();
+      setTournaments(data);
+    } catch (e) {}
+  };
+
   const recordDrive = async (result: DriveResult) => {
     if (!isLoggedIn || !user) return;
     try {
@@ -336,6 +416,7 @@ export default function BomberGame() {
         ballSpeed: result.ballSpeed, launchAngle: result.launchAngle,
         wind: result.wind, nightMode: result.nightMode, inBounds: result.inBounds,
         equippedDriver: equippedDriverId, equippedBall: equippedBallId,
+        venueId: selectedVenue.venueId,
       });
       const data = await res.json();
       if (data.profile) {
@@ -346,6 +427,7 @@ export default function BomberGame() {
       if (data.chestEarned) {
         setProfileData((prev) => prev ? { ...prev, chests: [...prev.chests, data.chestEarned] } : prev);
       }
+      checkForNewAchievements({ nightMode: result.nightMode, wind: result.wind });
     } catch (e) {}
   };
 
@@ -550,7 +632,7 @@ export default function BomberGame() {
 
     const p = powerRef.current;
     const a = accuracyRef.current;
-    const result = simulateDrive(p, a, wind, driverDef, ballDef, weather);
+    const result = simulateDrive(p, a, wind, driverDef, ballDef, weather, selectedVenue.altitudeBonus);
 
     setGameState("flying");
     setShowBall(true);
@@ -610,11 +692,17 @@ export default function BomberGame() {
     setCoinsGained(0);
     resultScale.value = 0;
     if (gameMode === "freeplay") {
-      const w = getRandomWeather();
-      setWeather(w);
-      setWind(generateWindForWeather(w));
+      if (selectedVenue.venueId !== "driving_range") {
+        const vw = getVenueWeather(selectedVenue);
+        setWeather(vw.weather);
+        setWind(vw.wind);
+      } else {
+        const w = getRandomWeather();
+        setWeather(w);
+        setWind(generateWindForWeather(w));
+      }
     }
-  }, [gameMode]);
+  }, [gameMode, selectedVenue]);
 
   const handleTap = useCallback(() => {
     if (gameState === "idle") startPowerMeter();
@@ -631,7 +719,9 @@ export default function BomberGame() {
     stopShotClock();
   };
 
-  const dayBg = { sky1: "#87CEEB", sky2: "#4A90D9", ground: "#2E7D32", groundDark: "#1B5E20", gridLine: "rgba(255,255,255,0.5)", text: "rgba(255,255,255,0.7)", tracer: "#FFD700", tracerGlow: "rgba(255,215,0,0.3)", ball: "#fff" };
+  const venueSky = selectedVenue.skyTheme;
+  const venueGround = selectedVenue.groundTheme;
+  const dayBg = { sky1: venueSky.sky1, sky2: venueSky.sky2, ground: venueGround.ground, groundDark: venueGround.groundDark, gridLine: "rgba(255,255,255,0.5)", text: "rgba(255,255,255,0.7)", tracer: "#FFD700", tracerGlow: "rgba(255,215,0,0.3)", ball: "#fff" };
   const nightBg = { sky1: "#0a0a2e", sky2: "#050518", ground: "#1a3a1a", groundDark: "#0d260d", gridLine: "rgba(255,255,255,0.25)", text: "rgba(255,255,255,0.45)", tracer: "#00FF88", tracerGlow: "rgba(0,255,136,0.25)", ball: "#00FF88" };
   const theme = nightMode ? nightBg : dayBg;
 
@@ -750,13 +840,44 @@ export default function BomberGame() {
             </Animated.View>
           )}
 
+          {selectedVenue.venueId !== "driving_range" && (
+            <Animated.View entering={FadeIn.duration(300).delay(350)} style={[styles.venuePreview, { borderColor: "rgba(255,255,255,0.12)" }]}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <Ionicons name="location" size={16} color={nightMode ? "#00FF88" : "#FFD700"} />
+                <View style={{ flex: 1 }}>
+                  <PremiumText variant="body" color="#fff" style={{ fontWeight: "700", fontSize: 13 }}>{selectedVenue.name}</PremiumText>
+                  <PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 10 }}>Hole #{selectedVenue.holeNumber} — {selectedVenue.holeName}</PremiumText>
+                </View>
+                <View style={[styles.tierBadge, { backgroundColor: selectedVenue.tier === "legendary" ? "rgba(255,69,0,0.15)" : selectedVenue.tier === "premium" ? "rgba(156,39,176,0.15)" : "rgba(33,150,243,0.15)" }]}>
+                  <PremiumText variant="caption" color={selectedVenue.tier === "legendary" ? "#FF4500" : selectedVenue.tier === "premium" ? "#9C27B0" : "#2196F3"} style={{ fontSize: 8, fontWeight: "800" }}>{selectedVenue.tier.toUpperCase()}</PremiumText>
+                </View>
+              </View>
+              {selectedVenue.altitudeBonus > 0 && (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 6 }}>
+                  <Ionicons name="trending-up" size={10} color="#4CAF50" />
+                  <PremiumText variant="caption" color="#4CAF50" style={{ fontSize: 9 }}>+{Math.round(selectedVenue.altitudeBonus * 100)}% altitude bonus</PremiumText>
+                </View>
+              )}
+            </Animated.View>
+          )}
+
           <View style={styles.modeButtons}>
             <Animated.View entering={FadeInUp.duration(400).delay(400)}>
-              <Pressable onPress={() => { setGameMode("freeplay"); setGameState("idle"); const w = getRandomWeather(); setWeather(w); setWind(generateWindForWeather(w)); }} style={[styles.modeBtn, { backgroundColor: nightMode ? "rgba(0,255,136,0.15)" : "rgba(255,215,0,0.15)", borderColor: nightMode ? "#00FF88" : "#FFD700" }]}>
+              <Pressable onPress={() => {
+                setGameMode("freeplay"); setGameState("idle");
+                if (selectedVenue.venueId !== "driving_range") {
+                  const vw = getVenueWeather(selectedVenue);
+                  setWeather(vw.weather); setWind(vw.wind);
+                } else {
+                  const w = getRandomWeather(); setWeather(w); setWind(generateWindForWeather(w));
+                }
+              }} style={[styles.modeBtn, { backgroundColor: nightMode ? "rgba(0,255,136,0.15)" : "rgba(255,215,0,0.15)", borderColor: nightMode ? "#00FF88" : "#FFD700" }]}>
                 <Ionicons name="flash" size={28} color={nightMode ? "#00FF88" : "#FFD700"} />
                 <View style={{ flex: 1 }}>
                   <PremiumText variant="subtitle" color="#fff" style={{ fontSize: 16 }}>Free Play</PremiumText>
-                  <PremiumText variant="caption" color="rgba(255,255,255,0.5)" style={{ fontSize: 11 }}>Unlimited drives. Chase your longest.</PremiumText>
+                  <PremiumText variant="caption" color="rgba(255,255,255,0.5)" style={{ fontSize: 11 }}>
+                    {selectedVenue.venueId !== "driving_range" ? `Drive at ${selectedVenue.name}` : "Unlimited drives. Chase your longest."}
+                  </PremiumText>
                 </View>
               </Pressable>
             </Animated.View>
@@ -793,6 +914,21 @@ export default function BomberGame() {
             </Pressable>
           </View>
 
+          <View style={styles.menuActions}>
+            <Pressable onPress={() => setShowVenues(true)} style={[styles.menuActionBtn, { borderColor: "rgba(255,255,255,0.15)" }]}>
+              <Ionicons name="map-outline" size={18} color="#fff" />
+              <PremiumText variant="caption" color="#fff" style={{ fontSize: 12 }}>Venues</PremiumText>
+            </Pressable>
+            <Pressable onPress={() => { loadAchievements(); setShowAchievements(true); }} style={[styles.menuActionBtn, { borderColor: "rgba(255,255,255,0.15)" }]}>
+              <Ionicons name="ribbon-outline" size={18} color="#fff" />
+              <PremiumText variant="caption" color="#fff" style={{ fontSize: 12 }}>Achievements</PremiumText>
+            </Pressable>
+            <Pressable onPress={() => { loadTournaments(); setShowTournaments(true); }} style={[styles.menuActionBtn, { borderColor: "rgba(255,255,255,0.15)" }]}>
+              <Ionicons name="calendar-outline" size={18} color="#fff" />
+              <PremiumText variant="caption" color="#fff" style={{ fontSize: 12 }}>Events</PremiumText>
+            </Pressable>
+          </View>
+
           {dailyChallenge && (
             <Animated.View entering={FadeInUp.duration(400).delay(600)} style={[styles.challengeCard, { borderColor: "rgba(255,255,255,0.1)" }]}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -826,6 +962,34 @@ export default function BomberGame() {
         <LeaderboardModal visible={showLeaderboard} onClose={() => setShowLeaderboard(false)} data={leaderboardData} userId={user?.id} nightMode={nightMode} />
         <ChestOpenModal visible={showChestOpen} onClose={() => { setShowChestOpen(false); setChestContents(null); }} contents={chestContents} nightMode={nightMode} />
         <PaywallModal visible={showPaywall} onClose={() => setShowPaywall(false)} onPurchase={handlePurchasePro} onRestore={handleRestorePurchase} loading={purchaseLoading} nightMode={nightMode} />
+        <VenuesModal
+          visible={showVenues}
+          onClose={() => setShowVenues(false)}
+          selectedVenueId={selectedVenue.venueId}
+          unlockedVenueIds={unlockedVenueIds}
+          profileData={profileData}
+          onSelect={(v: VenueDef) => { setSelectedVenue(v); setShowVenues(false); Haptics.selectionAsync(); }}
+          onUnlock={unlockVenue}
+          nightMode={nightMode}
+        />
+        <AchievementsModal
+          visible={showAchievements}
+          onClose={() => setShowAchievements(false)}
+          unlockedIds={unlockedAchievementIds}
+          nightMode={nightMode}
+        />
+        <TournamentsModal
+          visible={showTournaments}
+          onClose={() => setShowTournaments(false)}
+          tournaments={tournaments}
+          nightMode={nightMode}
+        />
+        {newAchievements.length > 0 && (
+          <AchievementToast
+            achievements={newAchievements}
+            onDismiss={() => setNewAchievements([])}
+          />
+        )}
       </View>
     );
   }
@@ -902,7 +1066,9 @@ export default function BomberGame() {
         </Pressable>
         <View style={styles.titleArea}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-            <PremiumText variant="label" color="#fff" style={{ fontSize: 13, letterSpacing: 3 }}>BOMBER</PremiumText>
+            <PremiumText variant="label" color="#fff" style={{ fontSize: 13, letterSpacing: 3 }}>
+              {selectedVenue.venueId !== "driving_range" ? selectedVenue.name.toUpperCase() : "BOMBER"}
+            </PremiumText>
             {gameMode === "contest" && contest && (
               <View style={[styles.roundBadge, { backgroundColor: "rgba(255,82,82,0.2)" }]}>
                 <PremiumText variant="caption" color="#FF5252" style={{ fontSize: 9, fontWeight: "800" }}>{contest.round.toUpperCase()}</PremiumText>
@@ -1301,6 +1467,207 @@ function PaywallModal({ visible, onClose, onPurchase, onRestore, loading, nightM
   );
 }
 
+function VenuesModal({ visible, onClose, selectedVenueId, unlockedVenueIds, profileData, onSelect, onUnlock, nightMode }: any) {
+  const insets = useSafeAreaInsets();
+  const webTopInset = Platform.OS === "web" ? 67 : 0;
+  const level = profileData?.levelInfo?.level || 1;
+
+  const tierColors: Record<string, string> = { free: "#4CAF50", standard: "#2196F3", premium: "#9C27B0", legendary: "#FF4500" };
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent>
+      <View style={[eqStyles.overlay, { backgroundColor: nightMode ? "rgba(5,5,24,0.97)" : "rgba(0,0,0,0.95)" }]}>
+        <View style={[eqStyles.header, { paddingTop: insets.top + webTopInset + 8 }]}>
+          <PremiumText variant="subtitle" color="#fff" style={{ fontSize: 18 }}>Venues</PremiumText>
+          <Pressable onPress={onClose} style={{ padding: 8 }}><Ionicons name="close" size={24} color="#fff" /></Pressable>
+        </View>
+        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 40 }}>
+          {VENUE_DEFS.map((v) => {
+            const isUnlocked = v.tier === "free" || unlockedVenueIds.includes(v.venueId);
+            const isSelected = selectedVenueId === v.venueId;
+            const canAfford = profileData ? (v.unlockCurrency === "coins" ? profileData.profile.coins >= v.unlockCost : profileData.profile.gems >= v.unlockCost) : false;
+            const meetsLevel = level >= v.unlockLevel;
+            return (
+              <Pressable key={v.venueId} onPress={() => isUnlocked ? onSelect(v) : undefined} style={[eqStyles.eqCard, { borderColor: isSelected ? tierColors[v.tier] || "#fff" : "rgba(255,255,255,0.1)", opacity: isUnlocked ? 1 : 0.6 }]}>
+                <View style={[eqStyles.rarityDot, { backgroundColor: tierColors[v.tier] }]} />
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <PremiumText variant="body" color="#fff" style={{ fontWeight: "700", fontSize: 14 }}>{v.name}</PremiumText>
+                    <View style={{ backgroundColor: (tierColors[v.tier] || "#fff") + "20", paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4 }}>
+                      <PremiumText variant="caption" color={tierColors[v.tier]} style={{ fontSize: 8, fontWeight: "800" }}>{v.tier.toUpperCase()}</PremiumText>
+                    </View>
+                  </View>
+                  <PremiumText variant="caption" color="rgba(255,255,255,0.5)" style={{ fontSize: 10 }}>Hole #{v.holeNumber} — {v.holeName}</PremiumText>
+                  <PremiumText variant="caption" color="rgba(255,255,255,0.35)" style={{ fontSize: 9, marginTop: 2 }} numberOfLines={2}>{v.description}</PremiumText>
+                  <View style={{ flexDirection: "row", gap: 8, marginTop: 4 }}>
+                    {v.baseWind !== 0 && <PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 9 }}>Wind: {v.baseWind > 0 ? "+" : ""}{v.baseWind}</PremiumText>}
+                    {v.altitudeBonus > 0 && <PremiumText variant="caption" color="#4CAF50" style={{ fontSize: 9 }}>+{Math.round(v.altitudeBonus * 100)}% alt</PremiumText>}
+                    {v.elevation > 0 && <PremiumText variant="caption" color="rgba(255,255,255,0.3)" style={{ fontSize: 9 }}>{v.elevation}ft elev</PremiumText>}
+                  </View>
+                </View>
+                {isSelected && <View style={[eqStyles.equippedBadge, { backgroundColor: (tierColors[v.tier]) + "20" }]}><PremiumText variant="caption" color={tierColors[v.tier]} style={{ fontSize: 9, fontWeight: "800" }}>SELECTED</PremiumText></View>}
+                {!isUnlocked && v.tier !== "free" && (
+                  <Pressable onPress={() => meetsLevel && canAfford ? onUnlock(v) : undefined} style={{ alignItems: "center", gap: 2 }}>
+                    {!meetsLevel ? (
+                      <PremiumText variant="caption" color="rgba(255,255,255,0.3)" style={{ fontSize: 9 }}>Lv{v.unlockLevel}</PremiumText>
+                    ) : (
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
+                        <Ionicons name={v.unlockCurrency === "gems" ? "diamond" : "logo-bitcoin"} size={12} color={canAfford ? (v.unlockCurrency === "gems" ? "#B9F2FF" : "#FFD700") : "rgba(255,255,255,0.3)"} />
+                        <PremiumText variant="caption" color={canAfford ? "#fff" : "rgba(255,255,255,0.3)"} style={{ fontSize: 11, fontWeight: "700" }}>{v.unlockCost}</PremiumText>
+                      </View>
+                    )}
+                  </Pressable>
+                )}
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </View>
+    </Modal>
+  );
+}
+
+function AchievementsModal({ visible, onClose, unlockedIds, nightMode }: any) {
+  const insets = useSafeAreaInsets();
+  const webTopInset = Platform.OS === "web" ? 67 : 0;
+  const categories = ["milestone", "distance", "contest", "streak", "venue", "collection"] as const;
+  const categoryLabels: Record<string, string> = { milestone: "MILESTONES", distance: "DISTANCE", contest: "CONTEST", streak: "STREAKS", venue: "VENUES", collection: "COLLECTION" };
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent>
+      <View style={[eqStyles.overlay, { backgroundColor: nightMode ? "rgba(5,5,24,0.97)" : "rgba(0,0,0,0.95)" }]}>
+        <View style={[eqStyles.header, { paddingTop: insets.top + webTopInset + 8 }]}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <PremiumText variant="subtitle" color="#fff" style={{ fontSize: 18 }}>Achievements</PremiumText>
+            <View style={{ backgroundColor: "rgba(255,255,255,0.08)", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 }}>
+              <PremiumText variant="caption" color="rgba(255,255,255,0.5)" style={{ fontSize: 10 }}>{unlockedIds.length}/{ACHIEVEMENTS.length}</PremiumText>
+            </View>
+          </View>
+          <Pressable onPress={onClose} style={{ padding: 8 }}><Ionicons name="close" size={24} color="#fff" /></Pressable>
+        </View>
+        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 40 }}>
+          {categories.map((cat) => {
+            const catAchievements = ACHIEVEMENTS.filter((a) => a.category === cat);
+            if (catAchievements.length === 0) return null;
+            return (
+              <View key={cat} style={{ marginBottom: 20 }}>
+                <PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 10, letterSpacing: 2, marginBottom: 10 }}>{categoryLabels[cat]}</PremiumText>
+                {catAchievements.map((a) => {
+                  const unlocked = unlockedIds.includes(a.id);
+                  return (
+                    <View key={a.id} style={[eqStyles.eqCard, { borderColor: unlocked ? a.color + "40" : "rgba(255,255,255,0.06)", opacity: unlocked ? 1 : 0.4 }]}>
+                      <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: unlocked ? a.color + "20" : "rgba(255,255,255,0.05)", alignItems: "center", justifyContent: "center" }}>
+                        <Ionicons name={a.icon as any} size={18} color={unlocked ? a.color : "rgba(255,255,255,0.3)"} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <PremiumText variant="body" color={unlocked ? "#fff" : "rgba(255,255,255,0.5)"} style={{ fontWeight: "700", fontSize: 13 }}>{a.name}</PremiumText>
+                        <PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 10 }}>{a.description}</PremiumText>
+                        <View style={{ flexDirection: "row", gap: 8, marginTop: 3 }}>
+                          {a.reward.coins > 0 && <PremiumText variant="caption" color="#FFD700" style={{ fontSize: 9 }}>+{a.reward.coins}</PremiumText>}
+                          {a.reward.xp > 0 && <PremiumText variant="caption" color="#B9F2FF" style={{ fontSize: 9 }}>+{a.reward.xp} XP</PremiumText>}
+                          {a.reward.gems > 0 && <PremiumText variant="caption" color="#B9F2FF" style={{ fontSize: 9 }}>+{a.reward.gems} gems</PremiumText>}
+                        </View>
+                      </View>
+                      {unlocked && <Ionicons name="checkmark-circle" size={20} color={a.color} />}
+                    </View>
+                  );
+                })}
+              </View>
+            );
+          })}
+        </ScrollView>
+      </View>
+    </Modal>
+  );
+}
+
+function TournamentsModal({ visible, onClose, tournaments, nightMode }: any) {
+  const insets = useSafeAreaInsets();
+  const webTopInset = Platform.OS === "web" ? 67 : 0;
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent>
+      <View style={[eqStyles.overlay, { backgroundColor: nightMode ? "rgba(5,5,24,0.97)" : "rgba(0,0,0,0.95)" }]}>
+        <View style={[eqStyles.header, { paddingTop: insets.top + webTopInset + 8 }]}>
+          <PremiumText variant="subtitle" color="#fff" style={{ fontSize: 18 }}>Events & Tournaments</PremiumText>
+          <Pressable onPress={onClose} style={{ padding: 8 }}><Ionicons name="close" size={24} color="#fff" /></Pressable>
+        </View>
+        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 40 }}>
+          {tournaments.length === 0 ? (
+            <View style={{ alignItems: "center", marginTop: 60, gap: 12 }}>
+              <Ionicons name="calendar-outline" size={48} color="rgba(255,255,255,0.2)" />
+              <PremiumText variant="body" color="rgba(255,255,255,0.4)" style={{ textAlign: "center", fontSize: 14 }}>No active events right now</PremiumText>
+              <PremiumText variant="caption" color="rgba(255,255,255,0.25)" style={{ textAlign: "center", fontSize: 11 }}>Weekly tournaments and special events will appear here</PremiumText>
+            </View>
+          ) : tournaments.map((t: any) => {
+            const venue = getVenueDef(t.venueId);
+            const endsAt = new Date(t.endsAt);
+            const now = new Date();
+            const hoursLeft = Math.max(0, Math.round((endsAt.getTime() - now.getTime()) / 3600000));
+            return (
+              <View key={t.id} style={[eqStyles.eqCard, { borderColor: "rgba(255,215,0,0.2)", flexDirection: "column", alignItems: "stretch" }]}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <Ionicons name="trophy" size={20} color="#FFD700" />
+                  <View style={{ flex: 1 }}>
+                    <PremiumText variant="body" color="#fff" style={{ fontWeight: "700", fontSize: 14 }}>{t.name}</PremiumText>
+                    <PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 10 }}>{t.description}</PremiumText>
+                  </View>
+                  <View style={{ alignItems: "flex-end" }}>
+                    <PremiumText variant="caption" color="#FF9800" style={{ fontSize: 10, fontWeight: "700" }}>{hoursLeft}h left</PremiumText>
+                    <PremiumText variant="caption" color="rgba(255,255,255,0.3)" style={{ fontSize: 9 }}>{t.maxBalls} balls</PremiumText>
+                  </View>
+                </View>
+                {venue && (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 6 }}>
+                    <Ionicons name="location" size={10} color="rgba(255,255,255,0.4)" />
+                    <PremiumText variant="caption" color="rgba(255,255,255,0.4)" style={{ fontSize: 9 }}>{venue.name}</PremiumText>
+                  </View>
+                )}
+                {t.entryFee > 0 && (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 }}>
+                    <Ionicons name="logo-bitcoin" size={10} color="#FFD700" />
+                    <PremiumText variant="caption" color="#FFD700" style={{ fontSize: 10 }}>Entry: {t.entryFee} coins</PremiumText>
+                  </View>
+                )}
+              </View>
+            );
+          })}
+        </ScrollView>
+      </View>
+    </Modal>
+  );
+}
+
+function AchievementToast({ achievements, onDismiss }: { achievements: AchievementDef[]; onDismiss: () => void }) {
+  const insets = useSafeAreaInsets();
+  const webTopInset = Platform.OS === "web" ? 67 : 0;
+
+  useEffect(() => {
+    const timer = setTimeout(onDismiss, 4000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  return (
+    <Pressable onPress={onDismiss} style={{ position: "absolute", top: insets.top + webTopInset + 8, left: 16, right: 16, zIndex: 100 }}>
+      {achievements.map((a, i) => (
+        <Animated.View key={a.id} entering={FadeInDown.duration(400).delay(i * 200)} style={{ backgroundColor: "rgba(0,0,0,0.9)", borderRadius: 14, borderWidth: 1, borderColor: a.color + "40", padding: 14, marginBottom: 6, flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: a.color + "20", alignItems: "center", justifyContent: "center" }}>
+            <Ionicons name={a.icon as any} size={16} color={a.color} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <PremiumText variant="caption" color={a.color} style={{ fontSize: 9, fontWeight: "800", letterSpacing: 1 }}>ACHIEVEMENT UNLOCKED</PremiumText>
+            <PremiumText variant="body" color="#fff" style={{ fontWeight: "700", fontSize: 13 }}>{a.name}</PremiumText>
+          </View>
+          <View style={{ flexDirection: "row", gap: 6 }}>
+            {a.reward.coins > 0 && <PremiumText variant="caption" color="#FFD700" style={{ fontSize: 10 }}>+{a.reward.coins}</PremiumText>}
+            {a.reward.gems > 0 && <PremiumText variant="caption" color="#B9F2FF" style={{ fontSize: 10 }}>+{a.reward.gems}</PremiumText>}
+          </View>
+        </Animated.View>
+      ))}
+    </Pressable>
+  );
+}
+
 const eqStyles = StyleSheet.create({
   overlay: { flex: 1 },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "rgba(255,255,255,0.1)" },
@@ -1336,6 +1703,8 @@ const styles = StyleSheet.create({
   modeBtn: { flexDirection: "row", alignItems: "center", gap: 14, padding: 18, borderRadius: 16, borderWidth: 1 },
   menuActions: { flexDirection: "row", gap: 10, marginBottom: 16 },
   menuActionBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 14, borderRadius: 12, borderWidth: 1, backgroundColor: "rgba(255,255,255,0.04)" },
+  venuePreview: { backgroundColor: "rgba(255,255,255,0.06)", borderRadius: 14, borderWidth: 1, padding: 14, marginBottom: 16 },
+  tierBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
   challengeCard: { padding: 14, borderRadius: 14, borderWidth: 1, backgroundColor: "rgba(255,255,255,0.04)", marginBottom: 16 },
   challengeReward: { flexDirection: "row", alignItems: "center", gap: 4 },
   signInPrompt: { alignItems: "center", gap: 10, marginTop: 8, paddingTop: 16, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "rgba(255,255,255,0.08)" },

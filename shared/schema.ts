@@ -294,6 +294,7 @@ export const bomberLeaderboard = pgTable("bomber_leaderboard", {
   nightMode: boolean("night_mode").default(false),
   equippedDriver: varchar("equipped_driver"),
   equippedBall: varchar("equipped_ball"),
+  venueId: varchar("venue_id"),
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
@@ -318,6 +319,70 @@ export const bomberDailyChallenges = pgTable("bomber_daily_challenges", {
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
+export const bomberVenues = pgTable("bomber_venues", {
+  id: serial("id").primaryKey(),
+  courseId: integer("course_id").references(() => courses.id),
+  venueId: varchar("venue_id").notNull().unique(),
+  name: text("name").notNull(),
+  holeName: text("hole_name").notNull(),
+  holeNumber: integer("hole_number").notNull(),
+  description: text("description").notNull(),
+  imageUrl: text("image_url"),
+  elevation: integer("elevation").notNull().default(0),
+  baseWind: real("base_wind").notNull().default(0),
+  windVariance: real("wind_variance").notNull().default(5),
+  altitudeBonus: real("altitude_bonus").notNull().default(0),
+  unlockLevel: integer("unlock_level").notNull().default(1),
+  unlockCost: integer("unlock_cost").notNull().default(0),
+  unlockCurrency: varchar("unlock_currency").notNull().default("coins"),
+  tier: varchar("tier").notNull().default("standard"),
+  skyTheme: jsonb("sky_theme"),
+  groundTheme: jsonb("ground_theme"),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+export const bomberVenueUnlocks = pgTable("bomber_venue_unlocks", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  venueId: varchar("venue_id").notNull(),
+  unlockedAt: timestamp("unlocked_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+export const bomberTournaments = pgTable("bomber_tournaments", {
+  id: serial("id").primaryKey(),
+  tournamentId: varchar("tournament_id").notNull().unique(),
+  name: text("name").notNull(),
+  description: text("description").notNull(),
+  venueId: varchar("venue_id").notNull(),
+  weather: varchar("weather").notNull().default("clear"),
+  nightMode: boolean("night_mode").notNull().default(false),
+  entryFee: integer("entry_fee").notNull().default(0),
+  prizePool: jsonb("prize_pool").notNull(),
+  maxBalls: integer("max_balls").notNull().default(6),
+  startsAt: timestamp("starts_at").notNull(),
+  endsAt: timestamp("ends_at").notNull(),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+export const bomberTournamentEntries = pgTable("bomber_tournament_entries", {
+  id: serial("id").primaryKey(),
+  tournamentId: varchar("tournament_id").notNull(),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  username: text("username").notNull(),
+  bestDistance: integer("best_distance").notNull().default(0),
+  totalDrives: integer("total_drives").notNull().default(0),
+  ballsUsed: integer("balls_used").notNull().default(0),
+  drives: jsonb("drives"),
+  enteredAt: timestamp("entered_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+export const bomberAchievements = pgTable("bomber_achievements", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  achievementId: varchar("achievement_id").notNull(),
+  unlockedAt: timestamp("unlocked_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
 export const insertBomberProfileSchema = createInsertSchema(bomberProfiles).omit({ id: true, createdAt: true });
 export const insertBomberEquipmentSchema = createInsertSchema(bomberEquipment).omit({ id: true, unlockedAt: true });
 export const insertBomberLeaderboardSchema = createInsertSchema(bomberLeaderboard).omit({ id: true, createdAt: true });
@@ -329,3 +394,8 @@ export type BomberEquipmentItem = typeof bomberEquipment.$inferSelect;
 export type BomberLeaderboardEntry = typeof bomberLeaderboard.$inferSelect;
 export type BomberChest = typeof bomberChestQueue.$inferSelect;
 export type BomberDailyChallenge = typeof bomberDailyChallenges.$inferSelect;
+export type BomberVenue = typeof bomberVenues.$inferSelect;
+export type BomberVenueUnlock = typeof bomberVenueUnlocks.$inferSelect;
+export type BomberTournament = typeof bomberTournaments.$inferSelect;
+export type BomberTournamentEntry = typeof bomberTournamentEntries.$inferSelect;
+export type BomberAchievement = typeof bomberAchievements.$inferSelect;

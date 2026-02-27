@@ -150,6 +150,28 @@ Phase 2 of the Bomber long drive contest game is now fully implemented with serv
   - Graceful fallback: if RevenueCat not configured, purchase still unlocks server-side (for testing)
   - Note: RevenueCat API key needs to be configured when products are set up in App Store Connect / Google Play Console
 
+## Bomber Phase 3 — Implemented
+Phase 3 adds venues, achievements, and tournament infrastructure:
+- **Database Tables**: `bomber_venues`, `bomber_venue_unlocks`, `bomber_tournaments`, `bomber_tournament_entries`, `bomber_achievements` — all in `shared/schema.ts`
+- **Real Course Venues** (12 venues from the 55-course catalog):
+  - The Grid (free default), Pebble Beach, Augusta National, TPC Sawgrass, St Andrews, Kiawah Island, Pinehurst No. 2, Whistling Straits, Bethpage Black, Bandon Dunes, Harbour Town, Torrey Pines
+  - Each venue has unique sky/ground color themes, wind patterns, elevation, altitude bonus, tier (free/standard/premium/legendary), unlock cost (coins or gems), and level requirements
+  - Venue selection changes game visuals (sky gradient, ground colors), wind behavior, and applies altitude bonus to carry distance
+  - Venue unlock flow: check level requirement, check currency, deduct cost, grant access
+- **Achievements System** (25 achievements across 6 categories):
+  - Categories: milestone, distance, contest, streak, venue, collection
+  - Auto-checked after every drive via server-side `/api/bomber/achievements/check`
+  - Each achievement grants coin/XP/gem rewards automatically
+  - Achievement toast notification appears in-game when unlocked
+  - Full achievements gallery modal with progress tracking
+- **Tournament Infrastructure**:
+  - Tournament creation, entry (with coin entry fee), drive recording, and leaderboard
+  - API routes: `GET /api/bomber/tournaments`, `POST /api/bomber/tournaments/enter`, `POST /api/bomber/tournaments/drive`, `GET /api/bomber/tournaments/:tournamentId`
+  - Events modal UI showing active tournaments with countdown timers
+- **Storage Methods** (in `server/storage.ts`): getVenues, getVenue, createVenue, getUserVenueUnlocks, unlockVenue, isVenueUnlocked, getTournaments, getTournament, createTournament, getTournamentEntries, getTournamentEntry, enterTournament, updateTournamentEntry, getUserAchievements, addAchievement, hasAchievement
+- **API Routes** (in `server/routes.ts`): 9 new endpoints for venues, tournaments, and achievements
+- **Shared Data** (`shared/bomber-data.ts`): VENUE_DEFS (12 venues), ACHIEVEMENTS (25 defs), getVenueDef, getVenueWeather, checkAchievements helper
+
 ## External Dependencies
 -   **OpenAI**: Used for AI capabilities, specifically the vision model for swing analysis.
 -   **PostgreSQL**: The primary database for all application data.
