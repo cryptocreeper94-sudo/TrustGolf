@@ -217,7 +217,9 @@ export default function ExploreScreen() {
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
       <StatusBar barStyle="light-content" />
 
-      <View style={[styles.headerBar, { paddingTop: insets.top + webTopInset, backgroundColor: colors.primary }]}>
+      {Platform.OS === "web" && <View style={{ height: webTopInset, backgroundColor: isDark ? "#0A0F0A" : "#0d3d12" }} />}
+      {Platform.OS !== "web" && insets.top > 0 && <View style={{ height: insets.top, backgroundColor: colors.primary }} />}
+      <View style={[styles.headerBar, { backgroundColor: colors.primary }]}>
         <View style={styles.heroLogo}>
           <Ionicons name="golf" size={18} color="#fff" />
           <PremiumText variant="subtitle" color="#fff" style={{ fontSize: 16 }}>Trust Golf</PremiumText>
