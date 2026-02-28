@@ -112,44 +112,11 @@ Trust Golf is built on a modern full-stack architecture:
 
 **Design Philosophy**: Premium, clean aesthetic consistent with Trust Golf brand. Not cartoony — stylized and satisfying. Day mode feels like a sunny Saturday at a pro long drive event. Night mode feels electric — stadium lights, glowing tracers, darkness beyond the grid. The feeling of a 350-yard bomb should look and feel as good in the game as it does in real life. The economy is generous but strategic — players always feel like they're progressing, but mastery takes time and skill, not just spending.
 
-## Bomber Phase 2 — Implemented
-Phase 2 of the Bomber long drive contest game is now fully implemented with server-side persistence:
-- **Database Tables**: `bomber_profiles`, `bomber_equipment`, `bomber_leaderboard`, `bomber_chest_queue`, `bomber_daily_challenges` — all defined in `shared/schema.ts` and pushed to the database
-- **Shared Game Data**: `shared/bomber-data.ts` contains all equipment definitions (5 drivers, 5 balls with rarity tiers), division progression, chest drop tables, AI opponent profiles, weather conditions, daily challenge templates, and helper functions
-- **Storage Layer**: Full CRUD methods in `server/storage.ts` for all Bomber tables
-- **API Routes** (in `server/routes.ts`):
-  - `GET /api/bomber/profile/:userId` — profile with auto-creation
-  - `POST /api/bomber/drive` — records drive, awards XP/coins, generates chests every 5 drives
-  - `GET /api/bomber/leaderboard` — top 50 scores
-  - `POST /api/bomber/daily-reward/:userId` — claim daily chest with streak tracking
-  - `POST /api/bomber/chest/:id/open` — open chest with randomized contents
-  - `GET /api/bomber/challenges/today` — daily challenge (auto-generated)
-  - `GET /api/bomber/equipment/:userId` — user equipment inventory
-  - `POST /api/bomber/equipment/:id/upgrade` — upgrade with duplicates
-  - `POST /api/bomber/equip` — equip driver or ball
-- **Frontend** (`app/bomber.tsx`):
-  - Menu screen with profile stats, division badge, XP bar, currency display
-  - Free Play mode with unlimited drives
-  - Contest Mode: qualifying (6 balls) → bracket (3 balls) → finals (2 balls) vs AI opponents
-  - 30-second shot clock with auto-miss on expiry
-  - Equipment selection modal with rarity colors and stat display
-  - Leaderboard modal
-  - Daily reward banner with chest opening animation
-  - Unopened chest queue on menu screen
-  - Weather system affecting physics (rain, hot, cold conditions)
-  - Equipment bonuses modify ball physics (speed, accuracy, distance, roll)
-  - XP/coins/gems rewards after each drive
-  - Daily challenge card on menu
-- **Payment Gating** (Bomber Pro — $4.99 one-time):
-  - Free Play: always unlimited, no payment required
-  - Contest Mode: 1 free entry per day for all users
-  - Bomber Pro unlock: unlimited Contest Mode entries
-  - RevenueCat integration (`react-native-purchases`) for in-app purchase flow
-  - Server-side tracking: `bomberPro`, `dailyContestDate`, `dailyContestCount` fields on bomber_profiles
-  - API routes: `GET /api/bomber/contest-eligibility/:userId`, `POST /api/bomber/use-contest/:userId`, `POST /api/bomber/unlock-pro/:userId`, `POST /api/bomber/restore-pro/:userId`
-  - Paywall modal with feature list, price display, purchase button, and restore purchase option
-  - Graceful fallback: if RevenueCat not configured, purchase still unlocks server-side (for testing)
-  - Note: RevenueCat API key needs to be configured when products are set up in App Store Connect / Google Play Console
+## Bomber Game — Frontend Deactivated, API Active
+The Bomber game frontend (`app/bomber.tsx` and `app/bomber-dashboard.tsx`) has been deactivated — both routes redirect to the home screen. The game is being rebuilt externally in a separate IDE with high-end 3D graphics and will reconnect to this app's backend via API.
+- **Backend API routes remain fully active** in `server/routes.ts` — all `/api/bomber/*` endpoints are operational and ready for the external game client to connect
+- **Database tables** (`bomber_profiles`, `bomber_equipment`, `bomber_leaderboard`, `bomber_chest_queue`, `bomber_daily_challenges`, `bomber_venues`, `bomber_venue_unlocks`, `bomber_tournaments`, `bomber_tournament_entries`, `bomber_achievements`) remain in the schema
+- **Shared game data** (`shared/bomber-data.ts`) and **storage layer** (`server/storage.ts`) remain intact
 
 ## Bomber Phase 3 — Implemented
 Phase 3 adds venues, achievements, and tournament infrastructure:
