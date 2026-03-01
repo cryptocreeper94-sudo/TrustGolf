@@ -27,9 +27,10 @@ function setupCors(app: express.Application) {
       });
     }
 
+    origins.add("https://bomber.tlid.io");
+
     const origin = req.header("origin");
 
-    // Allow localhost origins for Expo web development (any port)
     const isLocalhost =
       origin?.startsWith("http://localhost:") ||
       origin?.startsWith("http://127.0.0.1:");

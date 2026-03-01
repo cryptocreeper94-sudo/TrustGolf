@@ -112,9 +112,17 @@ Trust Golf is built on a modern full-stack architecture:
 
 **Design Philosophy**: Premium, clean aesthetic consistent with Trust Golf brand. Not cartoony — stylized and satisfying. Day mode feels like a sunny Saturday at a pro long drive event. Night mode feels electric — stadium lights, glowing tracers, darkness beyond the grid. The feeling of a 350-yard bomb should look and feel as good in the game as it does in real life. The economy is generous but strategic — players always feel like they're progressing, but mastery takes time and skill, not just spending.
 
-## Bomber Game — Frontend Deactivated, API Active
-The Bomber game frontend (`app/bomber.tsx` and `app/bomber-dashboard.tsx`) has been deactivated — both routes redirect to the home screen. The game is being rebuilt externally in a separate IDE with high-end 3D graphics and will reconnect to this app's backend via API.
-- **Backend API routes remain fully active** in `server/routes.ts` — all `/api/bomber/*` endpoints are operational and ready for the external game client to connect
+## Bomber Game — Frontend Deactivated, External 3D Game Connected via API
+The Bomber game frontend (`app/bomber.tsx` and `app/bomber-dashboard.tsx`) has been deactivated — both routes redirect to the home screen. The game is being rebuilt externally as a 3D game at `bomber.tlid.io` and connects to this backend via API.
+- **CORS configured** for `https://bomber.tlid.io` and localhost dev origins in `server/index.ts`
+- **Adapter routes** added at end of `server/routes.ts` to accept the external game's payload format:
+  - `POST /api/bomber/drive` — auto-translates `distanceYards`/`carryYards`/`rollYards`/`ballSpeedMph`/`launchAngleDeg`/`windSpeedMph`/`equipmentUsed` fields to the internal format
+  - `GET /api/bomber/leaderboard/:venueId` — venue-filtered leaderboard
+  - `POST /api/bomber/chest/open` — accepts `{ userId, chestId }` in body
+  - `POST /api/bomber/daily-reward` — accepts `{ userId }` in body (vs original URL param)
+  - `GET /api/bomber/contest/available/:userId` — alias for contest-eligibility
+  - `POST /api/bomber/contest/submit` — alias for use-contest with userId in body
+- **All original `/api/bomber/*` endpoints remain active** alongside the adapter routes
 - **Database tables** (`bomber_profiles`, `bomber_equipment`, `bomber_leaderboard`, `bomber_chest_queue`, `bomber_daily_challenges`, `bomber_venues`, `bomber_venue_unlocks`, `bomber_tournaments`, `bomber_tournament_entries`, `bomber_achievements`) remain in the schema
 - **Shared game data** (`shared/bomber-data.ts`) and **storage layer** (`server/storage.ts`) remain intact
 

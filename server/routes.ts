@@ -2305,6 +2305,21 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
 
   app.post("/api/bomber/drive", async (req: Request, res: Response) => {
     try {
+      if (req.body.distanceYards !== undefined && req.body.distance === undefined) {
+        req.body.distance = req.body.distanceYards;
+        req.body.carry = req.body.carryYards ?? req.body.carry;
+        req.body.roll = req.body.rollYards ?? req.body.roll;
+        req.body.ballSpeed = req.body.ballSpeedMph ?? req.body.ballSpeed;
+        req.body.launchAngle = req.body.launchAngleDeg ?? req.body.launchAngle;
+        req.body.wind = req.body.windSpeedMph ?? req.body.wind;
+        req.body.nightMode = req.body.nightMode ?? false;
+        req.body.inBounds = req.body.accuracy !== undefined ? req.body.accuracy > 0.3 : (req.body.inBounds ?? true);
+        if (req.body.equipmentUsed) {
+          req.body.equippedDriver = req.body.equipmentUsed.driverId ?? req.body.equippedDriver;
+          req.body.equippedBall = req.body.equipmentUsed.ballId ?? req.body.equippedBall;
+        }
+        req.body.venueId = req.body.venueId ?? "driving_range";
+      }
       const { userId, distance, carry, roll, ballSpeed, launchAngle, wind, nightMode, inBounds, equippedDriver, equippedBall, username, venueId } = req.body;
       if (!userId) return res.status(400).json({ error: "userId required" });
 
@@ -2828,6 +2843,160 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
 
       const finalProfile = await storage.getBomberProfile(userId);
       res.json({ newAchievements, profile: finalProfile });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // ── Bomber External Game Adapter Routes ──
+  // These routes accept the payload format from the external 3D Bomber game (bomber.tlid.io)
+
+  app.get("/api/bomber/leaderboard/:venueId", async (req: Request, res: Response) => {
+    try {
+      const entries = await storage.getBomberLeaderboard(50);
+      const venueId = req.params.venueId;
+      const filtered = venueId && venueId !== "all"
+        ? entries.filter((e: any) => e.venueId === venueId)
+        : entries;
+      res.json(filtered);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/bomber/chest/open", async (req: Request, res: Response) => {
+    try {
+      const { userId, chestId } = req.body;
+      if (!userId || !chestId) return res.status(400).json({ error: "userId and chestId required" });
+
+      const chests = await storage.getBomberChestQueue(userId);
+      const chest = chests.find((c: any) => c.id === parseInt(chestId));
+      if (!chest) return res.status(404).json({ error: "Chest not found" });
+
+      const { generateChestContents } = await import("@shared/bomber-data");
+      const contents = generateChestContents(chest.chestType);
+      const opened = await storage.openBomberChest(parseInt(chestId), contents);
+
+      let profile = await storage.getBomberProfile(userId);
+      if (profile) {
+        await storage.updateBomberProfile(userId, {
+          coins: profile.coins + contents.coins,
+          xp: profile.xp + contents.xp,
+          gems: profile.gems + contents.gems,
+        });
+      }
+
+      if (contents.equipment) {
+        await storage.addBomberEquipmentDuplicate(userId, contents.equipment.id, contents.equipment.type);
+      }
+
+      res.json({ chest: opened, contents });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/bomber/daily-reward", async (req: Request, res: Response) => {
+    try {
+      const { userId } = req.body;
+      if (!userId) return res.status(400).json({ error: "userId required" });
+
+      let profile = await storage.getBomberProfile(userId);
+      if (!profile) profile = await storage.createBomberProfile(userId);
+
+      const now = new Date();
+      const lastReward = profile.lastDailyRewardAt ? new Date(profile.lastDailyRewardAt) : null;
+      const hoursSince = lastReward ? (now.getTime() - lastReward.getTime()) / 3600000 : 999;
+
+      if (hoursSince < 24) {
+        return res.json({ available: false, hoursUntilNext: Math.ceil(24 - hoursSince) });
+      }
+
+      let newStreak = profile.currentStreak;
+      if (hoursSince > 48) newStreak = 1;
+      else newStreak += 1;
+
+      let chestType = "daily";
+      if (newStreak >= 30) chestType = "diamond";
+      else if (newStreak >= 7) chestType = "gold";
+      else if (newStreak >= 3) chestType = "silver";
+
+      const { generateChestContents } = await import("@shared/bomber-data");
+      const contents = generateChestContents(chestType);
+      const chest = await storage.addBomberChest(userId, chestType);
+      await storage.openBomberChest(chest.id, contents);
+
+      const newCoins = profile.coins + contents.coins;
+      const newXp = profile.xp + contents.xp;
+      const newGems = profile.gems + contents.gems;
+
+      if (contents.equipment) {
+        await storage.addBomberEquipmentDuplicate(userId, contents.equipment.id, contents.equipment.type);
+      }
+
+      const longestStreak = Math.max(profile.longestStreak, newStreak);
+      await storage.updateBomberProfile(userId, {
+        lastDailyRewardAt: now,
+        currentStreak: newStreak,
+        longestStreak,
+        coins: newCoins,
+        xp: newXp,
+        gems: newGems,
+      });
+
+      res.json({ available: true, claimed: true, chest: { ...chest, contents }, streak: newStreak, contents });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.get("/api/bomber/contest/available/:userId", async (req: Request, res: Response) => {
+    try {
+      const { userId } = req.params;
+      let profile = await storage.getBomberProfile(userId);
+      if (!profile) profile = await storage.createBomberProfile(userId);
+
+      const whitelisted = await isWhitelistedUser(userId);
+      if (profile.bomberPro || whitelisted) {
+        return res.json({ eligible: true, isPro: true, contestsUsedToday: 0, freeContestsPerDay: 999 });
+      }
+
+      const today = new Date().toISOString().split("T")[0];
+      const contestsUsedToday = profile.dailyContestDate === today ? profile.dailyContestCount : 0;
+      const FREE_CONTESTS_PER_DAY = 1;
+
+      res.json({ eligible: contestsUsedToday < FREE_CONTESTS_PER_DAY, isPro: false, contestsUsedToday, freeContestsPerDay: FREE_CONTESTS_PER_DAY });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/bomber/contest/submit", async (req: Request, res: Response) => {
+    try {
+      const { userId } = req.body;
+      if (!userId) return res.status(400).json({ error: "userId required" });
+
+      let profile = await storage.getBomberProfile(userId);
+      if (!profile) profile = await storage.createBomberProfile(userId);
+
+      if (profile.bomberPro) {
+        return res.json({ success: true, isPro: true });
+      }
+
+      const today = new Date().toISOString().split("T")[0];
+      const contestsUsedToday = profile.dailyContestDate === today ? profile.dailyContestCount : 0;
+      const FREE_CONTESTS_PER_DAY = 1;
+
+      if (contestsUsedToday >= FREE_CONTESTS_PER_DAY) {
+        return res.status(403).json({ error: "Daily free contest used. Upgrade to Bomber Pro for unlimited contests." });
+      }
+
+      await storage.updateBomberProfile(userId, {
+        dailyContestDate: today,
+        dailyContestCount: contestsUsedToday + 1,
+      });
+
+      res.json({ success: true, isPro: false, contestsRemaining: FREE_CONTESTS_PER_DAY - contestsUsedToday - 1 });
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }
