@@ -2564,24 +2564,7 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
 
   app.get("/api/bomber/contest-eligibility/:userId", async (req: Request, res: Response) => {
     try {
-      const { userId } = req.params;
-      let profile = await storage.getBomberProfile(userId);
-      if (!profile) profile = await storage.createBomberProfile(userId);
-
-      const whitelisted = await isWhitelistedUser(userId);
-      if (profile.bomberPro || whitelisted) {
-        if (whitelisted && !profile.bomberPro) {
-          await storage.updateBomberProfile(userId, { bomberPro: true });
-        }
-        return res.json({ eligible: true, isPro: true, contestsUsedToday: 0, freeContestsPerDay: 999 });
-      }
-
-      const today = new Date().toISOString().split("T")[0];
-      const contestsUsedToday = profile.dailyContestDate === today ? profile.dailyContestCount : 0;
-      const FREE_CONTESTS_PER_DAY = 1;
-      const eligible = contestsUsedToday < FREE_CONTESTS_PER_DAY;
-
-      res.json({ eligible, isPro: false, contestsUsedToday, freeContestsPerDay: FREE_CONTESTS_PER_DAY });
+      res.json({ eligible: true, isPro: true, contestsUsedToday: 0, freeContestsPerDay: 999 });
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }
@@ -2589,28 +2572,7 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
 
   app.post("/api/bomber/use-contest/:userId", async (req: Request, res: Response) => {
     try {
-      const { userId } = req.params;
-      let profile = await storage.getBomberProfile(userId);
-      if (!profile) profile = await storage.createBomberProfile(userId);
-
-      if (profile.bomberPro) {
-        return res.json({ success: true, isPro: true });
-      }
-
-      const today = new Date().toISOString().split("T")[0];
-      const contestsUsedToday = profile.dailyContestDate === today ? profile.dailyContestCount : 0;
-      const FREE_CONTESTS_PER_DAY = 1;
-
-      if (contestsUsedToday >= FREE_CONTESTS_PER_DAY) {
-        return res.status(403).json({ error: "Daily free contest used. Upgrade to Bomber Pro for unlimited contests." });
-      }
-
-      await storage.updateBomberProfile(userId, {
-        dailyContestDate: today,
-        dailyContestCount: contestsUsedToday + 1,
-      });
-
-      res.json({ success: true, isPro: false, contestsRemaining: FREE_CONTESTS_PER_DAY - contestsUsedToday - 1 });
+      res.json({ success: true, isPro: true });
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }
@@ -2952,20 +2914,7 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
 
   app.get("/api/bomber/contest/available/:userId", async (req: Request, res: Response) => {
     try {
-      const { userId } = req.params;
-      let profile = await storage.getBomberProfile(userId);
-      if (!profile) profile = await storage.createBomberProfile(userId);
-
-      const whitelisted = await isWhitelistedUser(userId);
-      if (profile.bomberPro || whitelisted) {
-        return res.json({ eligible: true, isPro: true, contestsUsedToday: 0, freeContestsPerDay: 999 });
-      }
-
-      const today = new Date().toISOString().split("T")[0];
-      const contestsUsedToday = profile.dailyContestDate === today ? profile.dailyContestCount : 0;
-      const FREE_CONTESTS_PER_DAY = 1;
-
-      res.json({ eligible: contestsUsedToday < FREE_CONTESTS_PER_DAY, isPro: false, contestsUsedToday, freeContestsPerDay: FREE_CONTESTS_PER_DAY });
+      res.json({ eligible: true, isPro: true, contestsUsedToday: 0, freeContestsPerDay: 999 });
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }
@@ -2973,30 +2922,7 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
 
   app.post("/api/bomber/contest/submit", async (req: Request, res: Response) => {
     try {
-      const { userId } = req.body;
-      if (!userId) return res.status(400).json({ error: "userId required" });
-
-      let profile = await storage.getBomberProfile(userId);
-      if (!profile) profile = await storage.createBomberProfile(userId);
-
-      if (profile.bomberPro) {
-        return res.json({ success: true, isPro: true });
-      }
-
-      const today = new Date().toISOString().split("T")[0];
-      const contestsUsedToday = profile.dailyContestDate === today ? profile.dailyContestCount : 0;
-      const FREE_CONTESTS_PER_DAY = 1;
-
-      if (contestsUsedToday >= FREE_CONTESTS_PER_DAY) {
-        return res.status(403).json({ error: "Daily free contest used. Upgrade to Bomber Pro for unlimited contests." });
-      }
-
-      await storage.updateBomberProfile(userId, {
-        dailyContestDate: today,
-        dailyContestCount: contestsUsedToday + 1,
-      });
-
-      res.json({ success: true, isPro: false, contestsRemaining: FREE_CONTESTS_PER_DAY - contestsUsedToday - 1 });
+      res.json({ success: true, isPro: true });
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }

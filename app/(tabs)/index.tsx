@@ -652,6 +652,14 @@ export default function ExploreScreen() {
             <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
 
             <Pressable
+              onPress={() => { setMenuOpen(false); if (Platform.OS === "web") { Linking.openURL("https://bomber.tlid.io"); } else { Linking.openURL("https://bomber.tlid.io"); } }}
+              style={styles.menuItem}
+            >
+              <Ionicons name="flash" size={20} color="#FF4500" />
+              <PremiumText variant="body" color="#FF4500">Bomber Long Drive</PremiumText>
+            </Pressable>
+
+            <Pressable
               onPress={() => { setMenuOpen(false); router.push("/blog"); }}
               style={styles.menuItem}
             >
