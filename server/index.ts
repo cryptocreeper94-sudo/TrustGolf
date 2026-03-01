@@ -28,6 +28,7 @@ function setupCors(app: express.Application) {
     }
 
     origins.add("https://bomber.tlid.io");
+    origins.add("https://bomber-3d.vercel.app");
 
     const origin = req.header("origin");
 
