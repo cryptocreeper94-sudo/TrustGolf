@@ -9,6 +9,8 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import * as trustvault from "./trustvault";
 import { sendVerificationEmail, sendVendorConfirmationEmail } from "./resend";
+import { seedGenesisHallmark, verifyHallmark, getGenesisHallmark, createTrustStamp } from "./hallmark";
+import { generateUniqueHash, getAffiliateDashboard, getAffiliateLink, trackReferral, convertReferral, requestPayout, processSale } from "./affiliate";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -179,7 +181,7 @@ Sitemap: ${SITE_URL}/sitemap.xml
   });
 
   app.post("/api/auth/register", async (req: Request, res: Response) => {
-    const { username, email, password, displayName } = req.body;
+    const { username, email, password, displayName, referralHash } = req.body;
     if (!username || !email || !password) {
       return res.status(400).json({ error: "Username, email, and password are required" });
     }
@@ -196,6 +198,8 @@ Sitemap: ${SITE_URL}/sitemap.xml
     const passwordHash = await bcrypt.hash(password, 12);
     const verificationToken = crypto.randomBytes(32).toString("hex");
 
+    const uniqueHash = generateUniqueHash();
+
     const user = await storage.createUser({
       username,
       email,
@@ -203,12 +207,23 @@ Sitemap: ${SITE_URL}/sitemap.xml
       displayName: displayName || username,
       verificationToken,
       emailVerified: false,
+      uniqueHash,
     });
 
     try {
-      await sendVerificationEmail(email, displayName || username, verificationToken);
+      await sendVerificationEmail(email, displayName || username, verificationToken, referralHash || undefined);
     } catch (err: any) {
       console.error("Failed to send verification email:", err.message);
+    }
+
+    try {
+      await createTrustStamp({
+        userId: user.id,
+        category: "auth-register",
+        data: { email, username, appContext: "trustgolf" },
+      });
+    } catch (err: any) {
+      console.error("Failed to create registration trust stamp:", err.message);
     }
 
     res.status(201).json({
@@ -218,6 +233,7 @@ Sitemap: ${SITE_URL}/sitemap.xml
       displayName: user.displayName,
       handicap: user.handicap,
       emailVerified: user.emailVerified,
+      uniqueHash: user.uniqueHash,
     });
   });
 
@@ -241,6 +257,14 @@ Sitemap: ${SITE_URL}/sitemap.xml
       }
     }
 
+    try {
+      await createTrustStamp({
+        userId: user.id,
+        category: "auth-login",
+        data: { device: req.headers["user-agent"], appContext: "trustgolf" },
+      });
+    } catch (err: any) {}
+
     res.json({
       id: user.id,
       username: user.username,
@@ -252,6 +276,7 @@ Sitemap: ${SITE_URL}/sitemap.xml
       swingSpeed: user.swingSpeed,
       avgDriveDistance: user.avgDriveDistance,
       golfGoals: user.golfGoals,
+      uniqueHash: user.uniqueHash,
     });
   });
 
@@ -263,6 +288,15 @@ Sitemap: ${SITE_URL}/sitemap.xml
     if (!user) return res.status(404).send("Invalid or expired verification token");
 
     await storage.updateUser(user.id, { emailVerified: true, verificationToken: null as any });
+
+    try {
+      const referrerHash = req.query.ref as string;
+      if (referrerHash) {
+        await convertReferral(user.id, referrerHash);
+      }
+    } catch (err: any) {
+      console.error("Failed to convert referral:", err.message);
+    }
 
     res.send(`
       <html><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;background:#0D3B12;color:#fff;flex-direction:column;">
@@ -2591,6 +2625,13 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
       }
 
       const updated = await storage.updateBomberProfile(userId, { bomberPro: true });
+
+      try {
+        await processSale(userId, 9.99, "Bomber Pro");
+      } catch (err: any) {
+        console.error("Failed to process affiliate sale:", err.message);
+      }
+
       res.json({ success: true, profile: updated });
     } catch (e: any) {
       res.status(500).json({ error: e.message });
@@ -2927,6 +2968,76 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
       res.status(500).json({ error: e.message });
     }
   });
+
+  app.get("/api/hallmark/genesis", async (_req: Request, res: Response) => {
+    try {
+      const genesis = await getGenesisHallmark();
+      if (!genesis) return res.status(404).json({ error: "Genesis hallmark not found" });
+      res.json(genesis);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.get("/api/hallmark/:id/verify", async (req: Request, res: Response) => {
+    try {
+      const result = await verifyHallmark(req.params.id);
+      if (!result.verified) return res.status(404).json({ verified: false, error: "Hallmark not found" });
+      res.json(result);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.get("/api/affiliate/dashboard", async (req: Request, res: Response) => {
+    try {
+      const userId = req.query.userId as string;
+      if (!userId) return res.status(400).json({ error: "userId required" });
+      const dashboard = await getAffiliateDashboard(userId);
+      if (!dashboard) return res.status(404).json({ error: "User not found" });
+      res.json(dashboard);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.get("/api/affiliate/link", async (req: Request, res: Response) => {
+    try {
+      const userId = req.query.userId as string;
+      if (!userId) return res.status(400).json({ error: "userId required" });
+      const link = await getAffiliateLink(userId);
+      if (!link) return res.status(404).json({ error: "User not found or no affiliate hash" });
+      res.json(link);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/affiliate/track", async (req: Request, res: Response) => {
+    try {
+      const { referralHash, platform } = req.body;
+      if (!referralHash) return res.status(400).json({ error: "referralHash required" });
+      const result = await trackReferral(referralHash, platform || "trustgolf");
+      if (result.error) return res.status(400).json(result);
+      res.json(result);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/affiliate/request-payout", async (req: Request, res: Response) => {
+    try {
+      const { userId } = req.body;
+      if (!userId) return res.status(400).json({ error: "userId required" });
+      const result = await requestPayout(userId);
+      if (result.error) return res.status(400).json(result);
+      res.json(result);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  await seedGenesisHallmark();
 
   const httpServer = createServer(app);
   return httpServer;

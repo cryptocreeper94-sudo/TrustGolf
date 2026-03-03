@@ -168,6 +168,34 @@ Phase 4 adds audio, visual effects, and venue-specific challenges:
 - **Venue-Specific Challenges** (`shared/bomber-data.ts` VENUE_CHALLENGES): 16 unique challenges across all 11 real venues. Condition types: distance threshold, headwind mastery, night mode, power threshold, accuracy streak. Challenges shown in menu when venue is selected, with completion tracking (persisted via AsyncStorage). Challenge toast notification on completion
 - **Dependencies added**: `expo-av` (audio support)
 
+## Trust Layer Hallmark System & Affiliate Program
+Trust Golf (prefix: `TG`, genesis: `TG-00000001`) implements the Trust Layer ecosystem's universal audit trail and affiliate program.
+
+### Hallmark System
+- **Genesis Hallmark**: `TG-00000001` — auto-created on first server boot via `seedGenesisHallmark()` in `server/hallmark.ts`
+- **Database Tables**: `hallmarks`, `trust_stamps`, `hallmark_counter` — all in `shared/schema.ts`
+- **Hashing**: SHA-256 hash of every hallmark/stamp payload; simulated txHash and blockHeight (pre-mainnet)
+- **API Endpoints**:
+  - `GET /api/hallmark/genesis` — public, returns genesis hallmark
+  - `GET /api/hallmark/:id/verify` — public verification endpoint
+- **Trust Stamps**: Auto-generated for `auth-register` and `auth-login` events
+- **UI**: Genesis badge in profile footer (tappable → `app/hallmark-detail.tsx`), also in hamburger menu
+
+### Affiliate Program
+- **Module**: `server/affiliate.ts` — tier logic, dashboard, referral tracking, payouts, commission processing
+- **Database Tables**: `affiliate_referrals`, `affiliate_commissions` — in `shared/schema.ts`
+- **User field**: `unique_hash` column added to `users` table, generated at registration (12-char hex)
+- **Commission Tiers**: Base (10%), Silver (12.5%), Gold (15%), Platinum (17.5%), Diamond (20%)
+- **Referral Link Format**: `https://trustgolf.app/ref/[uniqueHash]`
+- **Referral Flow**: `/ref/[hash]` stores hash in localStorage → registration reads it and passes to backend → verification email includes `?ref=hash` → email verification calls `convertReferral` → localStorage cleared after registration
+- **Commission Auto-Creation**: `processSale()` in `server/affiliate.ts` — called on Bomber Pro unlock ($9.99), creates commission row with duplicate prevention (one commission per referral)
+- **API Endpoints**:
+  - `GET /api/affiliate/dashboard?userId=` — full affiliate stats
+  - `GET /api/affiliate/link?userId=` — user's referral link + cross-platform links
+  - `POST /api/affiliate/track` — public, tracks referral click `{ referralHash, platform }`
+  - `POST /api/affiliate/request-payout` — request payout of pending commissions (min 10 SIG)
+- **UI**: "Share & Earn" screen at `app/affiliate.tsx`, accessible from hamburger menu and profile screen (logged-in users only)
+
 ## External Dependencies
 -   **OpenAI**: Used for AI capabilities, specifically the vision model for swing analysis.
 -   **PostgreSQL**: The primary database for all application data.

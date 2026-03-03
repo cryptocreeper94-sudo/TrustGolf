@@ -68,11 +68,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const register = useCallback(async (username: string, email: string, password: string, displayName: string) => {
-    const res = await apiRequest("POST", "/api/auth/register", { username, email, password, displayName });
+    let referralHash: string | undefined;
+    if (typeof window !== "undefined") {
+      try { referralHash = localStorage.getItem("referralHash") || undefined; } catch {}
+    }
+    const res = await apiRequest("POST", "/api/auth/register", { username, email, password, displayName, referralHash });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Registration failed");
     setUser(data);
     await AsyncStorage.setItem("golfpro_user", JSON.stringify(data));
+    if (referralHash && typeof window !== "undefined") {
+      try { localStorage.removeItem("referralHash"); } catch {}
+    }
   }, []);
 
   const loginDeveloper = useCallback(async (password: string) => {

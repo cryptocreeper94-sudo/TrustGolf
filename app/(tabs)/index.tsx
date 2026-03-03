@@ -675,6 +675,26 @@ export default function ExploreScreen() {
               <PremiumText variant="body">GPS Distance Finder</PremiumText>
             </Pressable>
 
+            <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
+
+            <Pressable
+              onPress={() => { setMenuOpen(false); router.push("/affiliate"); }}
+              style={styles.menuItem}
+            >
+              <Ionicons name="gift" size={20} color="#8B5CF6" />
+              <PremiumText variant="body" color="#8B5CF6">Share & Earn</PremiumText>
+            </Pressable>
+
+            <Pressable
+              onPress={() => { setMenuOpen(false); router.push("/hallmark-detail"); }}
+              style={styles.menuItem}
+            >
+              <Ionicons name="shield-checkmark" size={20} color={colors.accent} />
+              <PremiumText variant="body">Genesis Hallmark</PremiumText>
+            </Pressable>
+
+            <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
+
             <Pressable
               onPress={() => { setMenuOpen(false); router.push("/about"); }}
               style={styles.menuItem}

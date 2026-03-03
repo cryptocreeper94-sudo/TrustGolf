@@ -22,6 +22,7 @@ export const users = pgTable("users", {
   flexibilityLevel: text("flexibility_level"),
   golfGoals: text("golf_goals"),
   clubDistances: jsonb("club_distances"),
+  uniqueHash: text("unique_hash"),
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
@@ -383,6 +384,63 @@ export const bomberAchievements = pgTable("bomber_achievements", {
   unlockedAt: timestamp("unlocked_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
+export const hallmarks = pgTable("hallmarks", {
+  id: serial("id").primaryKey(),
+  thId: text("th_id").notNull().unique(),
+  userId: varchar("user_id").references(() => users.id),
+  appId: text("app_id"),
+  appName: text("app_name"),
+  productName: text("product_name"),
+  releaseType: text("release_type"),
+  metadata: jsonb("metadata"),
+  dataHash: text("data_hash").notNull(),
+  txHash: text("tx_hash"),
+  blockHeight: text("block_height"),
+  qrCodeSvg: text("qr_code_svg"),
+  verificationUrl: text("verification_url"),
+  hallmarkId: integer("hallmark_id").notNull(),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+export const trustStamps = pgTable("trust_stamps", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").references(() => users.id),
+  category: text("category").notNull(),
+  data: jsonb("data"),
+  dataHash: text("data_hash").notNull(),
+  txHash: text("tx_hash"),
+  blockHeight: text("block_height"),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+export const hallmarkCounter = pgTable("hallmark_counter", {
+  id: text("id").primaryKey(),
+  currentSequence: text("current_sequence").notNull().default("0"),
+});
+
+export const affiliateReferrals = pgTable("affiliate_referrals", {
+  id: serial("id").primaryKey(),
+  referrerId: varchar("referrer_id").notNull().references(() => users.id),
+  referredUserId: varchar("referred_user_id").references(() => users.id),
+  referralHash: text("referral_hash").notNull(),
+  platform: text("platform").notNull().default("trustgolf"),
+  status: text("status").notNull().default("pending"),
+  convertedAt: timestamp("converted_at"),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+export const affiliateCommissions = pgTable("affiliate_commissions", {
+  id: serial("id").primaryKey(),
+  referrerId: varchar("referrer_id").notNull().references(() => users.id),
+  referralId: integer("referral_id").references(() => affiliateReferrals.id),
+  amount: text("amount").notNull(),
+  currency: text("currency").default("SIG"),
+  tier: text("tier").default("base"),
+  status: text("status").default("pending"),
+  paidAt: timestamp("paid_at"),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
 export const insertBomberProfileSchema = createInsertSchema(bomberProfiles).omit({ id: true, createdAt: true });
 export const insertBomberEquipmentSchema = createInsertSchema(bomberEquipment).omit({ id: true, unlockedAt: true });
 export const insertBomberLeaderboardSchema = createInsertSchema(bomberLeaderboard).omit({ id: true, createdAt: true });
@@ -399,3 +457,7 @@ export type BomberVenueUnlock = typeof bomberVenueUnlocks.$inferSelect;
 export type BomberTournament = typeof bomberTournaments.$inferSelect;
 export type BomberTournamentEntry = typeof bomberTournamentEntries.$inferSelect;
 export type BomberAchievement = typeof bomberAchievements.$inferSelect;
+export type Hallmark = typeof hallmarks.$inferSelect;
+export type TrustStamp = typeof trustStamps.$inferSelect;
+export type AffiliateReferral = typeof affiliateReferrals.$inferSelect;
+export type AffiliateCommission = typeof affiliateCommissions.$inferSelect;

@@ -350,6 +350,32 @@ export default function ProfileScreen() {
           </AccordionItem>
         </GlassCard>
 
+        {isLoggedIn && (
+          <Pressable
+            onPress={() => router.push("/affiliate")}
+            style={[styles.genesisBadge, { backgroundColor: "#8B5CF620", borderColor: "#8B5CF630" }]}
+          >
+            <Ionicons name="gift" size={20} color="#8B5CF6" />
+            <View style={styles.genesisBadgeInfo}>
+              <PremiumText variant="body" color="#8B5CF6">Affiliate Program</PremiumText>
+              <PremiumText variant="caption" color={colors.textSecondary}>Earn up to 20% commission on referrals</PremiumText>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
+          </Pressable>
+        )}
+
+        <Pressable
+          onPress={() => router.push("/hallmark-detail")}
+          style={[styles.genesisBadge, { backgroundColor: colors.accent + "15", borderColor: colors.accent + "30" }]}
+        >
+          <Ionicons name="shield-checkmark" size={20} color={colors.accent} />
+          <View style={styles.genesisBadgeInfo}>
+            <PremiumText variant="body" color={colors.accent}>Genesis Hallmark</PremiumText>
+            <PremiumText variant="caption" color={colors.textSecondary}>TG-00000001 — Trust Layer Blockchain</PremiumText>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
+        </Pressable>
+
         {isLoggedIn ? (
           <Pressable
             onPress={handleLogout}
@@ -477,6 +503,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 12,
     borderRadius: 12,
+  },
+  genesisBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginTop: 16,
+    gap: 10,
+  },
+  genesisBadgeInfo: {
+    flex: 1,
   },
   logoutBtn: {
     flexDirection: "row",

@@ -92,10 +92,11 @@ export async function sendVendorConfirmationEmail(toEmail: string, businessName:
   });
 }
 
-export async function sendVerificationEmail(toEmail: string, displayName: string, token: string) {
+export async function sendVerificationEmail(toEmail: string, displayName: string, token: string, referralHash?: string) {
   const { client, fromEmail } = await getUncachableResendClient();
 
-  const verifyUrl = `https://${process.env.REPLIT_DEV_DOMAIN || 'trustgolf.replit.app'}/api/auth/verify?token=${token}`;
+  let verifyUrl = `https://${process.env.REPLIT_DEV_DOMAIN || 'trustgolf.replit.app'}/api/auth/verify?token=${token}`;
+  if (referralHash) verifyUrl += `&ref=${referralHash}`;
 
   await client.emails.send({
     from: fromEmail || 'Trust Golf <noreply@resend.dev>',
