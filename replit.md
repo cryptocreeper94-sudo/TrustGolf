@@ -169,7 +169,46 @@ Phase 4 adds audio, visual effects, and venue-specific challenges:
 - **Dependencies added**: `expo-av` (audio support)
 
 ## Trust Layer Hallmark System & Affiliate Program
-Trust Golf (prefix: `TG`, genesis: `TG-00000001`) implements the Trust Layer ecosystem's universal audit trail and affiliate program.
+Trust Golf (prefix: `TG`, genesis: `TG-00000001`, domain: `trustgolf.tlid.io`) implements the Trust Layer ecosystem's universal audit trail and affiliate program.
+
+### Full Ecosystem Registry (33 Apps)
+All apps share the same `{uniqueHash}` per user, parent genesis `TH-00000001`, hallmark format `[PREFIX]-[8-DIGIT-PADDED]`.
+
+| # | App | Prefix | Genesis | Domain |
+|---|-----|--------|---------|--------|
+| 1 | Trust Layer Hub | TH | TH-00000001 | trusthub.tlid.io |
+| 2 | Trust Layer (L1) | TL | TL-00000001 | dwtl.io |
+| 3 | TrustHome | TR | TR-00000001 | trusthome.tlid.io |
+| 4 | TrustVault | TV | TV-00000001 | trustvault.tlid.io |
+| 5 | TLID.io | TI | TI-00000001 | tlid.io |
+| 6 | THE VOID | VO | VO-00000001 | thevoid.tlid.io |
+| 7 | Signal Chat | SC | SC-00000001 | signalchat.tlid.io |
+| 8 | DarkWave Studio | DS | DS-00000001 | darkwavestudio.tlid.io |
+| 9 | Guardian Shield | GS | GS-00000001 | guardianshield.tlid.io |
+| 10 | Guardian Scanner | GN | GN-00000001 | guardianscanner.tlid.io |
+| 11 | Guardian Screener | GR | GR-00000001 | guardianscreener.tlid.io |
+| 12 | TradeWorks AI | TW | TW-00000001 | tradeworks.tlid.io |
+| 13 | StrikeAgent | SA | SA-00000001 | strikeagent.tlid.io |
+| 14 | Pulse | PU | PU-00000001 | pulse.tlid.io |
+| 15 | Chronicles | CH | CH-00000001 | chronicles.tlid.io |
+| 16 | The Arcade | AR | AR-00000001 | thearcade.tlid.io |
+| 17 | Bomber | BO | BO-00000001 | bomber.tlid.io |
+| 18 | Trust Golf | TG | TG-00000001 | trustgolf.tlid.io |
+| 19 | ORBIT Staffing OS | OR | OR-00000001 | orbit.tlid.io |
+| 20 | Orby Commander | OC | OC-00000001 | orby.tlid.io |
+| 21 | GarageBot | GB | GB-00000001 | garagebot.tlid.io |
+| 22 | Lot Ops Pro | LO | LO-00000001 | lotops.tlid.io |
+| 23 | TORQUE | TQ | TQ-00000001 | torque.tlid.io |
+| 24 | TL Driver Connect | DC | DC-00000001 | driverconnect.tlid.io |
+| 25 | VedaSolus | VS | VS-00000001 | vedasolus.tlid.io |
+| 26 | Verdara | VD | VD-00000001 | verdara.tlid.io |
+| 27 | Arbora | AB | AB-00000001 | arbora.tlid.io |
+| 28 | PaintPros | PP | PP-00000001 | paintpros.tlid.io |
+| 29 | Nashville Painting Professionals | NP | NP-00000001 | nashvillepainting.tlid.io |
+| 30 | Trust Book | TB | TB-00000001 | trustbook.tlid.io |
+| 31 | DarkWave Academy | DA | DA-00000001 | darkwaveacademy.tlid.io |
+| 32 | Happy Eats | HE | HE-00000001 | happyeats.tlid.io |
+| 33 | Brew & Board Coffee | BB | BB-00000001 | brewandboard.tlid.io |
 
 ### Hallmark System
 - **Genesis Hallmark**: `TG-00000001` — auto-created on first server boot via `seedGenesisHallmark()` in `server/hallmark.ts`
@@ -186,7 +225,7 @@ Trust Golf (prefix: `TG`, genesis: `TG-00000001`) implements the Trust Layer eco
 - **Database Tables**: `affiliate_referrals`, `affiliate_commissions` — in `shared/schema.ts`
 - **User field**: `unique_hash` column added to `users` table, generated at registration (12-char hex)
 - **Commission Tiers**: Base (10%), Silver (12.5%), Gold (15%), Platinum (17.5%), Diamond (20%)
-- **Referral Link Format**: `https://trustgolf.app/ref/[uniqueHash]`
+- **Referral Link Format**: `https://trustgolf.tlid.io/ref/[uniqueHash]`
 - **Referral Flow**: `/ref/[hash]` stores hash in localStorage → registration reads it and passes to backend → verification email includes `?ref=hash` → email verification calls `convertReferral` → localStorage cleared after registration
 - **Commission Auto-Creation**: `processSale()` in `server/affiliate.ts` — called on Bomber Pro unlock ($9.99), creates commission row with duplicate prevention (one commission per referral)
 - **API Endpoints**:

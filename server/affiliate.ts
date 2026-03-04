@@ -13,16 +13,38 @@ const TIERS = [
 ];
 
 const ECOSYSTEM_APPS = [
-  { name: "Trust Layer Hub", domain: "trusthub.tlid.io" },
-  { name: "TrustVault", domain: "trustvault.tlid.io" },
-  { name: "THE VOID", domain: "thevoid.tlid.io" },
-  { name: "Bomber", domain: "bomber.tlid.io" },
-  { name: "TradeWorks AI", domain: "tradeworks.tlid.io" },
-  { name: "Chronicles", domain: "chronicles.tlid.io" },
-  { name: "The Arcade", domain: "thearcade.tlid.io" },
-  { name: "ORBIT Staffing OS", domain: "orbit.tlid.io" },
-  { name: "GarageBot", domain: "garagebot.tlid.io" },
-  { name: "DarkWave Academy", domain: "darkwaveacademy.tlid.io" },
+  { name: "Trust Layer Hub", prefix: "TH", genesis: "TH-00000001", domain: "trusthub.tlid.io" },
+  { name: "Trust Layer (L1)", prefix: "TL", genesis: "TL-00000001", domain: "dwtl.io" },
+  { name: "TrustHome", prefix: "TR", genesis: "TR-00000001", domain: "trusthome.tlid.io" },
+  { name: "TrustVault", prefix: "TV", genesis: "TV-00000001", domain: "trustvault.tlid.io" },
+  { name: "TLID.io", prefix: "TI", genesis: "TI-00000001", domain: "tlid.io" },
+  { name: "THE VOID", prefix: "VO", genesis: "VO-00000001", domain: "thevoid.tlid.io" },
+  { name: "Signal Chat", prefix: "SC", genesis: "SC-00000001", domain: "signalchat.tlid.io" },
+  { name: "DarkWave Studio", prefix: "DS", genesis: "DS-00000001", domain: "darkwavestudio.tlid.io" },
+  { name: "Guardian Shield", prefix: "GS", genesis: "GS-00000001", domain: "guardianshield.tlid.io" },
+  { name: "Guardian Scanner", prefix: "GN", genesis: "GN-00000001", domain: "guardianscanner.tlid.io" },
+  { name: "Guardian Screener", prefix: "GR", genesis: "GR-00000001", domain: "guardianscreener.tlid.io" },
+  { name: "TradeWorks AI", prefix: "TW", genesis: "TW-00000001", domain: "tradeworks.tlid.io" },
+  { name: "StrikeAgent", prefix: "SA", genesis: "SA-00000001", domain: "strikeagent.tlid.io" },
+  { name: "Pulse", prefix: "PU", genesis: "PU-00000001", domain: "pulse.tlid.io" },
+  { name: "Chronicles", prefix: "CH", genesis: "CH-00000001", domain: "chronicles.tlid.io" },
+  { name: "The Arcade", prefix: "AR", genesis: "AR-00000001", domain: "thearcade.tlid.io" },
+  { name: "Bomber", prefix: "BO", genesis: "BO-00000001", domain: "bomber.tlid.io" },
+  { name: "ORBIT Staffing OS", prefix: "OR", genesis: "OR-00000001", domain: "orbit.tlid.io" },
+  { name: "Orby Commander", prefix: "OC", genesis: "OC-00000001", domain: "orby.tlid.io" },
+  { name: "GarageBot", prefix: "GB", genesis: "GB-00000001", domain: "garagebot.tlid.io" },
+  { name: "Lot Ops Pro", prefix: "LO", genesis: "LO-00000001", domain: "lotops.tlid.io" },
+  { name: "TORQUE", prefix: "TQ", genesis: "TQ-00000001", domain: "torque.tlid.io" },
+  { name: "TL Driver Connect", prefix: "DC", genesis: "DC-00000001", domain: "driverconnect.tlid.io" },
+  { name: "VedaSolus", prefix: "VS", genesis: "VS-00000001", domain: "vedasolus.tlid.io" },
+  { name: "Verdara", prefix: "VD", genesis: "VD-00000001", domain: "verdara.tlid.io" },
+  { name: "Arbora", prefix: "AB", genesis: "AB-00000001", domain: "arbora.tlid.io" },
+  { name: "PaintPros", prefix: "PP", genesis: "PP-00000001", domain: "paintpros.tlid.io" },
+  { name: "Nashville Painting Professionals", prefix: "NP", genesis: "NP-00000001", domain: "nashvillepainting.tlid.io" },
+  { name: "Trust Book", prefix: "TB", genesis: "TB-00000001", domain: "trustbook.tlid.io" },
+  { name: "DarkWave Academy", prefix: "DA", genesis: "DA-00000001", domain: "darkwaveacademy.tlid.io" },
+  { name: "Happy Eats", prefix: "HE", genesis: "HE-00000001", domain: "happyeats.tlid.io" },
+  { name: "Brew & Board Coffee", prefix: "BB", genesis: "BB-00000001", domain: "brewandboard.tlid.io" },
 ];
 
 export function generateUniqueHash(): string {
@@ -106,9 +128,12 @@ export async function getAffiliateLink(userId: string): Promise<any> {
   if (!user[0] || !user[0].uniqueHash) return null;
 
   const hash = user[0].uniqueHash;
-  const primaryLink = `https://trustgolf.app/ref/${hash}`;
+  const primaryLink = `https://trustgolf.tlid.io/ref/${hash}`;
   const crossPlatformLinks = ECOSYSTEM_APPS.map(app => ({
     appName: app.name,
+    prefix: app.prefix,
+    genesis: app.genesis,
+    domain: app.domain,
     link: `https://${app.domain}/ref/${hash}`,
   }));
 
