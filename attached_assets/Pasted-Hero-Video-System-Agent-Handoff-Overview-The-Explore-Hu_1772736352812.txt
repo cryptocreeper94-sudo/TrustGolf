@@ -1,0 +1,170 @@
+Hero Video System — Agent Handoff
+Overview
+The Explore Hub page (client/src/pages/explore-hub.tsx) features a full-screen video hero section that auto-rotates through flyover videos. Each video plays to completion, then the next one begins. The system includes dot navigation for manual selection and a mute/unmute toggle.
+
+File Locations
+Asset	Path
+Page component	client/src/pages/explore-hub.tsx
+Video files	client/src/assets/videos/
+Route	/explore (registered in client/src/App.tsx)
+Current Video Files
+File	Label	Size
+flyover-food-trucks.mp4	Food Trucks	12 MB
+flyover-commercial.mp4	Commercial Fleet	8.4 MB
+flyover-delivery.mp4	Local Delivery	15 MB
+flyover-office.mp4	Office Services	16 MB
+flyover-hub.mp4	Delivery Hub	8.7 MB
+Total: ~60 MB across 5 videos.
+
+How the Video Rotation Works
+1. Static Import + Config Array
+Videos are imported as static assets at the top of explore-hub.tsx using Vite's asset import system. Each import resolves to a hashed URL at build time:
+
+import flyoverFoodTrucks from "@/assets/videos/flyover-food-trucks.mp4";
+import flyoverCommercial from "@/assets/videos/flyover-commercial.mp4";
+import flyoverDelivery from "@/assets/videos/flyover-delivery.mp4";
+import flyoverOffice from "@/assets/videos/flyover-office.mp4";
+import flyoverHub from "@/assets/videos/flyover-hub.mp4";
+const HERO_VIDEOS = [
+  { src: flyoverFoodTrucks, label: "Food Trucks" },
+  { src: flyoverCommercial, label: "Commercial Fleet" },
+  { src: flyoverDelivery, label: "Local Delivery" },
+  { src: flyoverOffice, label: "Office Services" },
+  { src: flyoverHub, label: "Delivery Hub" },
+];
+The label string is displayed below the hero headline while that video plays.
+
+2. State & Refs
+Inside the ExploreHub component:
+
+const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
+const [videoMuted, setVideoMuted] = useState(true);
+const videoRef = useRef<HTMLVideoElement>(null);
+const videoIndexRef = useRef(0);
+currentVideoIndex — React state driving the UI (dot highlight, label text).
+videoIndexRef — A ref mirror of the index, used inside the ended event listener to avoid stale closures.
+videoMuted — Controls the mute toggle button; videos always start muted (required for autoplay).
+videoRef — Direct reference to the single <video> element.
+3. Auto-Rotation Logic (useEffect)
+useEffect(() => {
+  if (!loaded) return;
+  const video = videoRef.current;
+  if (!video) return;
+  const playNext = () => {
+    videoIndexRef.current = (videoIndexRef.current + 1) % HERO_VIDEOS.length;
+    setCurrentVideoIndex(videoIndexRef.current);
+    video.src = HERO_VIDEOS[videoIndexRef.current].src;
+    video.load();
+    video.play().catch(() => {});
+  };
+  video.muted = true;
+  video.addEventListener('ended', playNext);
+  video.play().catch(() => {});
+  return () => {
+    video.removeEventListener('ended', playNext);
+  };
+}, [loaded]);
+Key behaviors:
+
+Listens for the ended event on the video element.
+When a video finishes, advances the index (wraps around with modulo).
+Swaps the src, calls load() then play().
+Videos start muted (video.muted = true) — browsers block unmuted autoplay.
+The .catch(() => {}) suppresses autoplay rejection errors (common on mobile).
+4. Manual Dot Navigation
+Users can click any dot to jump to a specific video:
+
+onClick={() => {
+  if (idx !== currentVideoIndex && videoRef.current) {
+    videoIndexRef.current = idx;
+    setCurrentVideoIndex(idx);
+    videoRef.current.src = HERO_VIDEOS[idx].src;
+    videoRef.current.load();
+    videoRef.current.play().catch(() => {});
+  }
+}}
+The active dot is highlighted orange (bg-orange-400), inactive dots are translucent white (bg-white/30).
+
+5. Mute/Unmute Toggle
+A small button next to the dots toggles videoMuted state. The <video> element reads this directly via the muted prop. Icons switch between VolumeX (muted) and Volume2 (unmuted) from lucide-react.
+
+Hero Section HTML Structure
+<section className="relative h-[60vh] sm:h-[70vh] overflow-hidden">
+  {/* Black background fill */}
+  <div className="absolute inset-0 bg-black">
+    {/* Single video element, src swapped dynamically */}
+    <video
+      ref={videoRef}
+      src={HERO_VIDEOS[0].src}
+      autoPlay
+      muted={videoMuted}
+      playsInline
+      preload="auto"
+      className="absolute inset-0 w-full h-full object-cover"
+    />
+    {/* Gradient overlay: dark at top and bottom, semi-transparent middle */}
+    <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black" />
+  </div>
+  {/* Centered text overlay */}
+  <div className="relative z-10 flex flex-col items-center justify-center h-full text-center px-4">
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.6 }}>
+      <h2>Everything in one place</h2>
+      <p>Food trucks, fleet services, local delivery, office catering...</p>
+      <p>{HERO_VIDEOS[currentVideoIndex].label}</p>
+    </motion.div>
+  </div>
+  {/* Bottom controls: dot nav + mute button */}
+  <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-3">
+    {/* Dot indicators */}
+    {/* Mute toggle button */}
+  </div>
+</section>
+Visual Layers (bottom to top)
+Black background (bg-black)
+Video (object-cover, fills entire section)
+Gradient overlay (from-black/60 via-black/40 to-black) — darkens top/bottom for text readability
+Text content (z-10) — headline, description, current video label
+Dot navigation + mute button (z-30)
+Sizing
+Mobile: h-[60vh]
+Desktop (sm+): h-[70vh]
+How to Add a New Video
+Place the file in client/src/assets/videos/ using the naming convention flyover-[topic].mp4. Keep files under 16 MB for reasonable load times.
+
+Add the import at the top of explore-hub.tsx:
+
+import flyoverNewTopic from "@/assets/videos/flyover-new-topic.mp4";
+Add an entry to the HERO_VIDEOS array:
+
+const HERO_VIDEOS = [
+  // ...existing entries
+  { src: flyoverNewTopic, label: "New Topic" },
+];
+That's it. The rotation logic, dots, and label display all derive from the HERO_VIDEOS array automatically.
+
+How to Remove a Video
+Delete the import line.
+Remove the entry from HERO_VIDEOS.
+Optionally delete the file from client/src/assets/videos/.
+How to Reorder Videos
+Change the order of entries in the HERO_VIDEOS array. The first entry is what plays on page load.
+
+Video File Guidelines
+Format: MP4 (H.264 codec for maximum browser compatibility)
+Resolution: 1920x1080 recommended; object-cover crops to fill the section
+Duration: 10-30 seconds ideal; each video plays fully before advancing
+Audio: Optional — videos start muted; users can unmute via the toggle
+File size: Keep under 16 MB per video; large files slow initial page load since Vite bundles them as static assets
+Important Technical Notes
+No Vite config needed: Vite handles .mp4 imports natively as static assets. There is no special assetsInclude or plugin configuration.
+Single <video> element: The system uses one <video> DOM node and swaps its src attribute. This is more memory-efficient than rendering multiple video elements.
+Ref + State dual tracking: videoIndexRef mirrors currentVideoIndex to avoid stale closures in the ended event callback. Both must be updated together when changing videos.
+Autoplay policy: Browsers require videos to be muted for autoplay. The system sets video.muted = true in the useEffect, independent of the React videoMuted state.
+playsInline: Required for iOS Safari — without it, videos open in fullscreen on iPhones.
+Error swallowing: .play().catch(() => {}) is intentional — autoplay rejections are expected when the page loads in the background or on restricted browsers.
+The hero is self-contained: The Explore Hub page does not use the shared Navbar or app-wide layout. The video hero, sticky nav bar, and all content are fully contained within explore-hub.tsx.
+Dependencies
+react (useState, useEffect, useRef)
+framer-motion (AnimatePresence, motion — for the text fade-in animation)
+lucide-react (Volume2, VolumeX — for the mute toggle icons)
+Vite (handles MP4 static asset imports at build time)
