@@ -19,7 +19,7 @@ Trust Golf is built on a modern full-stack architecture:
 -   **Authentication**: The app allows free content browsing, with a login modal appearing only for gated features like AI Swing Analyzer and round tracking. A developer dashboard is accessible via a master PIN, and a whitelist system provides VIP access.
 -   **Key Features**:
     *   **Cinematic Explorer Page**: A dynamic landing page with an image slideshow hero, category carousels, hot deals, and quick actions.
-    *   **Course Catalog**: Comprehensive database of 55 golf courses across SC, TN, GA, NC, MS, FL, NY, PA, CA, OR, WI, WA, and Scotland — filterable by state, with rich editorial descriptions, amenities, designer credits, and unique imagery. Designed as a future coffee table book.
+    *   **Course Catalog**: Comprehensive database of 62 golf courses across SC, TN, GA, NC, MS, FL, NY, PA, CA, OR, WI, WA, and Scotland — filterable by state, with rich editorial descriptions, amenities, designer credits, and unique imagery. Designed as a future coffee table book.
     *   **Score Tracking**: Users can log rounds with detailed stats (putts, FIR, GIR), view history, and automatically calculate USGA Handicap Index. Includes real hole-by-hole scorecards for specific courses.
     *   **AI Swing Analyzer**: Club-specific AI analysis of golf swings from photos or videos, providing detailed feedback, score meters, tips, and drills.
     *   **Video Swing Playback**: Slow-motion playback, frame extraction, and TrustVault integration for video editing.
