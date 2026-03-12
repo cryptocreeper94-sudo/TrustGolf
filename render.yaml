@@ -1,9 +1,3 @@
-databases:
-  - name: trustgolf-db
-    plan: free
-    databaseName: trustgolf
-    user: trustgolf
-
 services:
   - type: web
     name: trustgolf
@@ -20,9 +14,7 @@ services:
       - key: APP_DOMAIN
         value: trustgolf.app
       - key: DATABASE_URL
-        fromDatabase:
-          name: trustgolf-db
-          property: connectionString
+        sync: false
       - key: JWT_SECRET
         sync: false
       - key: OPENAI_API_KEY
