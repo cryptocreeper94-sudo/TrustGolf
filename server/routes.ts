@@ -3247,7 +3247,7 @@ IMPORTANT: For "estimatedLaunchData", estimate realistic values based on the swi
     }
   });
 
-  await seedGenesisHallmark();
+  await seedGenesisHallmark().catch((err: any) => console.log('Hallmark seed skipped:', err.message));
 
   const httpServer = createServer(app);
   return httpServer;
