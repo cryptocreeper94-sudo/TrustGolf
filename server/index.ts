@@ -3,6 +3,7 @@ import type { Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import * as fs from "fs";
 import * as path from "path";
+import { registerTrustLayerSSO } from './trustLayerSSO';
 
 const app = express();
 const log = console.log;
@@ -274,6 +275,8 @@ function setupErrorHandler(app: express.Application) {
   setupRequestLogging(app);
 
   const server = await registerRoutes(app);
+  // Trust Layer SSO consumer endpoints
+  registerTrustLayerSSO(app);
 
   configureExpoAndLanding(app);
 
@@ -291,3 +294,4 @@ function setupErrorHandler(app: express.Application) {
     },
   );
 })();
+
