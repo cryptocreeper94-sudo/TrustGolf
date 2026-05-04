@@ -116,6 +116,21 @@ export default function CoursesScreen() {
           <View style={{ flex: 1 }} />
           <PremiumText variant="subtitle" style={{ color: colors.primary }}>${course.greenFee}</PremiumText>
         </View>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 }}>
+          {course.isPublic !== undefined && (
+            <View style={{ backgroundColor: course.isPublic ? "#2E7D3233" : "#C6282833", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+               <PremiumText variant="caption" style={{ color: course.isPublic ? "#4CAF50" : "#F44336", fontWeight: "bold" }}>
+                 {course.isPublic ? "PUBLIC" : "PRIVATE"}
+               </PremiumText>
+            </View>
+          )}
+          {course.bookingUrl && (
+             <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                <Ionicons name="link" size={12} color={colors.primary} />
+                <PremiumText variant="caption" style={{ color: colors.primary }}>Book Online</PremiumText>
+             </View>
+          )}
+        </View>
       </View>
     </GlassCard>
   );

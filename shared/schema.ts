@@ -48,6 +48,12 @@ export const courses = pgTable("courses", {
   yearBuilt: integer("year_built"),
   galleryImages: jsonb("gallery_images"),
   holeData: jsonb("hole_data"),
+  latitude: real("latitude"),
+  longitude: real("longitude"),
+  bookingUrl: text("booking_url"),
+  isPublic: boolean("is_public").default(true),
+  placeId: text("place_id"),
+  lastSyncedAt: timestamp("last_synced_at"),
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 

@@ -19,6 +19,14 @@ function NativeTabLayout() {
         <Icon sf={{ default: "map", selected: "map.fill" }} />
         <Label>Courses</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="news">
+        <Icon sf={{ default: "newspaper", selected: "newspaper.fill" }} />
+        <Label>News</Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="lessons">
+        <Icon sf={{ default: "play.circle", selected: "play.circle.fill" }} />
+        <Label>Lessons</Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="scores">
         <Icon sf={{ default: "flag", selected: "flag.fill" }} />
         <Label>Scores</Label>
@@ -80,6 +88,20 @@ function ClassicTabLayout() {
         options={{
           title: "Courses",
           tabBarIcon: ({ color, size }) => <Ionicons name="map" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="news"
+        options={{
+          title: "News",
+          tabBarIcon: ({ color, size }) => <Ionicons name="newspaper" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="lessons"
+        options={{
+          title: "Lessons",
+          tabBarIcon: ({ color, size }) => <Ionicons name="play-circle" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
