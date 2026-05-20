@@ -24,9 +24,9 @@ const FEATURES = [
     icon: "flash-outline" as const,
     title: "Blockchain Verified",
     description: "Identity and credentials anchored on Solana. Tamper-proof verification for users, organizations, and digital assets.",
-    color: "#a78bfa",
-    bg: "rgba(139,92,246,0.1)",
-    border: "rgba(139,92,246,0.2)",
+    color: "#38bdf8",
+    bg: "rgba(14,165,233,0.1)",
+    border: "rgba(14,165,233,0.2)",
   },
   {
     icon: "code-slash-outline" as const,
@@ -115,7 +115,7 @@ export default function EcosystemScreen() {
 
         <View style={styles.headerRow}>
           <LinearGradient
-            colors={["rgba(6,182,212,0.2)", "rgba(139,92,246,0.2)"]}
+            colors={["rgba(6,182,212,0.2)", "rgba(14,165,233,0.2)"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.iconBadge}

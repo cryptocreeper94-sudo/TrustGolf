@@ -353,11 +353,11 @@ export default function ProfileScreen() {
         {isLoggedIn && (
           <Pressable
             onPress={() => router.push("/affiliate")}
-            style={[styles.genesisBadge, { backgroundColor: "#8B5CF620", borderColor: "#8B5CF630" }]}
+            style={[styles.genesisBadge, { backgroundColor: "#0ea5e920", borderColor: "#0ea5e930" }]}
           >
-            <Ionicons name="gift" size={20} color="#8B5CF6" />
+            <Ionicons name="gift" size={20} color="#0ea5e9" />
             <View style={styles.genesisBadgeInfo}>
-              <PremiumText variant="body" color="#8B5CF6">Affiliate Program</PremiumText>
+              <PremiumText variant="body" color="#0ea5e9">Affiliate Program</PremiumText>
               <PremiumText variant="caption" color={colors.textSecondary}>Earn up to 20% commission on referrals</PremiumText>
             </View>
             <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />

@@ -18,7 +18,7 @@ const TIER_COLORS: Record<string, string> = {
   base: "#9CA3AF",
   silver: "#94A3B8",
   gold: "#F59E0B",
-  platinum: "#8B5CF6",
+  platinum: "#0ea5e9",
   diamond: "#06B6D4",
 };
 
@@ -183,7 +183,7 @@ export default function AffiliateScreen() {
                 {copied ? "Copied!" : "Copy"}
               </PremiumText>
             </Pressable>
-            <Pressable onPress={handleShare} style={[styles.linkButton, { backgroundColor: "#8B5CF6" }]}>
+            <Pressable onPress={handleShare} style={[styles.linkButton, { backgroundColor: "#0ea5e9" }]}>
               <Ionicons name="share-social" size={18} color="#fff" />
               <PremiumText variant="body" color="#fff" style={styles.buttonLabel}>Share</PremiumText>
             </Pressable>
@@ -194,7 +194,7 @@ export default function AffiliateScreen() {
           <StatCard label="Total Referrals" value={String(dashboard?.totalReferrals || 0)} icon="people" color="#3B82F6" colors={colors} />
           <StatCard label="Converted" value={String(dashboard?.convertedReferrals || 0)} icon="checkmark-circle" color="#10B981" colors={colors} />
           <StatCard label="Pending" value={`${pendingAmount.toFixed(2)} SIG`} icon="time" color="#F59E0B" colors={colors} />
-          <StatCard label="Paid" value={`${paidAmount.toFixed(2)} SIG`} icon="wallet" color="#8B5CF6" colors={colors} />
+          <StatCard label="Paid" value={`${paidAmount.toFixed(2)} SIG`} icon="wallet" color="#0ea5e9" colors={colors} />
         </View>
 
         <GlassCard style={styles.section}>

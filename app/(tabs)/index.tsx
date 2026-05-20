@@ -681,8 +681,8 @@ export default function ExploreScreen() {
               onPress={() => { setMenuOpen(false); router.push("/affiliate"); }}
               style={styles.menuItem}
             >
-              <Ionicons name="gift" size={20} color="#8B5CF6" />
-              <PremiumText variant="body" color="#8B5CF6">Share & Earn</PremiumText>
+              <Ionicons name="gift" size={20} color="#0ea5e9" />
+              <PremiumText variant="body" color="#0ea5e9">Share & Earn</PremiumText>
             </Pressable>
 
             <Pressable

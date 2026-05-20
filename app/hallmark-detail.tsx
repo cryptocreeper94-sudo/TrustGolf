@@ -71,7 +71,7 @@ export default function HallmarkDetailScreen() {
 
         <GlassCard style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Ionicons name="cube" size={20} color="#8B5CF6" />
+            <Ionicons name="cube" size={20} color="#0ea5e9" />
             <PremiumText variant="subtitle" style={styles.sectionTitle}>Blockchain Record</PremiumText>
           </View>
           <InfoRow label="Data Hash" value={truncateHash(genesis?.dataHash)} colors={colors} mono />
